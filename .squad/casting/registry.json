@@ -1,0 +1,80 @@
+{
+  "agents": {
+    "alakazam": {
+      "persistent_name": "Alakazam",
+      "universe": "Pokemon",
+      "created_at": "2026-07-01T22:10:40.189+01:00",
+      "legacy_named": false,
+      "status": "active",
+      "role": "Lead"
+    },
+    "rotom": {
+      "persistent_name": "Rotom",
+      "universe": "Pokemon",
+      "created_at": "2026-07-01T22:10:40.189+01:00",
+      "legacy_named": false,
+      "status": "active",
+      "role": "Frontend Dev"
+    },
+    "porygon": {
+      "persistent_name": "Porygon",
+      "universe": "Pokemon",
+      "created_at": "2026-07-01T22:10:40.189+01:00",
+      "legacy_named": false,
+      "status": "active",
+      "role": "Migration Engineer"
+    },
+    "lucario": {
+      "persistent_name": "Lucario",
+      "universe": "Pokemon",
+      "created_at": "2026-07-01T22:10:40.189+01:00",
+      "legacy_named": false,
+      "status": "active",
+      "role": "Battle Systems / Data Model"
+    },
+    "ditto": {
+      "persistent_name": "Ditto",
+      "universe": "Pokemon",
+      "created_at": "2026-07-01T22:10:40.189+01:00",
+      "legacy_named": false,
+      "status": "active",
+      "role": "Tester"
+    },
+    "scribe": {
+      "persistent_name": "Scribe",
+      "universe": null,
+      "created_at": "2026-07-01T22:10:40.189+01:00",
+      "legacy_named": false,
+      "status": "active",
+      "role": "Session Logger",
+      "builtin": true
+    },
+    "ralph": {
+      "persistent_name": "Ralph",
+      "universe": null,
+      "created_at": "2026-07-01T22:10:40.189+01:00",
+      "legacy_named": false,
+      "status": "active",
+      "role": "Work Monitor",
+      "builtin": true
+    },
+    "rai": {
+      "persistent_name": "Rai",
+      "universe": null,
+      "created_at": "2026-07-01T22:10:40.189+01:00",
+      "legacy_named": false,
+      "status": "active",
+      "role": "RAI Reviewer",
+      "builtin": true
+    },
+    "fact-checker": {
+      "persistent_name": "Fact Checker",
+      "universe": null,
+      "created_at": "2026-07-01T22:10:40.189+01:00",
+      "legacy_named": false,
+      "status": "active",
+      "role": "Fact Checker",
+      "builtin": true
+    }
+  }
+}

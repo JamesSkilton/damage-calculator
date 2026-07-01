@@ -1,0 +1,24 @@
+{
+  "universe_usage_history": [
+    {
+      "assignment_id": "2026-07-01-pokemon-rewrite",
+      "universe": "Pokemon",
+      "created_at": "2026-07-01T22:10:40.189+01:00",
+      "reason": "User requested actual Pokemon names for the starting squad."
+    }
+  ],
+  "assignment_cast_snapshots": {
+    "2026-07-01-pokemon-rewrite": {
+      "created_at": "2026-07-01T22:10:40.189+01:00",
+      "project": "pokemans",
+      "shape": "React + TypeScript refresh of a Pokemon damage calculator with a Nuzlocke fight-planning feature under consideration for phase 2.",
+      "members": [
+        "Alakazam",
+        "Rotom",
+        "Porygon",
+        "Lucario",
+        "Ditto"
+      ]
+    }
+  }
+}
