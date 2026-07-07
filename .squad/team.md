@@ -17,6 +17,7 @@
 | Porygon | Migration Engineer | `.squad/agents/porygon/charter.md` | ✅ Active |
 | Lucario | Battle Systems / Data Model | `.squad/agents/lucario/charter.md` | ✅ Active |
 | Ditto | Tester | `.squad/agents/ditto/charter.md` | ✅ Active |
+| Slowking | Standards Reviewer | `.squad/agents/slowking/charter.md` | ✅ Active |
 | Scribe | Session Logger | `.squad/agents/scribe/charter.md` | 📋 Silent |
 | Ralph | Work Monitor | `.squad/agents/ralph/charter.md` | 🔄 Monitor |
 | Rai | RAI Reviewer | `.squad/agents/Rai/charter.md` | 🛡️ RAI |

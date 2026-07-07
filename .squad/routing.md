@@ -10,7 +10,8 @@ How to decide who handles what.
 | React UI, client state, and UX flows | Rotom | App shell, calculator screens, planner interactions, component structure |
 | Legacy calculator migration and typed engine wiring | Porygon | Porting logic from `old-code`, module extraction, adapter layers, parity-focused refactors |
 | Battle rules, planner models, and future persistence seams | Lucario | Nuzlocke rules, encounter planning, team state, storage boundaries |
-| Code review | Alakazam | Review PRs, check quality, resolve trade-offs |
+| Code review | Slowking | Review PRs, check quality, resolve trade-offs, flag naming drift |
+| Consistency review | Slowking | Route naming, conventions, best-practice gaps, docs drift |
 | Testing | Ditto | Write tests, build parity suites, find edge cases, verify fixes |
 | Scope & priorities | Alakazam | What to build next, trade-offs, release slices |
 | Session logging | Scribe | Automatic — never needs routing |
@@ -27,6 +28,7 @@ How to decide who handles what.
 | `squad:porygon` | Pick up issue and complete the work | Porygon |
 | `squad:lucario` | Pick up issue and complete the work | Lucario |
 | `squad:ditto` | Pick up issue and complete the work | Ditto |
+| `squad:slowking` | Review standards, naming, and consistency; leave advisory notes | Slowking |
 
 ### How Issue Assignment Works
 
@@ -34,6 +36,8 @@ How to decide who handles what.
 2. When a `squad:{member}` label is applied, that member picks up the issue in their next session.
 3. Members can reassign by removing their label and adding another member's label.
 4. The `squad` label is the "inbox" — untriaged issues waiting for Lead review.
+5. Code review and consistency review go to Slowking for advisory feedback.
+6. Architecture, scope, and backend decisions stay with Alakazam.
 
 ## Rules
 
