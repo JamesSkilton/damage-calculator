@@ -1,4 +1,5 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { runtimeConfig } from '../config/runtimeConfig';
 import { calculatorModes } from '../routes/calculatorModes';
 import './AppShell.css';
 
@@ -13,7 +14,7 @@ export default function AppShell() {
 
       <header className="shell-header">
         <div>
-          <p className="eyebrow">Pokémon Damage Calculator</p>
+          <p className="eyebrow">{runtimeConfig.appTitle}</p>
           <h1>Calculator modes</h1>
         </div>
 

@@ -94,6 +94,7 @@
 4. **Review (against plan)**
    - Compare delivered artifacts to Phase 1 acceptance criteria and ensure no missing deliverables.
    - Validate parity-risk posture is preserved (no accidental engine logic divergence).
+   - Have Slowking review naming, route consistency, and standards drift before Phase 2.
    - Record outcomes and any scope drift in decisions before moving to Phase 2.
 
 **Why:** This creates a repeatable execution model that keeps work structured, lowers migration risk, and ensures each phase is planned and verified against explicit outcomes before progressing.
@@ -118,3 +119,8 @@
 - All meaningful changes require team consensus
 - Document architectural decisions here
 - Keep history focused on work, decisions focused on direction
+
+### 2026-07-07T20:06:02.325+01:00: Routed shell mode slugs
+**By:** Squad
+**What:** The app shell keeps legacy calculator mode slugs for now: `/one-vs-one`, `/one-vs-all`, `/all-vs-one`, `/champions`, `/randoms`, and `/oms`. `/` redirects to `/one-vs-one`.
+**Why:** This keeps the first routed shell aligned with the old multi-page entry points while the calculator UI is ported into shared React screens.
