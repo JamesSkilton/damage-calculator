@@ -60,7 +60,7 @@
 
 ### 2026-07-01T22:28:20.377+01:00: Phase 1 breakdown using the 4-step standard workflow
 **By:** Alakazam
-**What:** Phase 1 (Vite Foundation) will follow the same four-step workflow we should use for every problem.
+**What:** Phase 1 (Vite Foundation) will follow the same four-step workflow we should use for every problem, and future decisions should call out the same loop when they describe how work will be handled.
 
 **Phase 1 — 4 steps:**
 
@@ -94,7 +94,9 @@
 4. **Review (against plan)**
    - Compare delivered artifacts to Phase 1 acceptance criteria and ensure no missing deliverables.
    - Validate parity-risk posture is preserved (no accidental engine logic divergence).
+   - Have Slowking review naming, route consistency, and standards drift before Phase 2.
    - Record outcomes and any scope drift in decisions before moving to Phase 2.
+   - Capture the same Research → Plan → Implement → Review loop in later decisions when work needs a repeatable process.
 
 **Why:** This creates a repeatable execution model that keeps work structured, lowers migration risk, and ensures each phase is planned and verified against explicit outcomes before progressing.
 
@@ -118,3 +120,8 @@
 - All meaningful changes require team consensus
 - Document architectural decisions here
 - Keep history focused on work, decisions focused on direction
+
+### 2026-07-07T20:06:02.325+01:00: Routed shell mode slugs
+**By:** Squad
+**What:** The app shell keeps legacy calculator mode slugs for now: `/one-vs-one`, `/one-vs-all`, `/all-vs-one`, `/champions`, `/randoms`, and `/oms`. `/` redirects to `/one-vs-one`.
+**Why:** This keeps the first routed shell aligned with the old multi-page entry points while the calculator UI is ported into shared React screens.
