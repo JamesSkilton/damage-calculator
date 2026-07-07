@@ -103,6 +103,11 @@
 **What:** Created `docs/phase-0-parity-scope.md` as the committed planning artifact for issue #1. It defines the non-negotiable parity target, minimum first-release parity scope, explicit deferred scope, acceptance criteria for parity signoff, and how this document gates Phase 1/2/3 pull requests.
 **Why:** This converts the roadmap into an actionable quality gate so migration work can be tracked and accepted consistently through PRs instead of subjective parity judgments.
 
+### 2026-07-01T22:59:19.866+01:00: Phase 1 scaffold established with Vite + React + TypeScript
+**By:** Alakazam
+**What:** Established the initial frontend foundation at the repository root with Vite, React, and TypeScript (`package.json`, TypeScript project configs, Vite config, `index.html`, and `src/*` bootstrap app files). Added startup documentation in `docs/phase-1-foundation-startup.md` and baseline scripts for `dev`, `build`, `preview`, and `typecheck`.
+**Why:** This completes the first scaffold milestone for issue #2 and gives the project a working, typed frontend foundation that Phase 1 follow-up issues can build on.
+
 ## Governance
 
 - All meaningful changes require team consensus

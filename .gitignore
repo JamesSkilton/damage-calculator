@@ -8,3 +8,7 @@
 .squad/.cache/
 # Squad: SubSquad activation file (local to this machine)
 .squad-workstream
+
+# Node / Vite
+node_modules/
+dist/
