@@ -20,3 +20,9 @@ body,
 body {
   min-height: 100vh;
 }
+
+h1,
+h2,
+p {
+  margin: 0;
+}

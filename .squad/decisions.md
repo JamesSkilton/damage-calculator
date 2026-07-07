@@ -108,6 +108,11 @@
 **What:** Established the initial frontend foundation at the repository root with Vite, React, and TypeScript (`package.json`, TypeScript project configs, Vite config, `index.html`, and `src/*` bootstrap app files). Added startup documentation in `docs/phase-1-foundation-startup.md` and baseline scripts for `dev`, `build`, `preview`, and `typecheck`.
 **Why:** This completes the first scaffold milestone for issue #2 and gives the project a working, typed frontend foundation that Phase 1 follow-up issues can build on.
 
+### 2026-07-07T19:42:07.627+01:00: Slowking added as standards reviewer
+**By:** Squad
+**What:** Added Slowking as the advisory standards reviewer for code review, consistency review, route naming, and best-practice feedback. Use Slowking for naming drift and convention checks; keep architecture, scope, and parity ownership with Alakazam and Ditto.
+**Why:** This gives the team a dedicated reviewer for style and consistency concerns without turning those suggestions into automatic blockers or duplicating the lead/tester roles.
+
 ## Governance
 
 - All meaningful changes require team consensus

@@ -1,0 +1,71 @@
+.app-shell {
+  margin: 0 auto;
+  min-height: 100vh;
+  max-width: 1120px;
+  padding: 1.5rem;
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: auto;
+}
+
+.skip-link:focus {
+  left: 1.5rem;
+  top: 1rem;
+  z-index: 10;
+  background: #0f172a;
+  color: #fff;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+}
+
+.shell-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: end;
+  justify-content: space-between;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #cbd5e1;
+}
+
+.eyebrow {
+  margin: 0 0 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.mode-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.mode-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.5rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.mode-link.active {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #fff;
+}
+
+.shell-main {
+  padding: 1.5rem 0 0;
+}

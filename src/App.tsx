@@ -1,11 +1,19 @@
-import './App.css';
+import { Navigate, Route, Routes } from 'react-router-dom';
+import AppShell from './components/AppShell';
+import ModeScreen from './components/ModeScreen';
+import { calculatorModes, defaultModeSlug } from './routes/calculatorModes';
 
 function App() {
   return (
-    <main className="app-shell">
-      <h1>Damage Calculator</h1>
-      <p>Phase 1 foundation is active: Vite + React + TypeScript scaffold is ready.</p>
-    </main>
+    <Routes>
+      <Route path="/" element={<AppShell />}>
+        <Route index element={<Navigate to={`/${defaultModeSlug}`} replace />} />
+        {calculatorModes.map((mode) => (
+          <Route key={mode.slug} path={mode.slug} element={<ModeScreen mode={mode} />} />
+        ))}
+        <Route path="*" element={<Navigate to={`/${defaultModeSlug}`} replace />} />
+      </Route>
+    </Routes>
   );
 }
 
