@@ -22,6 +22,12 @@ export interface BattleMove {
   isCrit: boolean;
   isZ: boolean;
   isMax: boolean;
+  /** True on the very first turn the attacker uses a Stellar tera-type move. Boosts BP to 60. */
+  isStellarFirstUse: boolean;
+  /** Number of turns the move has been used consecutively (e.g. Rollout, Fury Cutter). Defaults to 1. */
+  timesUsed: number;
+  /** Times the move has been used while holding a Metronome item; drives the stacking damage bonus. */
+  timesUsedWithMetronome?: number;
   hasCrashDamage: boolean;
   mindBlownRecoil: boolean;
   struggleRecoil: boolean;
