@@ -1,10 +1,10 @@
 dist
 node_modules
 coverage
-.squad
+.squad/**
 old-code
 docs
 .copilot
-.github/agents
-.github/skills
+.github/agents/**
+.github/skills/**
 .github/copilot-instructions.md
