@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
   mapLegacyFieldToBattleField,
+  mapLegacySideToBattleSide,
   mapLegacyMoveToBattleMove,
   mapLegacyPokemonToBattleCombatant,
+  type LegacyMoveData,
+  type LegacySpeciesData,
   type LegacyGeneration,
 } from './legacyToDomain';
 
-const generation: LegacyGeneration = {
+const generation: LegacyGeneration<LegacySpeciesData, LegacyMoveData> = {
   num: 2,
   species: {
     get(id) {
@@ -82,7 +85,7 @@ const generation: LegacyGeneration = {
   },
 };
 
-const generation7: LegacyGeneration = {
+const generation7: LegacyGeneration<LegacySpeciesData, LegacyMoveData> = {
   ...generation,
   num: 7,
 };
@@ -152,6 +155,15 @@ describe('legacy domain mappers', () => {
     ).toThrow('Special Attack and Special Defense must match in Gen 1 and Gen 2');
   });
 
+  it('throws when gen 1/2 boost stats do not match', () => {
+    expect(() =>
+      mapLegacyPokemonToBattleCombatant(generation, {
+        name: 'Pikachu',
+        boosts: { spa: 2, spd: 1 },
+      }),
+    ).toThrow('Special Attack and Special Defense must match in Gen 1 and Gen 2');
+  });
+
   it('maps move state with legacy counters and transform defaults', () => {
     const move = mapLegacyMoveToBattleMove(generation7, {
       name: 'Thunderbolt',
@@ -182,6 +194,32 @@ describe('legacy domain mappers', () => {
   });
 
   it('maps field and side state defaults', () => {
+    expect(mapLegacySideToBattleSide({ isTailwind: true, spikes: 2 })).toEqual({
+      spikes: 2,
+      steelsurge: false,
+      vinelash: false,
+      wildfire: false,
+      cannonade: false,
+      volcalith: false,
+      isSR: false,
+      isReflect: false,
+      isLightScreen: false,
+      isProtected: false,
+      isSeeded: false,
+      isSaltCured: false,
+      isForesight: false,
+      isTailwind: true,
+      isHelpingHand: false,
+      isFlowerGift: false,
+      isPowerTrick: false,
+      isFriendGuard: false,
+      isAuroraVeil: false,
+      isBattery: false,
+      isPowerSpot: false,
+      isSteelySpirit: false,
+      isSwitching: undefined,
+    });
+
     const field = mapLegacyFieldToBattleField(9, {
       gameType: 'Singles',
       attackerSide: {},
