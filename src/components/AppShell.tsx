@@ -24,7 +24,9 @@ export default function AppShell() {
               <li key={mode.slug}>
                 <NavLink
                   to={`/${mode.slug}`}
-                  className={({ isActive }) => `mode-link${isActive ? ' active' : ''}`}
+                  className={({ isActive }) =>
+                    `mode-link${isActive ? ' active' : ''}`
+                  }
                 >
                   {mode.label}
                 </NavLink>

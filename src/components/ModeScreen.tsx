@@ -15,12 +15,19 @@ export default function ModeScreen({ mode }: ModeScreenProps) {
       <h2>{mode.title}</h2>
       <p>{mode.description}</p>
 
-      <div className="mode-boundary" role="note" aria-label={`${mode.title} migration boundary`}>
+      <div
+        className="mode-boundary"
+        role="note"
+        aria-label={`${mode.title} migration boundary`}
+      >
         <p className="mode-boundary-label">TODO boundary</p>
         <p>{mode.placeholderTodo}</p>
       </div>
 
-      <p className="mode-note">Shared shell is live at {currentPath}; migrate this mode here without changing the route.</p>
+      <p className="mode-note">
+        Shared shell is live at {currentPath}; migrate this mode here without
+        changing the route.
+      </p>
     </section>
   );
 }
