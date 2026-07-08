@@ -8,3 +8,5 @@
 ## Learnings
 
 - Initial setup: Owns parity testing against the legacy calculator and edge-case coverage for planner behavior.
+
+📌 Team update (2026-07-07T20:06:02.325+01:00): Route coverage should include the legacy mode slugs and the `/` redirect to `/one-vs-one` — decided by Squad

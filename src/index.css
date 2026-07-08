@@ -1,7 +1,15 @@
 :root {
   color: #0f172a;
   background-color: #f8fafc;
-  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  font-family:
+    Inter,
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
   line-height: 1.5;
   font-weight: 400;
 }
