@@ -31,7 +31,9 @@ export function normalizeCalcResultRange(
   return coerceRange(input);
 }
 
-export function formatCalcResultRange(range: NormalizedCalcResultRange): string {
+export function formatCalcResultRange(
+  range: NormalizedCalcResultRange,
+): string {
   return `${range.min} - ${range.max}`;
 }
 
@@ -43,7 +45,9 @@ export function normalizeCalcResultKoText(input: CalcResultKoInput): string {
   return input?.text?.trim() ?? '';
 }
 
-export function formatCalcResultSummary(summary: string | null | undefined): string {
+export function formatCalcResultSummary(
+  summary: string | null | undefined,
+): string {
   return summary?.trim() ?? '';
 }
 
@@ -71,7 +75,9 @@ export function normalizeCalcResult(
 
   const range = normalizeCalcResultRange(rangeInput);
   const koChance = result.kochance?.(false);
-  const koText = normalizeCalcResultKoText(koChance?.text?.trim() ? koChance : result.koText);
+  const koText = normalizeCalcResultKoText(
+    koChance?.text?.trim() ? koChance : result.koText,
+  );
   const summary = normalizeCalcResultSummary(
     result.fullDesc?.(notation, false),
     result.summary,

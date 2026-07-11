@@ -7,10 +7,7 @@ export type CalcResultRangeInput =
   | { min: number; max: number };
 
 export type CalcResultKoInput =
-  | string
-  | { text?: string | null }
-  | null
-  | undefined;
+  string | { text?: string | null } | null | undefined;
 
 export interface CalcResultLike {
   range?: () => CalcResultRangeInput;
