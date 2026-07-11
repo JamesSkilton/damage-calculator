@@ -20,16 +20,23 @@ export function toLegacyId(text: string): string {
   return lower.replace(/[^a-z0-9]+/g, '');
 }
 
-export function isPlainObject(value: unknown): value is Record<string, unknown> {
+export function isPlainObject(
+  value: unknown,
+): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-export function mergeLegacy<T extends object>(base: T, overrides?: Partial<T>): T {
+export function mergeLegacy<T extends object>(
+  base: T,
+  overrides?: Partial<T>,
+): T {
   if (!overrides) {
     return { ...base };
   }
 
-  const merged: Record<string, unknown> = { ...(base as Record<string, unknown>) };
+  const merged: Record<string, unknown> = {
+    ...(base as Record<string, unknown>),
+  };
 
   for (const [key, value] of Object.entries(overrides)) {
     if (value === undefined) {
@@ -38,7 +45,10 @@ export function mergeLegacy<T extends object>(base: T, overrides?: Partial<T>): 
 
     const current = merged[key];
     if (isPlainObject(current) && isPlainObject(value)) {
-      merged[key] = mergeLegacy(current as object, value as Record<string, unknown>);
+      merged[key] = mergeLegacy(
+        current as object,
+        value as Record<string, unknown>,
+      );
       continue;
     }
 

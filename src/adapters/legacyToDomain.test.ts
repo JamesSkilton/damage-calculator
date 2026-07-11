@@ -152,7 +152,9 @@ describe('legacy domain mappers', () => {
         name: 'Pikachu',
         ivs: { spa: 10, spd: 9 },
       }),
-    ).toThrow('Special Attack and Special Defense must match in Gen 1 and Gen 2');
+    ).toThrow(
+      'Special Attack and Special Defense must match in Gen 1 and Gen 2',
+    );
   });
 
   it('throws when gen 1/2 boost stats do not match', () => {
@@ -161,7 +163,9 @@ describe('legacy domain mappers', () => {
         name: 'Pikachu',
         boosts: { spa: 2, spd: 1 },
       }),
-    ).toThrow('Special Attack and Special Defense must match in Gen 1 and Gen 2');
+    ).toThrow(
+      'Special Attack and Special Defense must match in Gen 1 and Gen 2',
+    );
   });
 
   it('maps move state with legacy counters and transform defaults', () => {

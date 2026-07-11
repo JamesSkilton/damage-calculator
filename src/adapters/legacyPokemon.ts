@@ -9,7 +9,9 @@ import type {
 } from '../domain';
 import { mergeLegacy, toLegacyId, type LegacyGeneration } from './legacyShared';
 
-type LegacyPartialStats = Partial<Record<BattleStatId, number>> & { spc?: number };
+type LegacyPartialStats = Partial<Record<BattleStatId, number>> & {
+  spc?: number;
+};
 
 export interface LegacySpeciesData {
   id?: string;
@@ -79,8 +81,15 @@ function mapStats(
     withoutSpc.spd = current.spc;
   }
 
-  if (enforceSpecialMatch && generation > 0 && generation <= 2 && withoutSpc.spa !== withoutSpc.spd) {
-    throw new Error('Special Attack and Special Defense must match in Gen 1 and Gen 2');
+  if (
+    enforceSpecialMatch &&
+    generation > 0 &&
+    generation <= 2 &&
+    withoutSpc.spa !== withoutSpc.spd
+  ) {
+    throw new Error(
+      'Special Attack and Special Defense must match in Gen 1 and Gen 2',
+    );
   }
 
   delete withoutSpc.spc;
@@ -121,7 +130,12 @@ export function mapLegacyPokemonToBattleCombatant(
     nature: input.nature || 'Serious',
     types: species.types,
     ivs: mapStats(generation.num, input.ivs, 31, true),
-    evs: mapStats(generation.num, input.evs, generation.num === 0 || generation.num >= 3 ? 0 : 252, true),
+    evs: mapStats(
+      generation.num,
+      input.evs,
+      generation.num === 0 || generation.num >= 3 ? 0 : 252,
+      true,
+    ),
     boosts: mapStats(generation.num, input.boosts, 0, true),
     currentHp: input.currentHp ?? input.originalCurHP ?? 0,
     status: input.status || undefined,

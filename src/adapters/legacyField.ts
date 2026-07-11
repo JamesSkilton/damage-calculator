@@ -79,7 +79,9 @@ function normalizeFieldSide(side: LegacySideInput): BattleSideConditions {
   };
 }
 
-export function mapLegacySideToBattleSide(input: LegacySideInput): BattleSideConditions {
+export function mapLegacySideToBattleSide(
+  input: LegacySideInput,
+): BattleSideConditions {
   return normalizeFieldSide(input);
 }
 

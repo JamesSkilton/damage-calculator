@@ -55,7 +55,16 @@ export interface LegacyMoveInput {
   overrides?: Partial<LegacyMoveData>;
 }
 
-const SPECIAL = ['Fire', 'Water', 'Grass', 'Electric', 'Ice', 'Psychic', 'Dark', 'Dragon'];
+const SPECIAL = [
+  'Fire',
+  'Water',
+  'Grass',
+  'Electric',
+  'Ice',
+  'Psychic',
+  'Dark',
+  'Dragon',
+];
 
 function getMoveData(
   generation: LegacyGeneration<unknown, LegacyMoveData>,
@@ -70,30 +79,46 @@ function getMoveData(
   return mergeLegacy(move, input.overrides);
 }
 
-function getZMoveName(moveName: string, moveType: BattleTypeName, item?: string): string {
+function getZMoveName(
+  moveName: string,
+  moveType: BattleTypeName,
+  item?: string,
+): string {
   item = item || '';
 
   if (moveName.includes('Hidden Power')) {
     return 'Breakneck Blitz';
   }
-  if (moveName === 'Clanging Scales' && item === 'Kommonium Z') return 'Clangorous Soulblaze';
-  if (moveName === 'Darkest Lariat' && item === 'Incinium Z') return 'Malicious Moonsault';
-  if (moveName === 'Giga Impact' && item === 'Snorlium Z') return 'Pulverizing Pancake';
-  if (moveName === 'Moongeist Beam' && item === 'Lunalium Z') return 'Menacing Moonraze Maelstrom';
+  if (moveName === 'Clanging Scales' && item === 'Kommonium Z')
+    return 'Clangorous Soulblaze';
+  if (moveName === 'Darkest Lariat' && item === 'Incinium Z')
+    return 'Malicious Moonsault';
+  if (moveName === 'Giga Impact' && item === 'Snorlium Z')
+    return 'Pulverizing Pancake';
+  if (moveName === 'Moongeist Beam' && item === 'Lunalium Z')
+    return 'Menacing Moonraze Maelstrom';
   if (moveName === 'Photon Geyser' && item === 'Ultranecrozium Z') {
     return 'Light That Burns the Sky';
   }
-  if (moveName === 'Play Rough' && item === 'Mimikium Z') return "Let's Snuggle Forever";
-  if (moveName === 'Psychic' && item === 'Mewnium Z') return 'Genesis Supernova';
-  if (moveName === 'Sparkling Aria' && item === 'Primarium Z') return 'Oceanic Operetta';
+  if (moveName === 'Play Rough' && item === 'Mimikium Z')
+    return "Let's Snuggle Forever";
+  if (moveName === 'Psychic' && item === 'Mewnium Z')
+    return 'Genesis Supernova';
+  if (moveName === 'Sparkling Aria' && item === 'Primarium Z')
+    return 'Oceanic Operetta';
   if (moveName === 'Spectral Thief' && item === 'Marshadium Z') {
     return 'Soul-Stealing 7-Star Strike';
   }
-  if (moveName === 'Spirit Shackle' && item === 'Decidium Z') return 'Sinister Arrow Raid';
-  if (moveName === 'Stone Edge' && item === 'Lycanium Z') return 'Splintered Stormshards';
-  if (moveName === 'Sunsteel Strike' && item === 'Solganium Z') return 'Searing Sunraze Smash';
-  if (moveName === 'Volt Tackle' && item === 'Pikanium Z') return 'Catastropika';
-  if (moveName === "Nature's Madness" && item === 'Tapunium Z') return 'Guardian of Alola';
+  if (moveName === 'Spirit Shackle' && item === 'Decidium Z')
+    return 'Sinister Arrow Raid';
+  if (moveName === 'Stone Edge' && item === 'Lycanium Z')
+    return 'Splintered Stormshards';
+  if (moveName === 'Sunsteel Strike' && item === 'Solganium Z')
+    return 'Searing Sunraze Smash';
+  if (moveName === 'Volt Tackle' && item === 'Pikanium Z')
+    return 'Catastropika';
+  if (moveName === "Nature's Madness" && item === 'Tapunium Z')
+    return 'Guardian of Alola';
   if (moveName === 'Thunderbolt') {
     if (item === 'Aloraichium Z') return 'Stoked Sparksurfer';
     if (item === 'Pikashunium Z') return '10,000,000 Volt Thunderbolt';
@@ -146,7 +171,10 @@ function getMaxMoveName(
   }
   if (moveType === 'Electric') {
     if (pokemonSpecies === 'Pikachu-Gmax') return 'G-Max Volt Crash';
-    if (pokemonSpecies?.startsWith('Toxtricity') && pokemonSpecies?.endsWith('Gmax')) {
+    if (
+      pokemonSpecies?.startsWith('Toxtricity') &&
+      pokemonSpecies?.endsWith('Gmax')
+    ) {
       return 'G-Max Stun Shock';
     }
   }
@@ -161,21 +189,31 @@ function getMaxMoveName(
     if (pokemonSpecies === 'Drednaw-Gmax') return 'G-Max Stonesurge';
     if (pokemonSpecies === 'Inteleon-Gmax') return 'G-Max Hydrosnipe';
     if (pokemonSpecies === 'Kingler-Gmax') return 'G-Max Foam Burst';
-    if (pokemonSpecies === 'Urshifu-Rapid-Strike-Gmax') return 'G-Max Rapid Flow';
+    if (pokemonSpecies === 'Urshifu-Rapid-Strike-Gmax')
+      return 'G-Max Rapid Flow';
   }
   if (moveType === 'Dark') {
     if (pokemonSpecies === 'Grimmsnarl-Gmax') return 'G-Max Snooze';
     if (pokemonSpecies === 'Urshifu-Gmax') return 'G-Max One Blow';
   }
-  if (moveType === 'Poison' && pokemonSpecies === 'Garbodor-Gmax') return 'G-Max Malodor';
-  if (moveType === 'Fighting' && pokemonSpecies === 'Machamp-Gmax') return 'G-Max Chi Strike';
-  if (moveType === 'Ghost' && pokemonSpecies === 'Gengar-Gmax') return 'G-Max Terror';
-  if (moveType === 'Ice' && pokemonSpecies === 'Lapras-Gmax') return 'G-Max Resonance';
-  if (moveType === 'Flying' && pokemonSpecies === 'Corviknight-Gmax') return 'G-Max Wind Rage';
-  if (moveType === 'Dragon' && pokemonSpecies === 'Duraludon-Gmax') return 'G-Max Depletion';
-  if (moveType === 'Psychic' && pokemonSpecies === 'Orbeetle-Gmax') return 'G-Max Gravitas';
-  if (moveType === 'Rock' && pokemonSpecies === 'Coalossal-Gmax') return 'G-Max Volcalith';
-  if (moveType === 'Ground' && pokemonSpecies === 'Sandaconda-Gmax') return 'G-Max Sandblast';
+  if (moveType === 'Poison' && pokemonSpecies === 'Garbodor-Gmax')
+    return 'G-Max Malodor';
+  if (moveType === 'Fighting' && pokemonSpecies === 'Machamp-Gmax')
+    return 'G-Max Chi Strike';
+  if (moveType === 'Ghost' && pokemonSpecies === 'Gengar-Gmax')
+    return 'G-Max Terror';
+  if (moveType === 'Ice' && pokemonSpecies === 'Lapras-Gmax')
+    return 'G-Max Resonance';
+  if (moveType === 'Flying' && pokemonSpecies === 'Corviknight-Gmax')
+    return 'G-Max Wind Rage';
+  if (moveType === 'Dragon' && pokemonSpecies === 'Duraludon-Gmax')
+    return 'G-Max Depletion';
+  if (moveType === 'Psychic' && pokemonSpecies === 'Orbeetle-Gmax')
+    return 'G-Max Gravitas';
+  if (moveType === 'Rock' && pokemonSpecies === 'Coalossal-Gmax')
+    return 'G-Max Volcalith';
+  if (moveType === 'Ground' && pokemonSpecies === 'Sandaconda-Gmax')
+    return 'G-Max Sandblast';
 
   const maxMove = MAXMOVES_TYPING[moveType];
   if (!maxMove) {
@@ -198,14 +236,19 @@ function resolveMoveData(
       baseData.category === 'Status',
       input.ability,
     );
-    const maxMove = generation.moves.get(toLegacyId(maxMoveName)) as LegacyMoveData | undefined;
+    const maxMove = generation.moves.get(toLegacyId(maxMoveName)) as
+      LegacyMoveData | undefined;
 
     if (!maxMove) {
       throw new Error(`Unknown max move: ${maxMoveName}`);
     }
 
     const maxPower = () => {
-      if (['G-Max Drum Solo', 'G-Max Fire Ball', 'G-Max Hydrosnipe'].includes(maxMoveName)) {
+      if (
+        ['G-Max Drum Solo', 'G-Max Fire Ball', 'G-Max Hydrosnipe'].includes(
+          maxMoveName,
+        )
+      ) {
         return 160;
       }
 
@@ -226,7 +269,8 @@ function resolveMoveData(
 
   if (input.useZ && baseData.zMove?.basePower) {
     const zMoveName = getZMoveName(baseData.name, baseData.type, input.item);
-    const zMove = generation.moves.get(toLegacyId(zMoveName)) as LegacyMoveData | undefined;
+    const zMove = generation.moves.get(toLegacyId(zMoveName)) as
+      LegacyMoveData | undefined;
 
     if (!zMove) {
       throw new Error(`Unknown z-move: ${zMoveName}`);
@@ -235,7 +279,8 @@ function resolveMoveData(
     return {
       ...mergeLegacy(zMove, input.overrides),
       name: zMoveName,
-      basePower: zMove.basePower === 1 ? baseData.zMove.basePower : zMove.basePower,
+      basePower:
+        zMove.basePower === 1 ? baseData.zMove.basePower : zMove.basePower,
       category: baseData.category,
     } as LegacyMoveData;
   }
@@ -275,7 +320,9 @@ function getMoveHits(data: LegacyMoveData, input: LegacyMoveInput): number {
     return input.hits;
   }
 
-  return input.ability === 'Skill Link' ? data.multihit[1] : data.multihit[0] + 1;
+  return input.ability === 'Skill Link'
+    ? data.multihit[1]
+    : data.multihit[0] + 1;
 }
 
 export function mapLegacyMoveToBattleMove(
@@ -287,12 +334,16 @@ export function mapLegacyMoveToBattleMove(
   const moveId = toLegacyId(data.name || baseData.name);
   const typelessDamage =
     ((generation.num === 0 || generation.num >= 2) && moveId === 'struggle') ||
-    (generation.num > 0 && generation.num <= 4 && ['futuresight', 'doomdesire'].includes(moveId));
+    (generation.num > 0 &&
+      generation.num <= 4 &&
+      ['futuresight', 'doomdesire'].includes(moveId));
   const moveType = typelessDamage ? '???' : data.type;
 
-  const basePower = data.basePower || (['return', 'frustration', 'pikapapow', 'veeveevolley'].includes(moveId)
-    ? 102
-    : 0);
+  const basePower =
+    data.basePower ||
+    (['return', 'frustration', 'pikapapow', 'veeveevolley'].includes(moveId)
+      ? 102
+      : 0);
 
   return {
     generation: generation.num,
@@ -309,7 +360,8 @@ export function mapLegacyMoveToBattleMove(
     isCrit:
       !!input.isCrit ||
       !!data.willCrit ||
-      (generation.num === 1 && ['crabhammer', 'razorleaf', 'slash', 'karatechop'].includes(moveId)),
+      (generation.num === 1 &&
+        ['crabhammer', 'razorleaf', 'slash', 'karatechop'].includes(moveId)),
     isZ: !!data.isZ,
     isMax: !!data.isMax,
     isStellarFirstUse: !!input.isStellarFirstUse,
