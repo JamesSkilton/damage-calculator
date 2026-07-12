@@ -1,11 +1,11 @@
-import type { BattleCombatant } from './combatant';
-import type { BattleField } from './field';
+import type { BattleCombatant } from '@/domain/combatant';
+import type { BattleField } from '@/domain/field';
 import type {
   BattleDamage,
   BattleDamageRange,
   BattleGeneration,
-} from './shared';
-import type { BattleMove } from './move';
+} from '@/domain/shared';
+import type { BattleMove } from '@/domain/move';
 
 export interface BattleResult {
   generation: BattleGeneration;

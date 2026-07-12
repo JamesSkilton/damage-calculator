@@ -6,8 +6,12 @@ import type {
   BattleStats,
   BattleStatusName,
   BattleTypeName,
-} from '../domain';
-import { mergeLegacy, toLegacyId, type LegacyGeneration } from './legacyShared';
+} from '@/domain';
+import {
+  mergeLegacy,
+  toLegacyId,
+  type LegacyGeneration,
+} from '@/adapters/legacyShared';
 
 type LegacyPartialStats = Partial<Record<BattleStatId, number>> & {
   spc?: number;

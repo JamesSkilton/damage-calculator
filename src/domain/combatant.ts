@@ -5,7 +5,7 @@ import type {
   BattleStats,
   BattleStatusName,
   BattleTypeName,
-} from './shared';
+} from '@/domain/shared';
 
 export interface BattleCombatant {
   generation: BattleGeneration;

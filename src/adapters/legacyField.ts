@@ -5,7 +5,7 @@ import type {
   BattleSideConditions,
   BattleTerrain,
   BattleWeather,
-} from '../domain';
+} from '@/domain';
 
 export interface LegacySideInput {
   spikes?: number;

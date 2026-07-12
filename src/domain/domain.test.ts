@@ -3,8 +3,8 @@
  * These tests have no runtime assertions — a type error here is a failing test.
  */
 import { describe, it } from 'vitest';
-import type { BattleCombatant } from './combatant';
-import type { BattleMove } from './move';
+import type { BattleCombatant } from '@/domain/combatant';
+import type { BattleMove } from '@/domain/move';
 
 describe('BattleMove type', () => {
   it('accepts isStellarFirstUse, timesUsed, and timesUsedWithMetronome', () => {
