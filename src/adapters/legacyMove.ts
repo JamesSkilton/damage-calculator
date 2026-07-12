@@ -1,11 +1,11 @@
-import type { BattleGeneration, BattleMove } from '@/domain';
-import { toLegacyId, type LegacyGeneration } from '@/adapters/legacyShared';
-import { SPECIAL_TYPES } from '@/adapters/legacyMove.constants';
-import { getMoveData, resolveMoveData } from '@/adapters/legacyMove.resolve';
+import type { BattleGeneration, BattleMove } from 'domain/index';
+import { toLegacyId, type LegacyGeneration } from 'adapters/legacyShared';
+import { SPECIAL_TYPES } from 'adapters/legacyMove.constants';
+import { getMoveData, resolveMoveData } from 'adapters/legacyMove.resolve';
 import type {
   LegacyMoveData,
   LegacyMoveInput,
-} from '@/adapters/legacyMove.types';
+} from 'adapters/legacyMove.types';
 
 function inferMoveCategory(
   generation: BattleGeneration,
@@ -104,4 +104,4 @@ export function mapLegacyMoveToBattleMove(
 export type {
   LegacyMoveData,
   LegacyMoveInput,
-} from '@/adapters/legacyMove.types';
+} from 'adapters/legacyMove.types';

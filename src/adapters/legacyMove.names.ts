@@ -1,8 +1,5 @@
-import type { BattleTypeName } from '@/domain';
-import {
-  MAXMOVES_TYPING,
-  ZMOVES_TYPING,
-} from '@/adapters/legacyMove.constants';
+import type { BattleTypeName } from 'domain/index';
+import { MAXMOVES_TYPING, ZMOVES_TYPING } from 'adapters/legacyMove.constants';
 
 export function getZMoveName(
   moveName: string,

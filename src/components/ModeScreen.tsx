@@ -1,6 +1,6 @@
 import { useOutletContext } from 'react-router-dom';
-import type { CalculatorMode } from '@/modes/calculatorModes';
-import '@/components/ModeScreen.css';
+import type { CalculatorMode } from 'modes/calculatorModes';
+import './ModeScreen.css';
 
 type ModeScreenProps = {
   mode: CalculatorMode;

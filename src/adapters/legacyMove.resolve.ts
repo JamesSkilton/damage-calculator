@@ -2,12 +2,12 @@ import {
   mergeLegacy,
   toLegacyId,
   type LegacyGeneration,
-} from '@/adapters/legacyShared';
-import { getMaxMoveName, getZMoveName } from '@/adapters/legacyMove.names';
+} from 'adapters/legacyShared';
+import { getMaxMoveName, getZMoveName } from 'adapters/legacyMove.names';
 import type {
   LegacyMoveData,
   LegacyMoveInput,
-} from '@/adapters/legacyMove.types';
+} from 'adapters/legacyMove.types';
 
 export function getMoveData(
   generation: LegacyGeneration<unknown, LegacyMoveData>,

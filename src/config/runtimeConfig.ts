@@ -1,4 +1,4 @@
-import { calculatorModes, defaultModeSlug } from '@/modes/calculatorModes';
+import { calculatorModes, defaultModeSlug } from 'modes/calculatorModes';
 
 const defaultAppTitle = 'Pokémon Damage Calculator';
 const modeSlugs = new Set(calculatorModes.map((mode) => mode.slug));

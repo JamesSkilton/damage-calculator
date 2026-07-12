@@ -7,7 +7,7 @@ import type {
   BattleStatBoosts,
   BattleStats,
   BattleTypeName,
-} from '@/domain';
+} from 'domain/index';
 
 export interface LegacyParityFixture {
   id: string;

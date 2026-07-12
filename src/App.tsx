@@ -1,8 +1,8 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
-import AppShell from '@/components/AppShell';
-import ModeScreen from '@/components/ModeScreen';
-import { runtimeConfig } from '@/config/runtimeConfig';
-import { calculatorModes } from '@/modes/calculatorModes';
+import AppShell from 'components/AppShell';
+import ModeScreen from 'components/ModeScreen';
+import { runtimeConfig } from 'config/runtimeConfig';
+import { calculatorModes } from 'modes/calculatorModes';
 
 function App() {
   return (

@@ -7,7 +7,7 @@ import {
   type LegacyMoveData,
   type LegacySpeciesData,
   type LegacyGeneration,
-} from '@/adapters/legacyToDomain';
+} from 'adapters/legacyToDomain';
 
 const generation: LegacyGeneration<LegacySpeciesData, LegacyMoveData> = {
   num: 2,

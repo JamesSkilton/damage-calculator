@@ -1,4 +1,4 @@
-import type { BattleTypeName } from '@/domain';
+import type { BattleTypeName } from 'domain/index';
 
 export const SPECIAL_TYPES: BattleTypeName[] = [
   'Fire',

@@ -4,7 +4,7 @@ import type {
   BattleSwitchState,
   BattleTerrain,
   BattleWeather,
-} from '@/domain/shared';
+} from 'domain/shared';
 
 export interface BattleSideConditions {
   spikes: number;

@@ -1,7 +1,7 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { runtimeConfig } from '@/config/runtimeConfig';
-import { calculatorModes } from '@/modes/calculatorModes';
-import '@/components/AppShell.css';
+import { runtimeConfig } from 'config/runtimeConfig';
+import { calculatorModes } from 'modes/calculatorModes';
+import './AppShell.css';
 
 export default function AppShell() {
   const location = useLocation();

@@ -1,4 +1,4 @@
-import type { BattleDamageRange } from '@/domain';
+import type { BattleDamageRange } from 'domain/index';
 
 export type CalcResultRangeInput =
   | number

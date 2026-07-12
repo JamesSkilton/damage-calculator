@@ -1,4 +1,4 @@
-import type { BattleGeneration } from '@/domain';
+import type { BattleGeneration } from 'domain/index';
 
 export interface LegacyLookup<T> {
   get(id: string): T | undefined;

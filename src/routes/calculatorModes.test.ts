@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculatorModes } from '@/modes/calculatorModes';
+import { calculatorModes } from 'modes/calculatorModes';
 
 describe('calculatorModes', () => {
   it('exposes the expected route slugs', () => {

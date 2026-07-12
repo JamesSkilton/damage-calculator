@@ -4,7 +4,7 @@ import type {
   BattleMoveTarget,
   BattleStatId,
   BattleTypeName,
-} from '@/domain';
+} from 'domain/index';
 
 export interface LegacyMoveData {
   id?: string;
