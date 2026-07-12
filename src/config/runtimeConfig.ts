@@ -1,4 +1,4 @@
-import { calculatorModes } from '../routes/calculatorModes';
+import { calculatorModes, defaultModeSlug } from 'modes/calculatorModes';
 
 const defaultAppTitle = 'Pokémon Damage Calculator';
 const modeSlugs = new Set(calculatorModes.map((mode) => mode.slug));
@@ -14,17 +14,19 @@ function readAppTitle(value: string | undefined): string {
 }
 
 function readDefaultModeSlug(value: string | undefined): string {
-  const defaultModeSlug = value?.trim();
+  const envDefaultModeSlug = value?.trim();
 
-  if (defaultModeSlug === undefined || defaultModeSlug.length === 0) {
-    return calculatorModes[0].slug;
+  if (envDefaultModeSlug === undefined || envDefaultModeSlug.length === 0) {
+    return defaultModeSlug;
   }
 
-  if (!modeSlugs.has(defaultModeSlug)) {
-    throw new Error(`Invalid VITE_DEFAULT_MODE_SLUG value: ${defaultModeSlug}`);
+  if (!modeSlugs.has(envDefaultModeSlug)) {
+    throw new Error(
+      `Invalid VITE_DEFAULT_MODE_SLUG value: ${envDefaultModeSlug}`,
+    );
   }
 
-  return defaultModeSlug;
+  return envDefaultModeSlug;
 }
 
 export type RuntimeConfig = {

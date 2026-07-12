@@ -5,7 +5,7 @@ import {
   type CalcResultRangeInput,
   type NormalizedCalcResult,
   type NormalizedCalcResultRange,
-} from './calcResult.types';
+} from 'adapters/calcResult.types';
 
 function coerceRange(input: CalcResultRangeInput): NormalizedCalcResultRange {
   if (typeof input === 'number') {
