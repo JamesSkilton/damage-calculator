@@ -105,7 +105,7 @@ function StatGrid({
                     combatant,
                     bucket,
                     statId,
-                    Number(event.target.value),
+                    event.target.value,
                   ),
                 )
               }
@@ -194,7 +194,7 @@ export default function CombatantPanel({
                 setCombatantField(
                   combatant,
                   'level',
-                  Number(event.target.value),
+                  event.target.value,
                 ),
               )
             }
@@ -330,7 +330,7 @@ export default function CombatantPanel({
                 setCombatantField(
                   combatant,
                   'currentHp',
-                  Number(event.target.value),
+                  event.target.value,
                 ),
               )
             }
@@ -370,7 +370,7 @@ export default function CombatantPanel({
                 setCombatantField(
                   combatant,
                   'toxicCounter',
-                  Number(event.target.value),
+                  event.target.value,
                 ),
               )
             }
@@ -419,9 +419,7 @@ export default function CombatantPanel({
                 setCombatantField(
                   combatant,
                   'dynamaxLevel',
-                  event.target.value === ''
-                    ? undefined
-                    : Number(event.target.value),
+                  event.target.value,
                 ),
               )
             }

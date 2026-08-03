@@ -52,13 +52,8 @@ describe('combatantDraft', () => {
     expect(draft.attacker.moves).not.toBe(draft.defender.moves);
   });
 
-  it('updates a single combatant field without mutating the original draft', () => {
+  it('updates both combatants when the team generation changes', () => {
     const draft = createTeamDraft(9);
-    const nextAttacker = setCombatantField(draft.attacker, 'generation', 6);
-
-    expect(nextAttacker.generation).toBe(6);
-    expect(draft.attacker.generation).toBe(9);
-
     const nextDraft = setTeamGeneration(draft, 8);
 
     expect(nextDraft.attacker.generation).toBe(8);
@@ -67,19 +62,42 @@ describe('combatantDraft', () => {
     expect(draft.defender.generation).toBe(9);
   });
 
-  it('preserves side-specific edits and panel edge cases', () => {
+  it('updates a single combatant field without mutating the original draft', () => {
     const draft = createTeamDraft(9);
 
     const renamed = setCombatantField(draft.attacker, 'name', 'Raichu');
-    const typed = setCombatantTypes(renamed, 'Electric');
-    const retrained = setCombatantStat(typed, 'ivs', statIds[1], 0);
+    const levelFallback = setCombatantField(draft.attacker, 'level', NaN);
+    const blankLevel = setCombatantField(draft.attacker, 'level', '');
+    const partialCurrentHp = setCombatantField(draft.attacker, 'currentHp', '-');
+    const dynamaxFallback = setCombatantField(
+      setCombatantField(draft.attacker, 'dynamaxLevel', 5),
+      'dynamaxLevel',
+      '',
+    );
+
+    expect(renamed.name).toBe('Raichu');
+    expect(draft.attacker.name).toBe('Attacker');
+    expect(levelFallback.level).toBe(100);
+    expect(blankLevel.level).toBe(100);
+    expect(partialCurrentHp.currentHp).toBe(100);
+    expect(dynamaxFallback.dynamaxLevel).toBe(5);
+    expect(Number.isNaN(levelFallback.level)).toBe(false);
+  });
+
+  it('preserves side-specific edits and panel edge cases', () => {
+    const draft = createTeamDraft(9);
+
+    const typed = setCombatantTypes(
+      setCombatantField(draft.attacker, 'name', 'Raichu'),
+      'Electric',
+    );
+    const retrained = setCombatantStat(typed, 'ivs', statIds[1], '');
     const boosted = setCombatantStat(retrained, 'boosts', statIds[1], 2);
     const moved = setCombatantMove(boosted, 2, 'Thunderbolt');
     const statused = setCombatantStatus(moved, '');
 
-    expect(renamed.name).toBe('Raichu');
     expect(typed.types).toEqual(['Electric']);
-    expect(retrained.ivs.atk).toBe(0);
+    expect(retrained.ivs.atk).toBe(31);
     expect(boosted.boosts.atk).toBe(2);
     expect(moved.moves[2]).toBe('Thunderbolt');
     expect(moved.moves[0]).toBe('');

@@ -98,7 +98,7 @@ export function setTeamGeneration(
 export function setCombatantField<T extends keyof BattleCombatant>(
   combatant: BattleCombatant,
   field: T,
-  value: BattleCombatant[T],
+  value: BattleCombatant[T] | string | number | null | undefined,
 ): BattleCombatant {
   if (field === 'name' || field === 'species' || field === 'nature') {
     return {
@@ -122,7 +122,17 @@ export function setCombatantField<T extends keyof BattleCombatant>(
   }
 
   if (field === 'level' || field === 'currentHp' || field === 'toxicCounter') {
-    const parsed = Number(value);
+    const rawValue = typeof value === 'string' ? value.trim() : value;
+
+    if (rawValue === '') {
+      return combatant;
+    }
+
+    const parsed = Number(rawValue);
+
+    if (!Number.isFinite(parsed)) {
+      return combatant;
+    }
 
     return {
       ...combatant,
@@ -136,12 +146,21 @@ export function setCombatantField<T extends keyof BattleCombatant>(
   }
 
   if (field === 'dynamaxLevel') {
+    const rawValue = typeof value === 'string' ? value.trim() : value;
+
+    if (rawValue === '') {
+      return combatant;
+    }
+
+    const parsed = Number(rawValue);
+
+    if (!Number.isFinite(parsed)) {
+      return combatant;
+    }
+
     return {
       ...combatant,
-      dynamaxLevel:
-        value === undefined || value === null || value === ''
-          ? undefined
-          : Math.max(0, Math.min(10, Math.trunc(Number(value)))),
+      dynamaxLevel: Math.max(0, Math.min(10, Math.trunc(parsed))),
     };
   }
 
@@ -162,13 +181,25 @@ export function setCombatantStat(
   combatant: BattleCombatant,
   bucket: 'ivs' | 'evs' | 'boosts',
   statId: BattleStatId,
-  value: number,
+  value: number | string | null | undefined,
 ): BattleCombatant {
+  const rawValue = typeof value === 'string' ? value.trim() : value;
+
+  if (rawValue === '') {
+    return combatant;
+  }
+
+  const parsed = Number(rawValue);
+
+  if (!Number.isFinite(parsed)) {
+    return combatant;
+  }
+
   return {
     ...combatant,
     [bucket]: {
       ...combatant[bucket],
-      [statId]: value,
+      [statId]: Math.trunc(parsed),
     },
   };
 }

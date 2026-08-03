@@ -21,7 +21,7 @@ describe('ModeScreen', () => {
       'TODO: migrate the one-vs-all target list and results flow into this route.',
   };
 
-  it('renders the one-vs-one placeholder route copy', () => {
+  it('renders the one-vs-all placeholder route copy', () => {
     mockedUseOutletContext.mockReturnValue('/one-vs-all');
 
     const markup = renderToStaticMarkup(React.createElement(ModeScreen, { mode }));
