@@ -12,9 +12,9 @@ export const calculatorModes = [
     label: 'One vs One',
     title: 'One vs One',
     description:
-      'The default matchup view for direct attacker versus defender comparisons.',
+      'Editable attacker and defender panels for direct matchup comparisons.',
     placeholderTodo:
-      'TODO: migrate the legacy one-vs-one calculator UI into this route.',
+      'TODO: wire these team panels into the damage result flow.',
   },
   {
     slug: 'one-vs-all',

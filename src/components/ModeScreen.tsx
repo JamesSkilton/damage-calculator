@@ -1,5 +1,6 @@
 import { useOutletContext } from 'react-router-dom';
 import type { CalculatorMode } from 'modes/calculatorModes';
+import OneVsOneMode from './one-vs-one/OneVsOneMode';
 import './ModeScreen.css';
 
 type ModeScreenProps = {
@@ -8,6 +9,10 @@ type ModeScreenProps = {
 
 export default function ModeScreen({ mode }: ModeScreenProps) {
   const currentPath = useOutletContext<string>();
+
+  if (mode.slug === 'one-vs-one') {
+    return <OneVsOneMode mode={mode} />;
+  }
 
   return (
     <section className="mode-panel">
