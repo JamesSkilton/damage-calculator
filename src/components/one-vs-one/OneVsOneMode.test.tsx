@@ -1,0 +1,24 @@
+import { renderToStaticMarkup } from 'react-dom/server';
+import { MemoryRouter } from 'react-router-dom';
+import { describe, expect, it } from 'vitest';
+import App from 'App';
+
+describe('one-vs-one mode', () => {
+  it('renders the attacker and defender panels inside the shared shell', () => {
+    const markup = renderToStaticMarkup(
+      <MemoryRouter initialEntries={['/one-vs-one']}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    expect(markup).toContain('Generation');
+    expect(markup).toContain('Gen 9');
+    expect(markup).toContain('Attacker panel');
+    expect(markup).toContain('Defender panel');
+    expect(markup).toContain('Attacker (Pikachu) — Lv. 100, HP 100');
+    expect(markup).toContain('Defender (Bulbasaur) — Lv. 100, HP 100');
+    expect(markup).toContain('Battle snapshot');
+    expect(markup).toContain('Live snapshot');
+    expect(markup).not.toContain('Placeholder route');
+  });
+});

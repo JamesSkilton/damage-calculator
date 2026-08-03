@@ -1,3 +1,6 @@
+# Line endings
+* text=auto eol=crlf
+
 # Squad: union merge for append-only team state files
 .squad/decisions.md merge=union
 .squad/agents/*/history.md merge=union

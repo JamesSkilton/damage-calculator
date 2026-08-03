@@ -12,4 +12,12 @@ describe('calculatorModes', () => {
       'oms',
     ]);
   });
+
+  it('describes the one-vs-one team panels', () => {
+    expect(calculatorModes[0]).toMatchObject({
+      label: 'One vs One',
+      title: 'One vs One',
+      description: expect.stringContaining('attacker and defender'),
+    });
+  });
 });
