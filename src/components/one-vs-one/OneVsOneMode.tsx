@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import type { BattleGeneration } from 'domain/index';
 import type { CalculatorMode } from 'modes/calculatorModes';
-import CombatantPanel from './CombatantPanel';
+import CombatantPanel from '../combatant/CombatantPanel';
 import {
   createTeamDraft,
   setTeamGeneration,
   toLegacyPokemonInput,
-} from './combatantDraft';
+} from '../combatant/combatantDraft';
 import './OneVsOneMode.css';
 
 const battleGenerations: readonly BattleGeneration[] = [
