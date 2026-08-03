@@ -68,7 +68,11 @@ describe('combatantDraft', () => {
     const renamed = setCombatantField(draft.attacker, 'name', 'Raichu');
     const levelFallback = setCombatantField(draft.attacker, 'level', NaN);
     const blankLevel = setCombatantField(draft.attacker, 'level', '');
-    const partialCurrentHp = setCombatantField(draft.attacker, 'currentHp', '-');
+    const partialCurrentHp = setCombatantField(
+      draft.attacker,
+      'currentHp',
+      '-',
+    );
     const dynamaxFallback = setCombatantField(
       setCombatantField(draft.attacker, 'dynamaxLevel', 5),
       'dynamaxLevel',

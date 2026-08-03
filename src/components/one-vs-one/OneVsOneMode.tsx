@@ -57,9 +57,7 @@ export default function OneVsOneMode({ mode }: OneVsOneModeProps) {
           <select
             value={generation}
             onChange={(event) =>
-              updateGeneration(
-                Number(event.target.value) as BattleGeneration,
-              )
+              updateGeneration(Number(event.target.value) as BattleGeneration)
             }
           >
             {battleGenerations.map((battleGeneration) => (

@@ -74,7 +74,9 @@ export default function CombatantIdentityFields({
           type="text"
           value={combatant.ability ?? ''}
           onChange={(event) =>
-            onChange(setCombatantField(combatant, 'ability', event.target.value))
+            onChange(
+              setCombatantField(combatant, 'ability', event.target.value),
+            )
           }
         />
       </label>

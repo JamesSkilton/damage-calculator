@@ -24,7 +24,9 @@ describe('ModeScreen', () => {
   it('renders the one-vs-all placeholder route copy', () => {
     mockedUseOutletContext.mockReturnValue('/one-vs-all');
 
-    const markup = renderToStaticMarkup(React.createElement(ModeScreen, { mode }));
+    const markup = renderToStaticMarkup(
+      React.createElement(ModeScreen, { mode }),
+    );
 
     expect(markup).toContain('Placeholder route');
     expect(markup).toContain('<h2>One vs All</h2>');

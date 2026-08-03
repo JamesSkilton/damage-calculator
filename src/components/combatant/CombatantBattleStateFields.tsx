@@ -79,11 +79,7 @@ export default function CombatantBattleStateFields({
           checked={combatant.isDynamaxed}
           onChange={(event) =>
             onChange(
-              setCombatantField(
-                combatant,
-                'isDynamaxed',
-                event.target.checked,
-              ),
+              setCombatantField(combatant, 'isDynamaxed', event.target.checked),
             )
           }
         />
