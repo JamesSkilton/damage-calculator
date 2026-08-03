@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeCalcResult } from '../calcResult.helpers';
-import { legacyParityFixtures } from './legacyParity.fixtures';
+import { normalizeCalcResult } from 'adapters/calcResult.helpers';
+import { legacyParityFixtures } from 'adapters/tests/legacyParity.fixtures';
 
 describe('legacy parity fixtures', () => {
   it('normalizes each curated legacy snapshot', () => {

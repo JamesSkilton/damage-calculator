@@ -5,7 +5,7 @@ import {
   normalizeCalcResultKoText,
   normalizeCalcResultRange,
   normalizeCalcResultSummary,
-} from './calcResult';
+} from 'adapters/calcResult';
 
 describe('calc result normalizer', () => {
   it('normalizes range inputs and keeps the formatted range stable', () => {

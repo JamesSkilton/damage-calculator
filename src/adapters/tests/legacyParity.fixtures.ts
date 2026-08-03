@@ -1,12 +1,13 @@
 import type {
   BattleCombatant,
   BattleField,
+  BattleGeneration,
   BattleMove,
   BattleSideConditions,
   BattleStatBoosts,
   BattleStats,
-} from '../../domain';
-import type { BattleGeneration, BattleTypeName } from '../../domain/shared';
+  BattleTypeName,
+} from 'domain/index';
 
 export interface LegacyParityFixture {
   id: string;

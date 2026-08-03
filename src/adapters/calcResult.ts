@@ -1,2 +1,2 @@
-export * from './calcResult.types';
-export * from './calcResult.helpers';
+export * from 'adapters/calcResult.types';
+export * from 'adapters/calcResult.helpers';
