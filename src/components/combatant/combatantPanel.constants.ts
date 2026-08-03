@@ -1,5 +1,6 @@
 import type {
   BattleGender,
+  BattleGeneration,
   BattleStatusName,
   BattleTypeName,
 } from 'domain/index';
@@ -36,4 +37,8 @@ export const battleStatuses: readonly (BattleStatusName | '')[] = [
   'frz',
   'par',
   'tox',
+];
+
+export const battleGenerations: readonly BattleGeneration[] = [
+  0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
 ];

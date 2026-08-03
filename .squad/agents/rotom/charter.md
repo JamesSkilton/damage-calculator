@@ -20,6 +20,7 @@
 - Keep components small, typed, and easy to recombine
 - Favor explicit state transitions over ad hoc prop tunneling
 - Build UX around quick comparison and fight-planning iteration
+- **Shared battle-domain constants** (`battleTypes`, `battleGenders`, `battleStatuses`, `battleGenerations`, etc.) live in `src/components/combatant/combatantPanel.constants.ts` — never inline them in mode screens
 
 ## Boundaries
 
