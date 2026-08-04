@@ -12,6 +12,7 @@ import {
   statIds,
 } from './combatantDraft';
 import { createMoveDraft } from '../moves/moveDraft';
+import { createBattleFieldDraft } from 'components/one-vs-one/battleFieldDraft';
 
 describe('combatantDraft', () => {
   it('creates independent attacker and defender defaults', () => {
@@ -144,6 +145,7 @@ describe('combatantDraft', () => {
       attackerMoves,
       draft.defender,
       defenderMoves,
+      createBattleFieldDraft(9),
     );
 
     expect(payload.attacker.pokemon.moves).toEqual(['Thunderbolt']);
@@ -159,6 +161,22 @@ describe('combatantDraft', () => {
       name: 'Protect',
       useMax: true,
       hits: 2,
+    });
+    expect(payload.field).toMatchObject({
+      generation: 9,
+      gameType: 'Singles',
+      weather: undefined,
+      terrain: undefined,
+      isMagicRoom: false,
+      isWonderRoom: false,
+      isGravity: false,
+      isAuraBreak: false,
+      isFairyAura: false,
+      isDarkAura: false,
+      isBeadsOfRuin: false,
+      isSwordOfRuin: false,
+      isTabletsOfRuin: false,
+      isVesselOfRuin: false,
     });
   });
 });

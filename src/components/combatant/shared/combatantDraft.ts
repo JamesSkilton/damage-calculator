@@ -1,5 +1,6 @@
 import type {
   BattleCombatant,
+  BattleField,
   BattleGeneration,
   BattleStatId,
   BattleStatusName,
@@ -39,6 +40,7 @@ export interface LegacyBattlePayloadSide {
 
 export interface LegacyBattlePayload {
   generation: BattleGeneration;
+  field: BattleField;
   attacker: LegacyBattlePayloadSide;
   defender: LegacyBattlePayloadSide;
 }
@@ -296,9 +298,11 @@ export function toLegacyBattlePayload(
   attackerMoves: readonly MoveDraft[],
   defender: BattleCombatant,
   defenderMoves: readonly MoveDraft[],
+  field: BattleField,
 ): LegacyBattlePayload {
   return {
     generation,
+    field,
     attacker: {
       pokemon: toLegacyPokemonInput(attacker, attackerMoves),
       moves: toLegacyMoveInputs(attackerMoves),

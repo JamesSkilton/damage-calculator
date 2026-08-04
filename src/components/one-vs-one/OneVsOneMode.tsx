@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import type { BattleGeneration } from 'domain/index';
+import type { BattleField, BattleGeneration } from 'domain/index';
 import type { CalculatorMode } from 'modes/calculatorModes';
 import CombatantPanel from '../combatant/CombatantPanel';
 import { battleGenerations } from '../combatant/shared/combatantPanel.constants';
@@ -12,6 +12,8 @@ import {
   createCombatantMovesState,
   applyCombatantMovesGeneration,
 } from '../combatant/moves/combatantMovesState';
+import BattleFieldControls from './BattleFieldControls';
+import { createBattleFieldDraft } from './battleFieldDraft';
 import './OneVsOneMode.css';
 
 type OneVsOneModeProps = {
@@ -30,9 +32,17 @@ function formatCombatantSummary({
   }`;
 }
 
+function formatFieldSummary(field: BattleField) {
+  const weather = field.weather ?? 'Clear';
+  const terrain = field.terrain ?? 'No terrain';
+
+  return `${weather} weather, ${terrain}`;
+}
+
 export default function OneVsOneMode({ mode }: OneVsOneModeProps) {
   const [generation, setGeneration] = useState<BattleGeneration>(9);
   const [draft, setDraft] = useState(() => createTeamDraft(generation));
+  const [field, setField] = useState(() => createBattleFieldDraft(generation));
   const [attackerMoves, setAttackerMoves] = useState(() =>
     createCombatantMovesState(),
   );
@@ -48,6 +58,7 @@ export default function OneVsOneMode({ mode }: OneVsOneModeProps) {
         attackerMoves.slots,
         draft.defender,
         defenderMoves.slots,
+        field,
       ),
     [
       attackerMoves.slots,
@@ -55,6 +66,7 @@ export default function OneVsOneMode({ mode }: OneVsOneModeProps) {
       draft.attacker,
       draft.defender,
       generation,
+      field,
     ],
   );
 
@@ -68,6 +80,10 @@ export default function OneVsOneMode({ mode }: OneVsOneModeProps) {
     setDefenderMoves((current) =>
       applyCombatantMovesGeneration(current, nextGeneration),
     );
+    setField((current) => ({
+      ...current,
+      generation: nextGeneration,
+    }));
   };
 
   return (
@@ -100,6 +116,8 @@ export default function OneVsOneMode({ mode }: OneVsOneModeProps) {
         <div className="battle-control-chip" aria-label="Battle format">
           Singles matchup
         </div>
+
+        <BattleFieldControls field={field} onChange={setField} />
       </section>
 
       <div className="one-vs-one-panels">
@@ -151,7 +169,7 @@ export default function OneVsOneMode({ mode }: OneVsOneModeProps) {
           <p className="battle-preview-copy">
             Legacy handoff keeps {battlePayload.attacker.moves.length} attacker
             moves and {battlePayload.defender.moves.length} defender moves
-            ready.
+            ready for {formatFieldSummary(field)}.
           </p>
         </div>
         <dl className="battle-preview-grid">
@@ -170,6 +188,10 @@ export default function OneVsOneMode({ mode }: OneVsOneModeProps) {
           <div>
             <dt>Mode</dt>
             <dd>{mode.slug}</dd>
+          </div>
+          <div>
+            <dt>Field</dt>
+            <dd>{formatFieldSummary(field)}</dd>
           </div>
         </dl>
       </section>

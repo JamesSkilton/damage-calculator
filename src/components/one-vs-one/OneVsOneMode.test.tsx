@@ -13,12 +13,17 @@ describe('one-vs-one mode', () => {
 
     expect(markup).toContain('Generation');
     expect(markup).toContain('Gen 9');
+    expect(markup).toContain('Weather');
+    expect(markup).toContain('Terrain');
+    expect(markup).toContain('Attacker side');
+    expect(markup).toContain('Defender side');
     expect(markup).toContain('Attacker panel');
     expect(markup).toContain('Defender panel');
     expect(markup).toContain('Attacker (Pikachu) — Lv. 100, HP 100');
     expect(markup).toContain('Defender (Bulbasaur) — Lv. 100, HP 100');
     expect(markup).toContain('Battle snapshot');
     expect(markup).toContain('Live snapshot');
+    expect(markup).toContain('Clear weather, No terrain');
     expect(markup).not.toContain('Placeholder route');
   });
 });
