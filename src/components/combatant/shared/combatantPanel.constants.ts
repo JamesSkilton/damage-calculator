@@ -42,3 +42,23 @@ export const battleStatuses: readonly (BattleStatusName | '')[] = [
 export const battleGenerations: readonly BattleGeneration[] = [
   0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
 ];
+
+export const battleWeatherOptions = [
+  { value: '', label: 'Clear' },
+  { value: 'Sun', label: 'Sun' },
+  { value: 'Rain', label: 'Rain' },
+  { value: 'Sand', label: 'Sand' },
+  { value: 'Hail', label: 'Hail' },
+  { value: 'Snow', label: 'Snow' },
+  { value: 'Harsh Sunshine', label: 'Harsh Sunshine' },
+  { value: 'Heavy Rain', label: 'Heavy Rain' },
+  { value: 'Strong Winds', label: 'Strong Winds' },
+] as const;
+
+export const battleTerrainOptions = [
+  { value: '', label: 'No terrain' },
+  { value: 'Electric', label: 'Electric' },
+  { value: 'Grassy', label: 'Grassy' },
+  { value: 'Misty', label: 'Misty' },
+  { value: 'Psychic', label: 'Psychic' },
+] as const;

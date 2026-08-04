@@ -26,6 +26,18 @@
   flex-wrap: wrap;
 }
 
+.battle-field-controls {
+  display: grid;
+  gap: 1rem;
+  flex: 1 1 100%;
+}
+
+.battle-field-sides {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+}
+
 .battle-control-chip {
   display: inline-flex;
   align-items: center;
