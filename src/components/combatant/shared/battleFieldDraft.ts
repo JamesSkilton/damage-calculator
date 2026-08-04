@@ -4,6 +4,10 @@ import type {
   BattleSideConditions,
   BattleSwitchState,
 } from 'domain/index';
+import {
+  battleTerrainOptions,
+  battleWeatherOptions,
+} from './combatantPanel.constants';
 
 type BattleFieldEditableKey =
   | 'weather'
@@ -21,25 +25,7 @@ type BattleFieldEditableKey =
 
 type BattleSideEditableKey = keyof BattleSideConditions;
 
-export const battleWeatherOptions = [
-  { value: '', label: 'Clear' },
-  { value: 'Sun', label: 'Sun' },
-  { value: 'Rain', label: 'Rain' },
-  { value: 'Sand', label: 'Sand' },
-  { value: 'Hail', label: 'Hail' },
-  { value: 'Snow', label: 'Snow' },
-  { value: 'Harsh Sunshine', label: 'Harsh Sunshine' },
-  { value: 'Heavy Rain', label: 'Heavy Rain' },
-  { value: 'Strong Winds', label: 'Strong Winds' },
-] as const;
-
-export const battleTerrainOptions = [
-  { value: '', label: 'No terrain' },
-  { value: 'Electric', label: 'Electric' },
-  { value: 'Grassy', label: 'Grassy' },
-  { value: 'Misty', label: 'Misty' },
-  { value: 'Psychic', label: 'Psychic' },
-] as const;
+export { battleTerrainOptions, battleWeatherOptions };
 
 const fieldToggleDefaults = {
   weather: undefined,
