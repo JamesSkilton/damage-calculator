@@ -1,6 +1,6 @@
 import type { BattleCombatant } from 'domain/index';
-import { setCombatantField } from './combatantDraft';
-import { battleGenders } from './combatantPanel.constants';
+import { setCombatantField } from '../shared/combatantDraft';
+import { battleGenders } from '../shared/combatantPanel.constants';
 
 type CombatantIdentityFieldsProps = {
   combatant: BattleCombatant;

@@ -2,16 +2,16 @@ import { useState } from 'react';
 import type { BattleGeneration } from 'domain/index';
 import type { CalculatorMode } from 'modes/calculatorModes';
 import CombatantPanel from '../combatant/CombatantPanel';
-import { battleGenerations } from '../combatant/combatantPanel.constants';
+import { battleGenerations } from '../combatant/shared/combatantPanel.constants';
 import {
   createTeamDraft,
   setTeamGeneration,
-} from '../combatant/combatantDraft';
+} from '../combatant/shared/combatantDraft';
 import {
   createCombatantMovesState,
   applyCombatantMovesGeneration,
   getActiveMoveNames,
-} from '../combatant/combatantMovesState';
+} from '../combatant/moves/combatantMovesState';
 import './OneVsOneMode.css';
 
 type OneVsOneModeProps = {

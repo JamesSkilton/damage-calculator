@@ -1,7 +1,7 @@
 import type { BattleGeneration } from 'domain/index';
-import type { MoveDraft } from './moveDraft';
-import MovePickerRow from './MovePickerRow';
-import { FieldGroup } from './combatantPanel.helpers';
+import type { MoveDraft } from '../moves/moveDraft';
+import MovePickerRow from '../moves/MovePickerRow';
+import { FieldGroup } from '../shared/combatantPanel.helpers';
 
 type CombatantMoveFieldsProps = {
   generation: BattleGeneration;

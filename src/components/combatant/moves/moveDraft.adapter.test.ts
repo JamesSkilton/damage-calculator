@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { mapLegacyMoveToBattleMove } from 'adapters/legacyMove';
-import { toMoveLegacyInput } from 'components/combatant/moveDraft';
-import { createMoveDraft } from 'components/combatant/moveDraft';
+import { createMoveDraft, toMoveLegacyInput } from './moveDraft';
 import type { LegacyGeneration } from 'adapters/legacyShared';
 import type { LegacyMoveData } from 'adapters/legacyMove.types';
 
