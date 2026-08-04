@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { BattleGeneration } from 'domain/index';
 import type { CalculatorMode } from 'modes/calculatorModes';
 import CombatantPanel from '../combatant/CombatantPanel';
@@ -6,11 +6,11 @@ import { battleGenerations } from '../combatant/shared/combatantPanel.constants'
 import {
   createTeamDraft,
   setTeamGeneration,
+  toLegacyBattlePayload,
 } from '../combatant/shared/combatantDraft';
 import {
   createCombatantMovesState,
   applyCombatantMovesGeneration,
-  getActiveMoveNames,
 } from '../combatant/moves/combatantMovesState';
 import './OneVsOneMode.css';
 
@@ -40,6 +40,24 @@ export default function OneVsOneMode({ mode }: OneVsOneModeProps) {
     createCombatantMovesState(),
   );
 
+  const battlePayload = useMemo(
+    () =>
+      toLegacyBattlePayload(
+        generation,
+        draft.attacker,
+        attackerMoves.slots,
+        draft.defender,
+        defenderMoves.slots,
+      ),
+    [
+      attackerMoves.slots,
+      defenderMoves.slots,
+      draft.attacker,
+      draft.defender,
+      generation,
+    ],
+  );
+
   const updateGeneration = (nextGeneration: BattleGeneration) => {
     setGeneration(nextGeneration);
     setDraft((current) => setTeamGeneration(current, nextGeneration));
@@ -51,9 +69,6 @@ export default function OneVsOneMode({ mode }: OneVsOneModeProps) {
       applyCombatantMovesGeneration(current, nextGeneration),
     );
   };
-
-  const attackerActiveMoves = getActiveMoveNames(attackerMoves);
-  const defenderActiveMoves = getActiveMoveNames(defenderMoves);
 
   return (
     <section className="one-vs-one-screen">
@@ -134,8 +149,9 @@ export default function OneVsOneMode({ mode }: OneVsOneModeProps) {
           <p className="battle-preview-label">Live snapshot</p>
           <h3>Ready for the calculator result panel</h3>
           <p className="battle-preview-copy">
-            Legacy handoff keeps {attackerActiveMoves.length} attacker moves and{' '}
-            {defenderActiveMoves.length} defender moves ready.
+            Legacy handoff keeps {battlePayload.attacker.moves.length} attacker
+            moves and {battlePayload.defender.moves.length} defender moves
+            ready.
           </p>
         </div>
         <dl className="battle-preview-grid">

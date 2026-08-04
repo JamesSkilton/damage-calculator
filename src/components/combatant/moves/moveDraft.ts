@@ -62,7 +62,10 @@ export function setMoveCrit(draft: MoveDraft, isCrit: boolean): MoveDraft {
   };
 }
 
-export function setMoveHits(draft: MoveDraft, hits: number | string): MoveDraft {
+export function setMoveHits(
+  draft: MoveDraft,
+  hits: number | string,
+): MoveDraft {
   const parsed = typeof hits === 'string' ? parseInt(hits, 10) : hits;
 
   if (!Number.isFinite(parsed)) {
@@ -107,7 +110,8 @@ export function setMoveTimesUsed(
   draft: MoveDraft,
   timesUsed: number | string,
 ): MoveDraft {
-  const parsed = typeof timesUsed === 'string' ? parseInt(timesUsed, 10) : timesUsed;
+  const parsed =
+    typeof timesUsed === 'string' ? parseInt(timesUsed, 10) : timesUsed;
 
   if (!Number.isFinite(parsed)) {
     return draft;
@@ -186,14 +190,19 @@ export function validateMoveDraft(draft: MoveDraft): {
   }
 
   if (draft.timesUsed < MIN_TIMES_USED || draft.timesUsed > MAX_TIMES_USED) {
-    errors.push(`Times used must be between ${MIN_TIMES_USED} and ${MAX_TIMES_USED}`);
+    errors.push(
+      `Times used must be between ${MIN_TIMES_USED} and ${MAX_TIMES_USED}`,
+    );
   }
 
   if (
     draft.timesUsedWithMetronome !== undefined &&
-    (draft.timesUsedWithMetronome < 0 || draft.timesUsedWithMetronome > MAX_TIMES_USED)
+    (draft.timesUsedWithMetronome < 0 ||
+      draft.timesUsedWithMetronome > MAX_TIMES_USED)
   ) {
-    errors.push(`Times used with metronome must be between 0 and ${MAX_TIMES_USED}`);
+    errors.push(
+      `Times used with metronome must be between 0 and ${MAX_TIMES_USED}`,
+    );
   }
 
   if (draft.useZ && draft.useMax) {
@@ -227,10 +236,7 @@ export function resolveMoveDraftForGeneration(
   return resolved;
 }
 
-export function toMoveSlot(
-  index: number,
-  move: MoveDraft,
-): MoveSlot {
+export function toMoveSlot(index: number, move: MoveDraft): MoveSlot {
   return { index, move };
 }
 

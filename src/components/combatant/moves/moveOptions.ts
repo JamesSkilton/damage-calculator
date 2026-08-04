@@ -13,9 +13,7 @@ export interface MoveOption {
  * For now, accepts a pre-populated array of move options.
  * Future: will source from legacy generation data.
  */
-export function getMovesForGeneration(
-  moves: MoveOption[],
-): MoveOption[] {
+export function getMovesForGeneration(moves: MoveOption[]): MoveOption[] {
   // Sort alphabetically
   return moves.sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -59,8 +57,8 @@ export function resolveMoveOption(
   }
 
   // Partial match (case-insensitive, starts with)
-  const partialMatch = options.find(
-    (opt) => opt.name.toLowerCase().startsWith(trimmed.toLowerCase()),
+  const partialMatch = options.find((opt) =>
+    opt.name.toLowerCase().startsWith(trimmed.toLowerCase()),
   );
   if (partialMatch) {
     return partialMatch;

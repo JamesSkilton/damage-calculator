@@ -20,10 +20,28 @@ const mockGen9: LegacyGeneration<unknown, LegacyMoveData> = {
           category: 'Physical',
           flags: { contact: 1 },
           priority: 0,
+          maxMove: { basePower: 130 },
+        },
+        maxquake: {
+          name: 'Max Quake',
+          basePower: 10,
+          type: 'Ground',
+          category: 'Physical',
+          flags: {},
+          priority: 0,
         },
         thunderbolt: {
           name: 'Thunderbolt',
           basePower: 90,
+          type: 'Electric',
+          category: 'Special',
+          flags: {},
+          priority: 0,
+          zMove: { basePower: 175 },
+        },
+        gigavolthavoc: {
+          name: 'Gigavolt Havoc',
+          basePower: 1,
           type: 'Electric',
           category: 'Special',
           flags: {},
@@ -81,6 +99,83 @@ describe('Move Draft Adapter Integration', () => {
   });
 
   describe('Move Draft to Battle Move mapping', () => {
+    it('preserves the selected move payload through the Z-move bridge', () => {
+      const draft = createMoveDraft('Thunderbolt', {
+        isCrit: true,
+        hits: 2,
+        useZ: true,
+        isStellarFirstUse: true,
+        timesUsed: 3,
+        timesUsedWithMetronome: 2,
+      });
+
+      const legacyInput = toMoveLegacyInput(draft);
+      const battleMove = mapLegacyMoveToBattleMove(mockGen9, legacyInput);
+
+      expect(legacyInput).toEqual({
+        name: 'Thunderbolt',
+        isCrit: true,
+        hits: 2,
+        useZ: true,
+        useMax: false,
+        isStellarFirstUse: true,
+        timesUsed: 3,
+        timesUsedWithMetronome: 2,
+      });
+      expect(battleMove).toMatchObject({
+        generation: 9,
+        name: 'Gigavolt Havoc',
+        basePower: 175,
+        type: 'Electric',
+        category: 'Special',
+        hits: 2,
+        isCrit: true,
+        isZ: true,
+        isMax: false,
+        isStellarFirstUse: true,
+        timesUsed: 3,
+        timesUsedWithMetronome: 2,
+      });
+    });
+
+    it('preserves the selected move payload through the Max-move bridge', () => {
+      const draft = createMoveDraft('Earthquake', {
+        isCrit: false,
+        hits: 1,
+        useMax: true,
+        timesUsed: 4,
+        timesUsedWithMetronome: 1,
+      });
+
+      const legacyInput = toMoveLegacyInput(draft);
+      const battleMove = mapLegacyMoveToBattleMove(mockGen9, legacyInput);
+
+      expect(legacyInput).toEqual({
+        name: 'Earthquake',
+        isCrit: false,
+        hits: 1,
+        useZ: false,
+        useMax: true,
+        isStellarFirstUse: false,
+        timesUsed: 4,
+        timesUsedWithMetronome: 1,
+      });
+      expect(battleMove).toMatchObject({
+        generation: 9,
+        name: 'Max Quake',
+        basePower: 130,
+        type: 'Ground',
+        category: 'Physical',
+        hits: 1,
+        isCrit: false,
+        isZ: false,
+        isMax: true,
+        isStellarFirstUse: false,
+        timesUsed: 4,
+        timesUsedWithMetronome: 1,
+      });
+    });
+
     it('maps move draft through legacy input to battle move', () => {
       const draft = createMoveDraft('Earthquake', {
         isCrit: true,
@@ -88,8 +183,6 @@ describe('Move Draft Adapter Integration', () => {
       });
 
       const legacyInput = toMoveLegacyInput(draft);
-
-      // Map through legacy adapter
       const battleMove = mapLegacyMoveToBattleMove(mockGen9, legacyInput);
 
       expect(battleMove.name).toBe('Earthquake');

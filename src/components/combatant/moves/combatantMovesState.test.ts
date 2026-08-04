@@ -52,6 +52,58 @@ describe('combatantMovesState', () => {
       const gen7State = applyCombatantMovesGeneration(withZ, 7);
       expect(gen7State.slots[0].useZ).toBe(true);
     });
+
+    it('preserves selected names while stripping unsupported move flags', () => {
+      const state = createCombatantMovesState();
+      const withMoves = setCombatantMoveSlot(
+        setCombatantMoveSlot(
+          setCombatantMoveSlot(
+            state,
+            0,
+            createMoveDraft('Thunderbolt', {
+              isCrit: true,
+              hits: 2,
+              useZ: true,
+              timesUsed: 3,
+              timesUsedWithMetronome: 2,
+            }),
+          ),
+          1,
+          createMoveDraft('Earthquake', { useMax: true }),
+        ),
+        2,
+        createMoveDraft('Tera Blast', { isStellarFirstUse: true }),
+      );
+
+      const gen6State = applyCombatantMovesGeneration(withMoves, 6);
+      expect(gen6State.slots[0]).toMatchObject({
+        name: 'Thunderbolt',
+        isCrit: true,
+        hits: 2,
+        useZ: false,
+        useMax: false,
+        isStellarFirstUse: false,
+        timesUsed: 3,
+        timesUsedWithMetronome: 2,
+      });
+      expect(gen6State.slots[1].useMax).toBe(false);
+      expect(gen6State.slots[2].isStellarFirstUse).toBe(false);
+
+      const gen7State = applyCombatantMovesGeneration(withMoves, 7);
+      expect(gen7State.slots[0].useZ).toBe(true);
+      expect(gen7State.slots[1].useMax).toBe(false);
+      expect(gen7State.slots[2].isStellarFirstUse).toBe(false);
+
+      const gen8State = applyCombatantMovesGeneration(withMoves, 8);
+      expect(gen8State.slots[0].useZ).toBe(true);
+      expect(gen8State.slots[1].useMax).toBe(true);
+      expect(gen8State.slots[2].isStellarFirstUse).toBe(false);
+
+      const gen9State = applyCombatantMovesGeneration(withMoves, 9);
+      expect(gen9State.slots[0].useZ).toBe(true);
+      expect(gen9State.slots[1].useMax).toBe(true);
+      expect(gen9State.slots[2].isStellarFirstUse).toBe(true);
+    });
   });
 
   describe('getActiveMoveNames', () => {

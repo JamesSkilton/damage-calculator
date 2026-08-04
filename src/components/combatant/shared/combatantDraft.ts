@@ -6,6 +6,9 @@ import type {
   BattleTypeName,
 } from 'domain/index';
 import type { LegacyPokemonInput } from 'adapters/legacyPokemon';
+import type { LegacyMoveInput } from 'adapters/legacyMove.types';
+import type { MoveDraft } from '../moves/moveDraft';
+import { toMoveLegacyInput } from '../moves/moveDraft';
 
 const statIds: readonly BattleStatId[] = [
   'hp',
@@ -28,6 +31,17 @@ export type TeamDraft = {
   attacker: BattleCombatant;
   defender: BattleCombatant;
 };
+
+export interface LegacyBattlePayloadSide {
+  pokemon: LegacyPokemonInput;
+  moves: readonly LegacyMoveInput[];
+}
+
+export interface LegacyBattlePayload {
+  generation: BattleGeneration;
+  attacker: LegacyBattlePayloadSide;
+  defender: LegacyBattlePayloadSide;
+}
 
 function createBaseCombatant(
   generation: BattleGeneration,
@@ -241,7 +255,12 @@ export function setCombatantStatus(
 
 export function toLegacyPokemonInput(
   combatant: BattleCombatant,
+  moveDrafts?: readonly MoveDraft[],
 ): LegacyPokemonInput {
+  const moves = moveDrafts
+    ? moveDrafts.map((move) => move.name.trim()).filter(Boolean)
+    : combatant.moves.map((move) => move.trim()).filter(Boolean);
+
   return {
     name: combatant.name,
     level: combatant.level,
@@ -259,7 +278,35 @@ export function toLegacyPokemonInput(
     status: combatant.status ?? '',
     toxicCounter: combatant.toxicCounter,
     teraType: combatant.teratype,
-    moves: combatant.moves.map((move) => move.trim()).filter(Boolean),
+    moves,
+  };
+}
+
+export function toLegacyMoveInputs(
+  moveDrafts: readonly MoveDraft[],
+): readonly LegacyMoveInput[] {
+  return moveDrafts
+    .map(toMoveLegacyInput)
+    .filter((move) => move.name.trim().length > 0);
+}
+
+export function toLegacyBattlePayload(
+  generation: BattleGeneration,
+  attacker: BattleCombatant,
+  attackerMoves: readonly MoveDraft[],
+  defender: BattleCombatant,
+  defenderMoves: readonly MoveDraft[],
+): LegacyBattlePayload {
+  return {
+    generation,
+    attacker: {
+      pokemon: toLegacyPokemonInput(attacker, attackerMoves),
+      moves: toLegacyMoveInputs(attackerMoves),
+    },
+    defender: {
+      pokemon: toLegacyPokemonInput(defender, defenderMoves),
+      moves: toLegacyMoveInputs(defenderMoves),
+    },
   };
 }
 

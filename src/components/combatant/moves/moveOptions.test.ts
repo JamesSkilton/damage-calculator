@@ -24,7 +24,10 @@ describe('moveOptions', () => {
     it('filters moves by substring (case-insensitive)', () => {
       const result = filterMoveOptions(sampleMoves, 'thunder');
       expect(result).toHaveLength(2);
-      expect(result.map((m) => m.name)).toEqual(['Thunderbolt', 'Thunder Wave']);
+      expect(result.map((m) => m.name)).toEqual([
+        'Thunderbolt',
+        'Thunder Wave',
+      ]);
     });
 
     it('filters moves by exact name', () => {
