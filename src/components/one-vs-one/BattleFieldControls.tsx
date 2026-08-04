@@ -1,11 +1,11 @@
 import type { BattleField } from 'domain/index';
-import { FieldGroup } from '../combatant/shared/combatantPanel.helpers';
+import { FieldGroup } from 'components/combatant/shared/combatantPanel.helpers';
 import {
   battleTerrainOptions,
   battleWeatherOptions,
   setBattleFieldField,
   setBattleFieldSideCondition,
-} from './battleFieldDraft';
+} from 'components/combatant/shared/battleFieldDraft';
 
 type BattleFieldControlsProps = {
   field: BattleField;
@@ -203,4 +203,3 @@ export default function BattleFieldControls({
     </div>
   );
 }
-

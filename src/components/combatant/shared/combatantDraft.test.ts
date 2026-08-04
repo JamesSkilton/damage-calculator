@@ -12,7 +12,7 @@ import {
   statIds,
 } from './combatantDraft';
 import { createMoveDraft } from '../moves/moveDraft';
-import { createBattleFieldDraft } from 'components/one-vs-one/battleFieldDraft';
+import { createBattleFieldDraft } from './battleFieldDraft';
 
 describe('combatantDraft', () => {
   it('creates independent attacker and defender defaults', () => {

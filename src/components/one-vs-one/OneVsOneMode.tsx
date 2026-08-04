@@ -8,12 +8,12 @@ import {
   setTeamGeneration,
   toLegacyBattlePayload,
 } from '../combatant/shared/combatantDraft';
+import { createBattleFieldDraft } from '../combatant/shared/battleFieldDraft';
 import {
   createCombatantMovesState,
   applyCombatantMovesGeneration,
 } from '../combatant/moves/combatantMovesState';
 import BattleFieldControls from './BattleFieldControls';
-import { createBattleFieldDraft } from './battleFieldDraft';
 import './OneVsOneMode.css';
 
 type OneVsOneModeProps = {
