@@ -1,5 +1,5 @@
 import type { BattleCombatant } from 'domain/index';
-import { StatGrid } from './combatantPanel.helpers';
+import { StatGrid } from '../shared/combatantPanel.helpers';
 
 type CombatantStatGridsProps = {
   combatant: BattleCombatant;

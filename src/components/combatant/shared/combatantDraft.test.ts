@@ -7,9 +7,11 @@ import {
   setCombatantStatus,
   setCombatantTypes,
   setTeamGeneration,
+  toLegacyBattlePayload,
   toLegacyPokemonInput,
   statIds,
 } from './combatantDraft';
+import { createMoveDraft } from '../moves/moveDraft';
 
 describe('combatantDraft', () => {
   it('creates independent attacker and defender defaults', () => {
@@ -123,6 +125,40 @@ describe('combatantDraft', () => {
       ability: 'Static',
       item: 'Light Ball',
       moves: ['Thunderbolt', 'Protect'],
+    });
+  });
+
+  it('prefers drafted moves when serializing the battle payload bridge', () => {
+    const draft = createTeamDraft(9);
+    const attackerMoves = [
+      createMoveDraft('Thunderbolt', { isCrit: true, timesUsed: 3 }),
+      createMoveDraft(''),
+    ] as const;
+    const defenderMoves = [
+      createMoveDraft('Protect', { useMax: true, hits: 2 }),
+    ] as const;
+
+    const payload = toLegacyBattlePayload(
+      9,
+      draft.attacker,
+      attackerMoves,
+      draft.defender,
+      defenderMoves,
+    );
+
+    expect(payload.attacker.pokemon.moves).toEqual(['Thunderbolt']);
+    expect(payload.attacker.moves).toEqual([
+      expect.objectContaining({
+        name: 'Thunderbolt',
+        isCrit: true,
+        timesUsed: 3,
+      }),
+    ]);
+    expect(payload.defender.pokemon.moves).toEqual(['Protect']);
+    expect(payload.defender.moves[0]).toMatchObject({
+      name: 'Protect',
+      useMax: true,
+      hits: 2,
     });
   });
 });
