@@ -143,7 +143,9 @@ export default function BattleFieldControls({
           <select
             value={field.weather ?? ''}
             onChange={(event) =>
-              onChange(setBattleFieldField(field, 'weather', event.target.value))
+              onChange(
+                setBattleFieldField(field, 'weather', event.target.value),
+              )
             }
           >
             {battleWeatherOptions.map((option) => (
@@ -159,7 +161,9 @@ export default function BattleFieldControls({
           <select
             value={field.terrain ?? ''}
             onChange={(event) =>
-              onChange(setBattleFieldField(field, 'terrain', event.target.value))
+              onChange(
+                setBattleFieldField(field, 'terrain', event.target.value),
+              )
             }
           >
             {battleTerrainOptions.map((option) => (

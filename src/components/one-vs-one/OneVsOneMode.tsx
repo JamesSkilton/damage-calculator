@@ -168,8 +168,8 @@ export default function OneVsOneMode({ mode }: OneVsOneModeProps) {
           <h3>Ready for the calculator result panel</h3>
           <p className="battle-preview-copy">
             Legacy handoff keeps {battlePayload.attacker.moves.length} attacker
-            moves and {battlePayload.defender.moves.length} defender moves
-            ready for {formatFieldSummary(field)}.
+            moves and {battlePayload.defender.moves.length} defender moves ready
+            for {formatFieldSummary(field)}.
           </p>
         </div>
         <dl className="battle-preview-grid">
