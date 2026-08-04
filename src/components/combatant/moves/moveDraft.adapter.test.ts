@@ -29,6 +29,7 @@ const mockGen9: LegacyGeneration<unknown, LegacyMoveData> = {
           category: 'Physical',
           flags: {},
           priority: 0,
+          isMax: true,
         },
         thunderbolt: {
           name: 'Thunderbolt',
@@ -46,6 +47,7 @@ const mockGen9: LegacyGeneration<unknown, LegacyMoveData> = {
           category: 'Special',
           flags: {},
           priority: 0,
+          isZ: true,
         },
       };
       return moves[id];
