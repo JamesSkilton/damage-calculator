@@ -2,16 +2,18 @@ import { describe, expect, it } from 'vitest';
 import { mapLegacyMoveToBattleMove } from 'adapters/legacyMove';
 import { toMoveLegacyInput } from 'components/combatant/moveDraft';
 import { createMoveDraft } from 'components/combatant/moveDraft';
+import type { LegacyGeneration } from 'adapters/legacyShared';
+import type { LegacyMoveData } from 'adapters/legacyMove.types';
 
 // Mock legacy generation data for testing
-const mockGen9 = {
+const mockGen9: LegacyGeneration<unknown, LegacyMoveData> = {
   num: 9,
   species: {
     get: () => undefined,
   },
   moves: {
     get: (id: string) => {
-      const moves: Record<string, any> = {
+      const moves: Record<string, LegacyMoveData> = {
         earthquake: {
           name: 'Earthquake',
           basePower: 100,
