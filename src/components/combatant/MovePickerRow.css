@@ -1,0 +1,72 @@
+.move-picker-row {
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 4px;
+  padding: 12px;
+  margin-bottom: 8px;
+}
+
+.move-picker-row legend {
+  font-weight: 500;
+  padding: 0 4px;
+  margin-bottom: 8px;
+}
+
+.move-picker-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.move-picker-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.875rem;
+}
+
+.move-picker-field span {
+  font-weight: 500;
+  font-size: 0.75rem;
+  color: var(--text-secondary, #666);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.move-picker-field input[type='text'],
+.move-picker-field input[type='number'],
+.move-picker-field select {
+  padding: 6px 8px;
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 3px;
+  font-family: inherit;
+  font-size: 0.875rem;
+}
+
+.move-picker-field input[type='text']:focus,
+.move-picker-field input[type='number']:focus,
+.move-picker-field select:focus {
+  outline: none;
+  border-color: var(--accent-color, #0066cc);
+  box-shadow: 0 0 0 2px var(--accent-color-light, rgba(0, 102, 204, 0.1));
+}
+
+.move-picker-field.checkbox-field {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+
+.move-picker-field.checkbox-field input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.move-picker-field.checkbox-field span {
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--text-color, #333);
+  font-weight: 400;
+  cursor: pointer;
+}

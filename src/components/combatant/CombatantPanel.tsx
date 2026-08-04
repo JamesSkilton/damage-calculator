@@ -1,4 +1,6 @@
+import type { BattleGeneration } from 'domain/index';
 import type { BattleCombatant } from 'domain/index';
+import type { MoveDraft } from './moveDraft';
 import CombatantBattleStateFields from './CombatantBattleStateFields';
 import CombatantIdentityFields from './CombatantIdentityFields';
 import CombatantMoveFields from './CombatantMoveFields';
@@ -11,6 +13,10 @@ type CombatantPanelProps = {
   description: string;
   combatant: BattleCombatant;
   onChange: (combatant: BattleCombatant) => void;
+  generation: BattleGeneration;
+  moves: readonly MoveDraft[];
+  onMovesChange: (moves: readonly MoveDraft[]) => void;
+  availableMoves?: string[];
 };
 
 export default function CombatantPanel({
@@ -18,6 +24,10 @@ export default function CombatantPanel({
   description,
   combatant,
   onChange,
+  generation,
+  moves,
+  onMovesChange,
+  availableMoves,
 }: CombatantPanelProps) {
   return (
     <article className="combatant-panel">
@@ -43,7 +53,12 @@ export default function CombatantPanel({
 
       <CombatantStatGrids combatant={combatant} onChange={onChange} />
 
-      <CombatantMoveFields combatant={combatant} onChange={onChange} />
+      <CombatantMoveFields
+        generation={generation}
+        moves={moves}
+        availableMoves={availableMoves}
+        onChange={onMovesChange}
+      />
     </article>
   );
 }

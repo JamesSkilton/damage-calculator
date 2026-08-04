@@ -1,30 +1,41 @@
-import type { BattleCombatant } from 'domain/index';
-import { setCombatantMove } from './combatantDraft';
+import type { BattleGeneration } from 'domain/index';
+import type { MoveDraft } from './moveDraft';
+import MovePickerRow from './MovePickerRow';
 import { FieldGroup } from './combatantPanel.helpers';
 
 type CombatantMoveFieldsProps = {
-  combatant: BattleCombatant;
-  onChange: (combatant: BattleCombatant) => void;
+  generation: BattleGeneration;
+  moves: readonly MoveDraft[];
+  availableMoves?: string[];
+  onChange: (moves: readonly MoveDraft[]) => void;
 };
 
 export default function CombatantMoveFields({
-  combatant,
+  generation,
+  moves,
+  availableMoves,
   onChange,
 }: CombatantMoveFieldsProps) {
+  const handleMoveChange = (index: number, move: MoveDraft) => {
+    const updated = [...moves];
+    updated[index] = move;
+    onChange(updated);
+  };
+
   return (
     <FieldGroup title="Moves">
-      {combatant.moves.map((move, index) => (
-        <label key={`move-${index}`} className="combatant-field">
-          <span>Move {index + 1}</span>
-          <input
-            type="text"
-            value={move}
-            onChange={(event) =>
-              onChange(setCombatantMove(combatant, index, event.target.value))
-            }
+      <div className="moves-container">
+        {moves.map((move, index) => (
+          <MovePickerRow
+            key={`move-${index}`}
+            index={index}
+            move={move}
+            generation={generation}
+            availableMoves={availableMoves}
+            onChange={(updatedMove) => handleMoveChange(index, updatedMove)}
           />
-        </label>
-      ))}
+        ))}
+      </div>
     </FieldGroup>
   );
 }

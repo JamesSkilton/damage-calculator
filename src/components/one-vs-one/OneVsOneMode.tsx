@@ -6,8 +6,12 @@ import { battleGenerations } from '../combatant/combatantPanel.constants';
 import {
   createTeamDraft,
   setTeamGeneration,
-  toLegacyPokemonInput,
 } from '../combatant/combatantDraft';
+import {
+  createCombatantMovesState,
+  applyCombatantMovesGeneration,
+  getActiveMoveNames,
+} from '../combatant/combatantMovesState';
 import './OneVsOneMode.css';
 
 type OneVsOneModeProps = {
@@ -29,17 +33,27 @@ function formatCombatantSummary({
 export default function OneVsOneMode({ mode }: OneVsOneModeProps) {
   const [generation, setGeneration] = useState<BattleGeneration>(9);
   const [draft, setDraft] = useState(() => createTeamDraft(generation));
-  const legacyDraft = {
-    attacker: toLegacyPokemonInput(draft.attacker),
-    defender: toLegacyPokemonInput(draft.defender),
-  };
-  const attackerMoveCount = legacyDraft.attacker.moves?.length ?? 0;
-  const defenderMoveCount = legacyDraft.defender.moves?.length ?? 0;
+  const [attackerMoves, setAttackerMoves] = useState(() =>
+    createCombatantMovesState(),
+  );
+  const [defenderMoves, setDefenderMoves] = useState(() =>
+    createCombatantMovesState(),
+  );
 
   const updateGeneration = (nextGeneration: BattleGeneration) => {
     setGeneration(nextGeneration);
     setDraft((current) => setTeamGeneration(current, nextGeneration));
+    // Apply generation gating to move state
+    setAttackerMoves((current) =>
+      applyCombatantMovesGeneration(current, nextGeneration),
+    );
+    setDefenderMoves((current) =>
+      applyCombatantMovesGeneration(current, nextGeneration),
+    );
   };
+
+  const attackerActiveMoves = getActiveMoveNames(attackerMoves);
+  const defenderActiveMoves = getActiveMoveNames(defenderMoves);
 
   return (
     <section className="one-vs-one-screen">
@@ -84,6 +98,14 @@ export default function OneVsOneMode({ mode }: OneVsOneModeProps) {
               attacker,
             }))
           }
+          generation={generation}
+          moves={attackerMoves.slots}
+          onMovesChange={(moves) =>
+            setAttackerMoves((current) => ({
+              ...current,
+              slots: moves,
+            }))
+          }
         />
 
         <CombatantPanel
@@ -96,6 +118,14 @@ export default function OneVsOneMode({ mode }: OneVsOneModeProps) {
               defender,
             }))
           }
+          generation={generation}
+          moves={defenderMoves.slots}
+          onMovesChange={(moves) =>
+            setDefenderMoves((current) => ({
+              ...current,
+              slots: moves,
+            }))
+          }
         />
       </div>
 
@@ -104,8 +134,8 @@ export default function OneVsOneMode({ mode }: OneVsOneModeProps) {
           <p className="battle-preview-label">Live snapshot</p>
           <h3>Ready for the calculator result panel</h3>
           <p className="battle-preview-copy">
-            Legacy handoff keeps {attackerMoveCount} attacker moves and{' '}
-            {defenderMoveCount} defender moves ready.
+            Legacy handoff keeps {attackerActiveMoves.length} attacker moves and{' '}
+            {defenderActiveMoves.length} defender moves ready.
           </p>
         </div>
         <dl className="battle-preview-grid">
