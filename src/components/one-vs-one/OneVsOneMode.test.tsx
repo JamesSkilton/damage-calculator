@@ -21,8 +21,10 @@ describe('one-vs-one mode', () => {
     expect(markup).toContain('Defender panel');
     expect(markup).toContain('Attacker (Pikachu) — Lv. 100, HP 100');
     expect(markup).toContain('Defender (Bulbasaur) — Lv. 100, HP 100');
-    expect(markup).toContain('Battle snapshot');
-    expect(markup).toContain('Live snapshot');
+    expect(markup).toContain('Calc breakdown');
+    expect(markup).toContain('Live result');
+    expect(markup).toContain('No results');
+    expect(markup).toContain('Add a move to see the calculator breakdown.');
     expect(markup).toContain('Clear weather, No terrain');
     expect(markup).not.toContain('Placeholder route');
   });

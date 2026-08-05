@@ -1,0 +1,32 @@
+.one-vs-one-screen {
+  display: grid;
+  gap: 1rem;
+}
+
+.one-vs-one-intro,
+.battle-controls {
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  align-items: start;
+  padding: 1rem 1.25rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  background: #fff;
+}
+
+.one-vs-one-copy {
+  display: grid;
+  gap: 0.35rem;
+  max-width: 42rem;
+}
+
+.battle-controls {
+  flex-wrap: wrap;
+}
+
+.one-vs-one-panels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+  gap: 1rem;
+}

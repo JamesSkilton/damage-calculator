@@ -1,12 +1,11 @@
 import { useMemo, useState } from 'react';
-import type { BattleField, BattleGeneration } from 'domain/index';
+import type { BattleGeneration } from 'domain/index';
 import type { CalculatorMode } from 'modes/calculatorModes';
 import CombatantPanel from '../combatant/CombatantPanel';
 import { battleGenerations } from '../combatant/shared/combatantPanel.constants';
 import {
   createTeamDraft,
   setTeamGeneration,
-  toLegacyBattlePayload,
 } from '../combatant/shared/combatantDraft';
 import { createBattleFieldDraft } from '../combatant/shared/battleFieldDraft';
 import {
@@ -14,30 +13,13 @@ import {
   applyCombatantMovesGeneration,
 } from '../combatant/moves/combatantMovesState';
 import BattleFieldControls from './BattleFieldControls';
-import './OneVsOneMode.css';
+import BattleResultPanel from './BattleResultPanel';
+import { buildBattleCalcBreakdowns } from 'adapters/battleCalc';
+import './OneVsOneMode.scss';
 
 type OneVsOneModeProps = {
   mode: CalculatorMode;
 };
-
-function formatCombatantSummary({
-  name,
-  species,
-  level,
-  status,
-  currentHp,
-}: ReturnType<typeof createTeamDraft>['attacker']) {
-  return `${name} (${species}) — Lv. ${level}, HP ${currentHp}${
-    status ? `, ${status}` : ''
-  }`;
-}
-
-function formatFieldSummary(field: BattleField) {
-  const weather = field.weather ?? 'Clear';
-  const terrain = field.terrain ?? 'No terrain';
-
-  return `${weather} weather, ${terrain}`;
-}
 
 export default function OneVsOneMode({ mode }: OneVsOneModeProps) {
   const [generation, setGeneration] = useState<BattleGeneration>(9);
@@ -50,24 +32,16 @@ export default function OneVsOneMode({ mode }: OneVsOneModeProps) {
     createCombatantMovesState(),
   );
 
-  const battlePayload = useMemo(
+  const battleResults = useMemo(
     () =>
-      toLegacyBattlePayload(
+      buildBattleCalcBreakdowns({
         generation,
-        draft.attacker,
-        attackerMoves.slots,
-        draft.defender,
-        defenderMoves.slots,
+        attacker: draft.attacker,
+        defender: draft.defender,
         field,
-      ),
-    [
-      attackerMoves.slots,
-      defenderMoves.slots,
-      draft.attacker,
-      draft.defender,
-      generation,
-      field,
-    ],
+        moves: attackerMoves.slots,
+      }),
+    [attackerMoves.slots, draft.attacker, draft.defender, field, generation],
   );
 
   const updateGeneration = (nextGeneration: BattleGeneration) => {
@@ -162,39 +136,13 @@ export default function OneVsOneMode({ mode }: OneVsOneModeProps) {
         />
       </div>
 
-      <section className="battle-preview" aria-label="Battle snapshot">
-        <div>
-          <p className="battle-preview-label">Live snapshot</p>
-          <h3>Ready for the calculator result panel</h3>
-          <p className="battle-preview-copy">
-            Legacy handoff keeps {battlePayload.attacker.moves.length} attacker
-            moves and {battlePayload.defender.moves.length} defender moves ready
-            for {formatFieldSummary(field)}.
-          </p>
-        </div>
-        <dl className="battle-preview-grid">
-          <div>
-            <dt>Attacker</dt>
-            <dd>{formatCombatantSummary(draft.attacker)}</dd>
-          </div>
-          <div>
-            <dt>Defender</dt>
-            <dd>{formatCombatantSummary(draft.defender)}</dd>
-          </div>
-          <div>
-            <dt>Generation</dt>
-            <dd>{`Gen ${generation}`}</dd>
-          </div>
-          <div>
-            <dt>Mode</dt>
-            <dd>{mode.slug}</dd>
-          </div>
-          <div>
-            <dt>Field</dt>
-            <dd>{formatFieldSummary(field)}</dd>
-          </div>
-        </dl>
-      </section>
+      <BattleResultPanel
+        generationLabel={`Gen ${generation}`}
+        field={field}
+        attacker={draft.attacker}
+        defender={draft.defender}
+        results={battleResults}
+      />
     </section>
   );
 }
