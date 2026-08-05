@@ -7,6 +7,7 @@ import CombatantMoveFields from './fields/CombatantMoveFields';
 import CombatantStatGrids from './fields/CombatantStatGrids';
 import CombatantTypeFields from './fields/CombatantTypeFields';
 import { FieldGroup } from './shared/combatantPanel.helpers';
+import './CombatantPanel.scss';
 
 type CombatantPanelProps = {
   title: string;

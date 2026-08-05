@@ -6,6 +6,7 @@ import {
   setBattleFieldField,
   setBattleFieldSideCondition,
 } from '../combatant/shared/battleFieldDraft';
+import './BattleFieldControls.scss';
 
 type BattleFieldControlsProps = {
   field: BattleField;
