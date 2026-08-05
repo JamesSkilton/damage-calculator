@@ -2,6 +2,8 @@ import {
   calculate,
   Field,
   Generations,
+  type LegacyMove,
+  type LegacyPokemon,
   Move,
   Pokemon,
 } from 'vendor/legacyCalcRuntime';
@@ -80,7 +82,7 @@ function formatMoveLabel(move: BattleCalcMoveInput): string {
 function createLegacyPokemon(
   generation: BattleGeneration,
   combatant: BattleCombatant,
-): any {
+): LegacyPokemon {
   const legacyGeneration = Generations.get(generation);
 
   return Pokemon(legacyGeneration, combatant.species, {
@@ -108,7 +110,7 @@ function createLegacyMove(
   generation: BattleGeneration,
   attacker: BattleCombatant,
   move: BattleCalcMoveInput,
-): any {
+): LegacyMove {
   const legacyGeneration = Generations.get(generation);
 
   return Move(legacyGeneration, move.name, {
