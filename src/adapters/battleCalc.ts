@@ -1,18 +1,11 @@
-import {
-  calculate,
-  Field,
-  Generations,
-  type LegacyMove,
-  type LegacyPokemon,
-  Move,
-  Pokemon,
-} from 'vendor/legacyCalcRuntime';
 import type {
   BattleCombatant,
   BattleField,
   BattleGeneration,
+  BattleMove,
 } from 'domain/index';
 import { normalizeCalcResult } from 'adapters/calcResult';
+import { calculateBattleRuntime } from 'calc-runtime';
 
 export interface BattleCalcMoveInput {
   name: string;
@@ -41,10 +34,14 @@ export type BattleCalcBreakdown =
       result?: never;
     };
 
-function getMoveToggle(move: BattleCalcMoveInput, key: 'useZ' | 'useMax'): boolean {
+function getMoveToggle(
+  move: BattleCalcMoveInput | BattleMove,
+  key: 'useZ' | 'useMax',
+): boolean {
+  const input = move as Partial<BattleCalcMoveInput>;
   return key === 'useZ'
-    ? Boolean(move.useZ ?? move.isZ)
-    : Boolean(move.useMax ?? move.isMax);
+    ? Boolean(input.useZ ?? move.isZ)
+    : Boolean(input.useMax ?? move.isMax);
 }
 
 function createBattleCalcBreakdown(
@@ -79,52 +76,39 @@ function formatMoveLabel(move: BattleCalcMoveInput): string {
   return labels.length > 0 ? `${move.name} · ${labels.join(' · ')}` : move.name;
 }
 
-function createLegacyPokemon(
+function createRuntimeMove(
   generation: BattleGeneration,
-  combatant: BattleCombatant,
-): LegacyPokemon {
-  const legacyGeneration = Generations.get(generation);
+  move: BattleCalcMoveInput | BattleMove,
+): BattleMove {
+  const source = move as Partial<BattleMove>;
 
-  return Pokemon(legacyGeneration, combatant.species, {
-    name: combatant.name,
-    level: combatant.level,
-    ability: combatant.ability,
-    abilityOn: combatant.abilityOn,
-    isDynamaxed: combatant.isDynamaxed,
-    dynamaxLevel: combatant.dynamaxLevel,
-    item: combatant.item,
-    gender: combatant.gender,
-    nature: combatant.nature,
-    ivs: combatant.ivs,
-    evs: combatant.evs,
-    boosts: combatant.boosts,
-    curHP: combatant.currentHp,
-    status: combatant.status ?? '',
-    toxicCounter: combatant.toxicCounter,
-    teraType: combatant.teratype,
-    moves: [...combatant.moves],
-  });
-}
-
-function createLegacyMove(
-  generation: BattleGeneration,
-  attacker: BattleCombatant,
-  move: BattleCalcMoveInput,
-): LegacyMove {
-  const legacyGeneration = Generations.get(generation);
-
-  return Move(legacyGeneration, move.name, {
-    ability: attacker.ability,
-    item: attacker.item,
-    species: attacker.species,
-    isCrit: move.isCrit,
-    hits: move.hits,
-    useZ: getMoveToggle(move, 'useZ'),
-    useMax: getMoveToggle(move, 'useMax'),
-    isStellarFirstUse: move.isStellarFirstUse,
-    timesUsed: move.timesUsed,
+  return {
+    generation,
+    name: move.name,
+    basePower: source.basePower ?? 0,
+    type: source.type ?? 'Normal',
+    category: source.category ?? 'Status',
+    flags: source.flags ?? {},
+    target: source.target ?? 'any',
+    priority: source.priority ?? 0,
+    hits: move.hits || 1,
+    isCrit: !!move.isCrit,
+    isZ: getMoveToggle(move, 'useZ'),
+    isMax: getMoveToggle(move, 'useMax'),
+    isStellarFirstUse: !!move.isStellarFirstUse,
+    timesUsed: move.timesUsed || 1,
     timesUsedWithMetronome: move.timesUsedWithMetronome,
-  });
+    hasCrashDamage: source.hasCrashDamage ?? false,
+    mindBlownRecoil: source.mindBlownRecoil ?? false,
+    struggleRecoil: source.struggleRecoil ?? false,
+    breaksProtect: source.breaksProtect ?? false,
+    ignoreDefensive: source.ignoreDefensive ?? false,
+    multiaccuracy: source.multiaccuracy ?? false,
+    recoil: source.recoil,
+    drain: source.drain,
+    secondaries: source.secondaries,
+    self: source.self,
+  };
 }
 
 export function calculateBattleCalcResult({
@@ -138,22 +122,16 @@ export function calculateBattleCalcResult({
   attacker: BattleCombatant;
   defender: BattleCombatant;
   field: BattleField;
-  move: BattleCalcMoveInput;
+  move: BattleCalcMoveInput | BattleMove;
 }) {
-  const legacyGeneration = Generations.get(generation);
-  const legacyAttacker = createLegacyPokemon(generation, attacker);
-  const legacyDefender = createLegacyPokemon(generation, defender);
-  const legacyField = Field(field);
-  const legacyMove = createLegacyMove(generation, attacker, move);
-
   return normalizeCalcResult(
-    calculate(
-      legacyGeneration,
-      legacyAttacker,
-      legacyDefender,
-      legacyMove,
-      legacyField,
-    ),
+    calculateBattleRuntime({
+      generation,
+      attacker,
+      defender,
+      move: createRuntimeMove(generation, move),
+      field,
+    }),
   );
 }
 
