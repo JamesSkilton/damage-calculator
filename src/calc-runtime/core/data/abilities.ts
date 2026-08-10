@@ -430,7 +430,6 @@ const CHAMPIONS = [
   'Levitate',
   'Light Metal',
   'Lightning Rod',
-  'Ligtning Rod',
   'Limber',
   'Liquid Voice',
   'Long Reach',
@@ -552,42 +551,32 @@ const CHAMPIONS = [
 
 export const ABILITIES = [CHAMPIONS, RBY, GSC, ADV, DPP, BW, XY, SM, SS, SV];
 
-export class Abilities implements I.Abilities {
-  private readonly gen: I.GenerationNum;
-
-  constructor(gen: I.GenerationNum) {
-    this.gen = gen;
-  }
-
+export const Abilities: (gen: I.GenerationNum) => I.Abilities = (gen) => ({
   get(id: I.ID) {
-    return ABILITIES_BY_ID[this.gen][id];
-  }
+    return ABILITIES_BY_ID[gen][id];
+  },
 
   *[Symbol.iterator]() {
-    for (const id in ABILITIES_BY_ID[this.gen]) {
-      yield this.get(id as I.ID)!;
+    for (const id in ABILITIES_BY_ID[gen]) {
+      yield ABILITIES_BY_ID[gen][id as I.ID]!;
     }
-  }
+  },
+});
+
+function createAbility(name: string): I.Ability {
+  return {
+    kind: 'Ability',
+    id: toID(name),
+    name: name as I.AbilityName,
+  };
 }
 
-class Ability implements I.Ability {
-  readonly kind: 'Ability';
-  readonly id: I.ID;
-  readonly name: I.AbilityName;
-
-  constructor(name: string) {
-    this.kind = 'Ability';
-    this.id = toID(name);
-    this.name = name as I.AbilityName;
-  }
-}
-
-const ABILITIES_BY_ID: Array<{[id: string]: Ability}> = [];
+const ABILITIES_BY_ID: Array<{[id: string]: I.Ability}> = [];
 
 for (const abilities of ABILITIES) {
-  const map: {[id: string]: Ability} = {};
+  const map: {[id: string]: I.Ability} = {};
   for (const ability of abilities) {
-    const a = new Ability(ability);
+    const a = createAbility(ability);
     map[a.id] = a;
   }
   ABILITIES_BY_ID.push(map);

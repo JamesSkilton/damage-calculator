@@ -11071,65 +11071,47 @@ for (const species of Object.values(CHAMPIONS)) {
 
 export const SPECIES = [CHAMPIONS, RBY, GSC, ADV, DPP, BW, XY, SM, SS, SV];
 
-export class Species implements I.Species {
-  private readonly gen: I.GenerationNum;
-
-  constructor(gen: I.GenerationNum) {
-    this.gen = gen;
-  }
-
+export const Species: (gen: I.GenerationNum) => I.Species = (gen) => ({
   get(id: I.ID) {
-    return SPECIES_BY_ID[this.gen][id];
-  }
+    return SPECIES_BY_ID[gen][id];
+  },
 
   *[Symbol.iterator]() {
-    for (const id in SPECIES_BY_ID[this.gen]) {
-      yield this.get(id as I.ID)!;
+    for (const id in SPECIES_BY_ID[gen]) {
+      yield SPECIES_BY_ID[gen][id as I.ID]!;
     }
-  }
+  },
+});
+
+const SPECIE_EXCLUDE = new Set(['bs', 'otherFormes']);
+
+function createSpecie(name: string, data: SpeciesData): I.Specie {
+  const baseStats: Partial<I.StatsTable> = {};
+  baseStats.hp = data.bs.hp;
+  baseStats.atk = data.bs.at;
+  baseStats.def = data.bs.df;
+  baseStats.spa = gen === 0 || gen >= 2 ? data.bs.sa : data.bs.sl;
+  baseStats.spd = gen === 0 || gen >= 2 ? data.bs.sd : data.bs.sl;
+  baseStats.spe = data.bs.sp;
+
+  const specie: {[key: string]: any} = {
+    kind: 'Species',
+    id: toID(name),
+    name: name as I.SpeciesName,
+    baseStats: baseStats as I.StatsTable,
+    otherFormes: data.otherFormes as I.SpeciesName[],
+  };
+  assignWithout(specie, data, SPECIE_EXCLUDE);
+  return specie as I.Specie;
 }
-
-class Specie implements I.Specie {
-  readonly kind: 'Species';
-  readonly id: I.ID;
-  readonly name: I.SpeciesName;
-  readonly types!: [I.TypeName] | [I.TypeName, I.TypeName];
-  readonly baseStats: Readonly<I.StatsTable>;
-  readonly weightkg!: number; // weight
-  readonly gender?: I.GenderName;
-  readonly nfe?: boolean;
-  readonly abilities?: {0: I.AbilityName};
-  readonly otherFormes?: I.SpeciesName[];
-  readonly baseSpecies?: I.SpeciesName;
-
-  private static readonly EXCLUDE = new Set(['bs', 'otherFormes']);
-
-  constructor(name: string, data: SpeciesData) {
-    this.kind = 'Species';
-    this.id = toID(name);
-    this.name = name as I.SpeciesName;
-
-    const baseStats: Partial<I.StatsTable> = {};
-    baseStats.hp = data.bs.hp;
-    baseStats.atk = data.bs.at;
-    baseStats.def = data.bs.df;
-    baseStats.spa = gen === 0 || gen >= 2 ? data.bs.sa : data.bs.sl;
-    baseStats.spd = gen === 0 || gen >= 2 ? data.bs.sd : data.bs.sl;
-    baseStats.spe = data.bs.sp;
-    this.baseStats = baseStats as I.StatsTable;
-    this.otherFormes = data.otherFormes as I.SpeciesName[];
-
-    assignWithout(this, data, Specie.EXCLUDE);
-  }
-}
-const SPECIES_BY_ID: Array<{[id: string]: Specie}> = [];
+const SPECIES_BY_ID: Array<{[id: string]: I.Specie}> = [];
 
 let gen = 0;
 for (const species of SPECIES) {
-  const map: {[id: string]: Specie} = {};
+  const map: {[id: string]: I.Specie} = {};
   for (const specie in species) {
     if (gen >= 2 && species[specie].bs.sl) delete species[specie].bs.sl;
-    const m = new Specie(specie, species[specie]);
+    const m = createSpecie(specie, species[specie]);
     map[m.id] = m;
   }
   SPECIES_BY_ID.push(map);

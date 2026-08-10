@@ -29,37 +29,31 @@ export const NATURES: {[name: string]: [I.StatID, I.StatID]} = {
   Timid: ['spe', 'atk'],
 };
 
-export class Natures implements I.Natures {
+export const Natures: I.Natures = {
   get(id: I.ID) {
     return NATURES_BY_ID[id];
-  }
+  },
 
   *[Symbol.iterator]() {
     for (const id in NATURES_BY_ID) {
-      yield this.get(id as I.ID)!;
+      yield NATURES_BY_ID[id as I.ID]!;
     }
-  }
+  },
+};
+
+function createNature(name: string, [plus, minus]: [I.StatID, I.StatID]): I.Nature {
+  return {
+    kind: 'Nature',
+    id: toID(name),
+    name: name as I.NatureName,
+    plus,
+    minus,
+  };
 }
 
-class Nature implements I.Nature {
-  readonly kind: 'Nature';
-  readonly id: I.ID;
-  readonly name: I.NatureName;
-  readonly plus?: I.StatID;
-  readonly minus?: I.StatID;
-
-  constructor(name: string, [plus, minus]: [I.StatID, I.StatID]) {
-    this.kind = 'Nature';
-    this.id = toID(name);
-    this.name = name as I.NatureName;
-    this.plus = plus;
-    this.minus = minus;
-  }
-}
-
-const NATURES_BY_ID: {[id: string]: Nature} = {};
+const NATURES_BY_ID: {[id: string]: I.Nature} = {};
 
 for (const nature in NATURES) {
-  const n = new Nature(nature, NATURES[nature] as [I.StatID, I.StatID]);
+  const n = createNature(nature, NATURES[nature] as [I.StatID, I.StatID]);
   NATURES_BY_ID[n.id] = n;
 }

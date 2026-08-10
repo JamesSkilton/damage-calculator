@@ -74,7 +74,7 @@ export function calculateChampions(
     isWonderRoom: field.isWonderRoom,
   };
 
-  const result = new Result(gen, attacker, defender, move, field, 0, desc);
+  const result = Result(gen, attacker, defender, move, field, 0, desc);
 
   if (move.category === 'Status') {
     return result;

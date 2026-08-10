@@ -783,55 +783,51 @@ export const MEGA_STONES = Object.assign({}, GEN_6_MEGA_STONES, ZA_MEGA_STONES);
 
 export const ITEMS = [CHAMPIONS, RBY, GSC, ADV, DPP, BW, XY, SM, SS, SV];
 
-export class Items implements I.Items {
-  private readonly gen: I.GenerationNum;
-
-  constructor(gen: I.GenerationNum) {
-    this.gen = gen;
-  }
-
+export const Items: (gen: I.GenerationNum) => I.Items = (gen) => ({
   get(id: I.ID) {
-    return ITEMS_BY_ID[this.gen][id];
-  }
+    return ITEMS_BY_ID[gen][id];
+  },
 
   *[Symbol.iterator]() {
-    for (const id in ITEMS_BY_ID[this.gen]) {
-      yield this.get(id as I.ID)!;
+    for (const id in ITEMS_BY_ID[gen]) {
+      yield ITEMS_BY_ID[gen][id as I.ID]!;
     }
+  },
+});
+
+function createItem(name: string, gen: number): I.Item {
+  const item: {
+    kind: 'Item';
+    id: I.ID;
+    name: I.ItemName;
+    megaStone?: Readonly<{[megaEvolves: I.SpeciesName]: I.SpeciesName}>;
+    isBerry?: boolean;
+    naturalGift?: Readonly<{basePower: number; type: I.TypeName}>;
+  } = {
+    kind: 'Item',
+    id: toID(name),
+    name: name as I.ItemName,
+  };
+  const megaStone = MEGA_STONES[name] as Readonly<{[megaEvolves: I.SpeciesName]: I.SpeciesName}>;
+  if (megaStone) item.megaStone = megaStone;
+  const berry = BERRIES[name];
+  if (berry) {
+    item.isBerry = true;
+    item.naturalGift = {
+      basePower: gen < 6 ? berry.p - 20 : berry.p,
+      type: berry.t,
+    };
   }
+  return item;
 }
 
-class Item implements I.Item {
-  readonly kind: 'Item';
-  readonly id: I.ID;
-  readonly name: I.ItemName;
-  readonly megaStone?: Readonly<{[megaEvolves: I.SpeciesName]: I.SpeciesName}>;
-  readonly isBerry?: boolean;
-  readonly naturalGift?: Readonly<{basePower: number; type: I.TypeName}>;
-
-  constructor(name: string, gen: number) {
-    this.kind = 'Item';
-    this.id = toID(name);
-    this.name = name as I.ItemName;
-    this.megaStone = MEGA_STONES[name] as Readonly<{[megaEvolves: I.SpeciesName]: I.SpeciesName}>;
-    const berry = BERRIES[name];
-    if (berry) {
-      this.isBerry = true;
-      this.naturalGift = {
-        basePower: gen < 6 ? berry.p - 20 : berry.p,
-        type: berry.t,
-      };
-    }
-  }
-}
-
-const ITEMS_BY_ID: Array<{[id: string]: Item}> = [];
+const ITEMS_BY_ID: Array<{[id: string]: I.Item}> = [];
 
 let gen = 0;
 for (const items of ITEMS) {
-  const map: {[id: string]: Item} = {};
+  const map: {[id: string]: I.Item} = {};
   for (const item of items) {
-    const i = new Item(item, gen);
+    const i = createItem(item, gen);
     map[i.id] = i;
   }
   ITEMS_BY_ID.push(map);

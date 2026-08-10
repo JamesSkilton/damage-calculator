@@ -125,7 +125,7 @@ export function calculateSMSSSV(
     move.category = attacker.stats.atk > attacker.stats.spa ? 'Physical' : 'Special';
   }
 
-  const result = new Result(gen, attacker, defender, move, field, 0, desc);
+  const result = Result(gen, attacker, defender, move, field, 0, desc);
 
   if (move.category === 'Status' && !move.named('Nature Power')) {
     return result;
