@@ -48,15 +48,6 @@ import type {State} from './state';
 import type * as I from './data/interface';
 import * as A from './adaptable';
 
-// The loading strategy outlined in the comment above breaks in the browser when we start reusing
-// names as we're doing here with our shim overrides. Because exporting calculate below tramples
-// A.calculate, this ends up infinitely calling itself. As a workaround we save the original value
-// of A.calculate (which would be exports.calculate if files are loaded as outlined above) so that
-// we can call that instead.
-//
-// This is obviously kludge, use a bundler kids.
-const Acalculate = exports.calculate;
-
 export function calculate(
   gen: I.GenerationNum | I.Generation,
   attacker: A.Pokemon,
@@ -64,7 +55,7 @@ export function calculate(
   move: A.Move,
   field?: A.Field
 ): A.Result {
-  return (Acalculate || A.calculate)(
+  return A.calculate(
     typeof gen === 'number' ? Generations.get(gen) : gen,
     attacker,
     defender,

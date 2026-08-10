@@ -7,7 +7,14 @@ import eslintConfigPrettier from 'eslint-config-prettier';
 
 export default tseslint.config(
   {
-    ignores: ['dist', 'node_modules', 'coverage', '.squad', 'old-code'],
+    ignores: [
+      'dist',
+      'node_modules',
+      'coverage',
+      '.squad',
+      'old-code',
+      'src/calc-runtime/core',
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
