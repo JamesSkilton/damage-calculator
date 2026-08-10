@@ -18,9 +18,9 @@ export interface Result {
   range(): [number, number];
   fullDesc(notation?: string, err?: boolean): string;
   moveDesc(notation?: string): string;
-  recovery(notation?: string): {recover: string; text: string};
-  recoil(notation?: string): {recoil: string; text: string};
-  kochance(err?: boolean): {chance: number; n: number; text: string};
+  recovery(notation?: string): ReturnType<typeof getRecovery>;
+  recoil(notation?: string): ReturnType<typeof getRecoil>;
+  kochance(err?: boolean): ReturnType<typeof getKOChance>;
 }
 
 export function Result(
