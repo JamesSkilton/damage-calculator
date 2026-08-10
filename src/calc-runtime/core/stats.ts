@@ -40,7 +40,7 @@ const HP: {[type in HPTypeName]: {ivs: Partial<StatsTable>; dvs: Partial<StatsTa
   Water: {ivs: {atk: 30, def: 30, spa: 30}, dvs: {atk: 14, def: 13}},
 };
 
-export const Stats = new (class {
+export const Stats = {
   displayStat(stat: StatID | 'spc') {
     switch (stat) {
     case 'hp':
@@ -60,7 +60,7 @@ export const Stats = new (class {
     default:
       throw new Error(`unknown stat ${stat}`);
     }
-  }
+  },
 
   shortForm(stat: StatID | 'spc') {
     switch (stat) {
@@ -79,32 +79,32 @@ export const Stats = new (class {
     case 'spc':
       return 'sl';
     }
-  }
+  },
 
   getHPDV(ivs: {atk: number; def: number; spe: number; spc: number}) {
     return (
-      (this.IVToDV(ivs.atk) % 2) * 8 +
-      (this.IVToDV(ivs.def) % 2) * 4 +
-      (this.IVToDV(ivs.spe) % 2) * 2 +
-      (this.IVToDV(ivs.spc) % 2)
+      (Stats.IVToDV(ivs.atk) % 2) * 8 +
+      (Stats.IVToDV(ivs.def) % 2) * 4 +
+      (Stats.IVToDV(ivs.spe) % 2) * 2 +
+      (Stats.IVToDV(ivs.spc) % 2)
     );
-  }
+  },
 
   IVToDV(iv: number) {
     return Math.floor(iv / 2);
-  }
+  },
 
   DVToIV(dv: number) {
     return dv * 2;
-  }
+  },
 
   EVToStatEXP(ev: number) {
     return (ev - 1) * (ev - 1) + 1;
-  }
+  },
 
   StatEXPToEv(statexp: number) {
     return Math.floor((Math.sqrt(statexp - 1) + 1) / 4) * 4;
-  }
+  },
 
   DVsToIVs(dvs: Readonly<Partial<StatsTable>>) {
     const ivs: Partial<StatsTable> = {};
@@ -113,7 +113,7 @@ export const Stats = new (class {
       ivs[dv] = Stats.DVToIV(dvs[dv]!);
     }
     return ivs;
-  }
+  },
 
   calcStat(
     gen: Generation,
@@ -125,10 +125,10 @@ export const Stats = new (class {
     nature?: string
   ) {
     if (gen.num < 0 || gen.num > 9) throw new Error(`Invalid generation ${gen.num}`);
-    if (gen.num === 0) return this.calcStatChampions(gen.natures, stat, base, ev, nature);
-    if (gen.num < 3) return this.calcStatRBY(stat, base, iv, ev, level);
-    return this.calcStatADV(gen.natures, stat, base, iv, ev, level, nature);
-  }
+    if (gen.num === 0) return Stats.calcStatChampions(gen.natures, stat, base, ev, nature);
+    if (gen.num < 3) return Stats.calcStatRBY(stat, base, iv, ev, level);
+    return Stats.calcStatADV(gen.natures, stat, base, iv, ev, level, nature);
+  },
 
   calcStatChampions(
     natures: Natures,
@@ -156,7 +156,7 @@ export const Stats = new (class {
               ? 0.9
               : 1;
     return Math.floor(n * (base + sp + 20));
-  }
+  },
 
   calcStatADV(
     natures: Natures,
@@ -188,11 +188,11 @@ export const Stats = new (class {
 
       return Math.floor((Math.floor(((base * 2 + iv + Math.floor(ev / 4)) * level) / 100) + 5) * n);
     }
-  }
+  },
 
   calcStatRBY(stat: StatID, base: number, iv: number, ev: number, level: number) {
-    return this.calcStatRBYFromDV(stat, base, this.IVToDV(iv), this.EVToStatEXP(ev), level);
-  }
+    return Stats.calcStatRBYFromDV(stat, base, Stats.IVToDV(iv), Stats.EVToStatEXP(ev), level);
+  },
 
   calcStatRBYFromDV(stat: StatID, base: number, dv: number, statexp: number, level: number) {
     if (stat === 'hp') {
@@ -202,13 +202,13 @@ export const Stats = new (class {
       return Math.floor((((base + dv) * 2 + Math.floor((Math.sqrt(statexp - 1) + 1) / 4)) *
       level) / 100) + 5;
     }
-  }
+  },
 
   getHiddenPowerIVs(gen: Generation, hpType: HPTypeName) {
     const hp = HP[hpType];
     if (!hp) return undefined;
     return gen.num === 2 ? Stats.DVsToIVs(hp.dvs) : hp.ivs;
-  }
+  },
 
   getHiddenPower(gen: Generation, ivs: StatsTable) {
     const tr = (num: number, bits = 0) => {
@@ -249,4 +249,5 @@ export const Stats = new (class {
       };
     }
   }
-})();
+};
+

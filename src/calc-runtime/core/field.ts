@@ -1,77 +1,29 @@
 import type {State} from './state';
 import type {GameType, Weather, Terrain} from './data/interface';
 
-export class Field implements State.Field {
+export interface Field extends State.Field {
   gameType: GameType;
   weather?: Weather;
   terrain?: Terrain;
   isMagicRoom: boolean;
   isWonderRoom: boolean;
   isGravity: boolean;
-  isAuraBreak?: boolean;
-  isFairyAura?: boolean;
-  isDarkAura?: boolean;
-  isBeadsOfRuin?: boolean;
-  isSwordOfRuin?: boolean;
-  isTabletsOfRuin?: boolean;
-  isVesselOfRuin?: boolean;
+  isAuraBreak: boolean;
+  isFairyAura: boolean;
+  isDarkAura: boolean;
+  isBeadsOfRuin: boolean;
+  isSwordOfRuin: boolean;
+  isTabletsOfRuin: boolean;
+  isVesselOfRuin: boolean;
   attackerSide: Side;
   defenderSide: Side;
-
-  constructor(field: Partial<State.Field> = {}) {
-    this.gameType = field.gameType || 'Singles';
-    this.terrain = field.terrain;
-    this.weather = field.weather;
-    this.isMagicRoom = !!field.isMagicRoom;
-    this.isWonderRoom = !!field.isWonderRoom;
-    this.isGravity = !!field.isGravity;
-    this.isAuraBreak = field.isAuraBreak || false;
-    this.isFairyAura = field.isFairyAura || false;
-    this.isDarkAura = field.isDarkAura || false;
-    this.isBeadsOfRuin = field.isBeadsOfRuin || false;
-    this.isSwordOfRuin = field.isSwordOfRuin || false;
-    this.isTabletsOfRuin = field.isTabletsOfRuin || false;
-    this.isVesselOfRuin = field.isVesselOfRuin || false;
-
-    this.attackerSide = new Side(field.attackerSide || {});
-    this.defenderSide = new Side(field.defenderSide || {});
-  }
-
-  hasWeather(...weathers: Weather[]) {
-    return !!(this.weather && weathers.includes(this.weather));
-  }
-
-  hasTerrain(...terrains: Terrain[]) {
-    return !!(this.terrain && terrains.includes(this.terrain));
-  }
-
-  swap() {
-    [this.attackerSide, this.defenderSide] = [this.defenderSide, this.attackerSide];
-    return this;
-  }
-
-  clone() {
-    return new Field({
-      gameType: this.gameType,
-      weather: this.weather,
-      terrain: this.terrain,
-      isMagicRoom: this.isMagicRoom,
-      isWonderRoom: this.isWonderRoom,
-      isGravity: this.isGravity,
-      attackerSide: this.attackerSide,
-      defenderSide: this.defenderSide,
-      isAuraBreak: this.isAuraBreak,
-      isDarkAura: this.isDarkAura,
-      isFairyAura: this.isFairyAura,
-      isBeadsOfRuin: this.isBeadsOfRuin,
-      isSwordOfRuin: this.isSwordOfRuin,
-      isTabletsOfRuin: this.isTabletsOfRuin,
-      isVesselOfRuin: this.isVesselOfRuin,
-    });
-  }
+  hasWeather(...weathers: Weather[]): boolean;
+  hasTerrain(...terrains: Terrain[]): boolean;
+  swap(): this;
+  clone(): Field;
 }
 
-export class Side implements State.Side {
+export interface Side extends State.Side {
   spikes: number;
   steelsurge: boolean;
   vinelash: boolean;
@@ -88,41 +40,92 @@ export class Side implements State.Side {
   isTailwind: boolean;
   isHelpingHand: boolean;
   isFlowerGift: boolean;
-  isPowerTrick?: boolean;
+  isPowerTrick: boolean;
   isFriendGuard: boolean;
   isAuroraVeil: boolean;
   isBattery: boolean;
   isPowerSpot: boolean;
   isSteelySpirit: boolean;
   isSwitching?: 'out' | 'in';
+  clone(): Side;
+}
 
-  constructor(side: State.Side = {}) {
-    this.spikes = side.spikes || 0;
-    this.steelsurge = !!side.steelsurge;
-    this.vinelash = !!side.vinelash;
-    this.wildfire = !!side.wildfire;
-    this.cannonade = !!side.cannonade;
-    this.volcalith = !!side.volcalith;
-    this.isSR = !!side.isSR;
-    this.isReflect = !!side.isReflect;
-    this.isLightScreen = !!side.isLightScreen;
-    this.isProtected = !!side.isProtected;
-    this.isSeeded = !!side.isSeeded;
-    this.isSaltCured = !!side.isSaltCured;
-    this.isForesight = !!side.isForesight;
-    this.isTailwind = !!side.isTailwind;
-    this.isHelpingHand = !!side.isHelpingHand;
-    this.isFlowerGift = !!side.isFlowerGift;
-    this.isPowerTrick = !!side.isPowerTrick;
-    this.isFriendGuard = !!side.isFriendGuard;
-    this.isAuroraVeil = !!side.isAuroraVeil;
-    this.isBattery = !!side.isBattery;
-    this.isPowerSpot = !!side.isPowerSpot;
-    this.isSteelySpirit = !!side.isSteelySpirit;
-    this.isSwitching = side.isSwitching;
-  }
+export function Side(side: State.Side = {}): Side {
+  const self: Side = {
+    spikes: side.spikes || 0,
+    steelsurge: !!side.steelsurge,
+    vinelash: !!side.vinelash,
+    wildfire: !!side.wildfire,
+    cannonade: !!side.cannonade,
+    volcalith: !!side.volcalith,
+    isSR: !!side.isSR,
+    isReflect: !!side.isReflect,
+    isLightScreen: !!side.isLightScreen,
+    isProtected: !!side.isProtected,
+    isSeeded: !!side.isSeeded,
+    isSaltCured: !!side.isSaltCured,
+    isForesight: !!side.isForesight,
+    isTailwind: !!side.isTailwind,
+    isHelpingHand: !!side.isHelpingHand,
+    isFlowerGift: !!side.isFlowerGift,
+    isPowerTrick: !!side.isPowerTrick,
+    isFriendGuard: !!side.isFriendGuard,
+    isAuroraVeil: !!side.isAuroraVeil,
+    isBattery: !!side.isBattery,
+    isPowerSpot: !!side.isPowerSpot,
+    isSteelySpirit: !!side.isSteelySpirit,
+    isSwitching: side.isSwitching,
+    clone() { return Side(self); },
+  };
+  return self;
+}
 
-  clone() {
-    return new Side(this);
-  }
+export function Field(field: Partial<State.Field> = {}): Field {
+  const self: Field = {
+    gameType: field.gameType || 'Singles',
+    terrain: field.terrain,
+    weather: field.weather,
+    isMagicRoom: !!field.isMagicRoom,
+    isWonderRoom: !!field.isWonderRoom,
+    isGravity: !!field.isGravity,
+    isAuraBreak: field.isAuraBreak || false,
+    isFairyAura: field.isFairyAura || false,
+    isDarkAura: field.isDarkAura || false,
+    isBeadsOfRuin: field.isBeadsOfRuin || false,
+    isSwordOfRuin: field.isSwordOfRuin || false,
+    isTabletsOfRuin: field.isTabletsOfRuin || false,
+    isVesselOfRuin: field.isVesselOfRuin || false,
+    attackerSide: Side(field.attackerSide || {}),
+    defenderSide: Side(field.defenderSide || {}),
+    hasWeather(...weathers: Weather[]) {
+      return !!(self.weather && weathers.includes(self.weather));
+    },
+    hasTerrain(...terrains: Terrain[]) {
+      return !!(self.terrain && terrains.includes(self.terrain));
+    },
+    swap() {
+      [self.attackerSide, self.defenderSide] = [self.defenderSide, self.attackerSide];
+      return self;
+    },
+    clone() {
+      return Field({
+        gameType: self.gameType,
+        weather: self.weather,
+        terrain: self.terrain,
+        isMagicRoom: self.isMagicRoom,
+        isWonderRoom: self.isWonderRoom,
+        isGravity: self.isGravity,
+        attackerSide: self.attackerSide,
+        defenderSide: self.defenderSide,
+        isAuraBreak: self.isAuraBreak,
+        isDarkAura: self.isDarkAura,
+        isFairyAura: self.isFairyAura,
+        isBeadsOfRuin: self.isBeadsOfRuin,
+        isSwordOfRuin: self.isSwordOfRuin,
+        isTabletsOfRuin: self.isTabletsOfRuin,
+        isVesselOfRuin: self.isVesselOfRuin,
+      });
+    },
+  };
+  return self;
 }

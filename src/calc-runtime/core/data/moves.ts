@@ -5483,110 +5483,70 @@ delete CHAMPIONS['Freeze-Dry'].secondaries;
 
 export const MOVES = [CHAMPIONS, RBY, GSC, ADV, DPP, BW, XY, SM, SS, SV];
 
-export class Moves implements I.Moves {
-  private readonly gen: I.GenerationNum;
-
-  constructor(gen: I.GenerationNum) {
-    this.gen = gen;
-  }
-
+export const Moves: (gen: I.GenerationNum) => I.Moves = (gen) => ({
   get(id: I.ID) {
-    return MOVES_BY_ID[this.gen][id];
-  }
+    return MOVES_BY_ID[gen][id];
+  },
 
   *[Symbol.iterator]() {
-    for (const id in MOVES_BY_ID[this.gen]) {
-      yield this.get(id as I.ID)!;
+    for (const id in MOVES_BY_ID[gen]) {
+      yield MOVES_BY_ID[gen][id as I.ID]!;
     }
-  }
+  },
+});
+
+const MOVE_FLAGS = new Set([
+  'bp',
+  'makesContact',
+  'isPunch',
+  'isBite',
+  'isBullet',
+  'isSound',
+  'isPulse',
+  'zp',
+  'maxPower',
+  'isSlicing',
+  'isWind',
+]);
+
+function createMove(name: string, data: MoveData, gen: number): I.Move {
+  const flags: I.MoveFlags = {};
+  if (data.makesContact) flags.contact = 1;
+  if (data.isPunch) flags.punch = 1;
+  if (data.isBite) flags.bite = 1;
+  if (data.isBullet) flags.bullet = 1;
+  if (data.isSound) flags.sound = 1;
+  if (data.isPulse) flags.pulse = 1;
+  if (data.isSlicing) flags.slicing = 1;
+  if (data.isWind) flags.wind = 1;
+
+  const move: {[key: string]: any} = {
+    kind: 'Move',
+    id: toID(name),
+    name: name as I.MoveName,
+    flags,
+  };
+
+  assignWithout(move, data, MOVE_FLAGS);
+
+  move['basePower'] = data.bp;
+  if (data.zp) move['zMove'] = {basePower: data.zp};
+  if (data.maxPower) move['maxMove'] = {basePower: data.maxPower};
+
+  if (!move['category'] && gen >= 4) move['category'] = 'Status';
+  if (move['struggleRecoil']) delete move['recoil'];
+
+  return move as I.Move;
 }
 
-class Move implements I.Move {
-  readonly kind: 'Move';
-  readonly id: I.ID;
-  readonly name: I.MoveName;
-  readonly basePower!: number;
-  readonly type!: I.TypeName;
-  readonly category?: I.MoveCategory;
-  readonly flags: I.MoveFlags;
-  readonly secondaries?: boolean;
-  readonly target?: I.MoveTarget;
-  readonly recoil?: [number, number];
-  readonly hasCrashDamage?: boolean;
-  readonly mindBlownRecoil?: boolean;
-  readonly struggleRecoil?: boolean;
-  readonly willCrit?: boolean;
-  readonly drain?: [number, number];
-  readonly priority?: number;
-  readonly self?: I.SelfOrSecondaryEffect | null;
-  readonly ignoreDefensive?: boolean;
-  readonly overrideOffensiveStat?: I.StatIDExceptHP;
-  readonly overrideDefensiveStat?: I.StatIDExceptHP;
-  readonly overrideOffensivePokemon?: 'target' | 'source';
-  readonly overrideDefensivePokemon?: 'target' | 'source';
-  readonly breaksProtect?: boolean;
-  readonly isZ?: boolean;
-  readonly zMove?: {
-    basePower?: number;
-  };
-  readonly isMax?: boolean;
-  readonly maxMove?: {
-    basePower: number;
-  };
-  readonly zp?: number;
-  readonly maxPower?: number;
-  readonly multihit?: number | number[];
-  readonly multiaccuracy?: boolean;
-
-  private static readonly FLAGS = new Set([
-    'bp',
-    'makesContact',
-    'isPunch',
-    'isBite',
-    'isBullet',
-    'isSound',
-    'isPulse',
-    'zp',
-    'maxPower',
-    'isSlicing',
-    'isWind',
-  ]);
-
-  constructor(name: string, data: MoveData, gen: number) {
-    this.kind = 'Move';
-    this.id = toID(name);
-    this.name = name as I.MoveName;
-
-    // TODO: remove this once MoveData is migrated to flags and Object.assign just handles this
-    this.flags = {};
-    if (data.makesContact) this.flags.contact = 1;
-    if (data.isPunch) this.flags.punch = 1;
-    if (data.isBite) this.flags.bite = 1;
-    if (data.isBullet) this.flags.bullet = 1;
-    if (data.isSound) this.flags.sound = 1;
-    if (data.isPulse) this.flags.pulse = 1;
-    if (data.isSlicing) this.flags.slicing = 1;
-    if (data.isWind) this.flags.wind = 1;
-
-    assignWithout(this, data, Move.FLAGS);
-
-    this.basePower = data.bp;
-    if (data.zp) this.zMove = {basePower: data.zp};
-    if (data.maxPower) this.maxMove = {basePower: data.maxPower};
-
-    if (!this.category && gen >= 4) this.category = 'Status';
-    if (this.struggleRecoil) delete (this as any).recoil;
-  }
-}
-
-const MOVES_BY_ID: Array<{[id: string]: Move}> = [];
+const MOVES_BY_ID: Array<{[id: string]: I.Move}> = [];
 
 let gen = 0;
 for (const moves of MOVES) {
-  const map: {[id: string]: Move} = {};
+  const map: {[id: string]: I.Move} = {};
   for (const move in moves) {
     const data = moves[move];
-    const m = new Move(move, data, gen);
+    const m = createMove(move, data, gen);
     map[m.id] = m;
   }
   MOVES_BY_ID.push(map);

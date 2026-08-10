@@ -6,15 +6,12 @@ import type {State} from './state';
 const STATS = ['hp', 'atk', 'def', 'spa', 'spd', 'spe'] as I.StatID[];
 const SPC = new Set(['spc']);
 
-
-export class Pokemon implements State.Pokemon {
+export interface Pokemon extends State.Pokemon {
   gen: I.Generation;
   name: I.SpeciesName;
   species: I.Specie;
-
   types: [I.TypeName] | [I.TypeName, I.TypeName];
   weightkg: number;
-
   level: number;
   gender?: I.GenderName;
   ability?: I.AbilityName;
@@ -26,219 +23,210 @@ export class Pokemon implements State.Pokemon {
   item?: I.ItemName;
   disabledItem?: I.ItemName;
   teraType?: I.TypeName;
-
   nature: I.NatureName;
   ivs: I.StatsTable;
   evs: I.StatsTable;
   boosts: I.StatsTable;
   rawStats: I.StatsTable;
   stats: I.StatsTable;
-
   originalCurHP: number;
   status: I.StatusName | '';
   toxicCounter: number;
-
   moves: I.MoveName[];
+  maxHP(original?: boolean): number;
+  curHP(original?: boolean): number;
+  hasAbility(...abilities: string[]): boolean;
+  hasItem(...items: string[]): boolean;
+  hasStatus(...statuses: I.StatusName[]): boolean;
+  hasType(...types: I.TypeName[]): boolean;
+  hasOriginalType(...types: I.TypeName[]): boolean;
+  named(...names: string[]): boolean;
+  clone(): Pokemon;
+}
 
-  constructor(
-    gen: I.Generation,
-    name: string,
-    options: Partial<State.Pokemon> & {
-      curHP?: number;
-      ivs?: Partial<I.StatsTable> & {spc?: number};
-      evs?: Partial<I.StatsTable> & {spc?: number};
-      boosts?: Partial<I.StatsTable> & {spc?: number};
-    } = {}
-  ) {
-    this.species = extend(true, {}, gen.species.get(toID(name)), options.overrides);
+export function Pokemon(
+  gen: I.Generation,
+  name: string,
+  options: Partial<State.Pokemon> & {
+    curHP?: number;
+    ivs?: Partial<I.StatsTable> & {spc?: number};
+    evs?: Partial<I.StatsTable> & {spc?: number};
+    boosts?: Partial<I.StatsTable> & {spc?: number};
+  } = {}
+): Pokemon {
+  const species = extend(true, {}, gen.species.get(toID(name)), options.overrides) as I.Specie;
+  const level = gen.num === 0 ? 50 : options.level || 100;
+  const nature = options.nature || ('Serious' as I.NatureName);
+  const ivs = pokemonWithDefault(gen, gen.num === 0 ? {} : options.ivs, 31);
+  const evs = pokemonWithDefault(gen, options.evs, gen.num === 0 || gen.num >= 3 ? 0 : 252);
+  const boosts = pokemonWithDefault(gen, options.boosts, 0, false);
 
-    this.gen = gen;
-    this.name = options.name || name as I.SpeciesName;
-    this.types = this.species.types;
-    this.weightkg = this.species.weightkg;
-
-    this.level = gen.num === 0 ? 50 : options.level || 100;
-    this.gender = options.gender || this.species.gender || 'M';
-    this.ability = options.ability || this.species.abilities?.[0] || undefined;
-    this.abilityOn = !!options.abilityOn;
-
-    this.isDynamaxed = !!options.isDynamaxed;
-    this.dynamaxLevel = this.isDynamaxed
-      ? (options.dynamaxLevel === undefined ? 10 : options.dynamaxLevel) : undefined;
-    this.alliesFainted = options.alliesFainted;
-    this.boostedStat = options.boostedStat;
-    this.teraType = options.teraType;
-    this.item = options.item;
-    this.nature = options.nature || ('Serious' as I.NatureName);
-    this.ivs = Pokemon.withDefault(gen, gen.num === 0 ? {} : options.ivs, 31);
-    this.evs = Pokemon.withDefault(gen, options.evs, gen.num === 0 || gen.num >= 3 ? 0 : 252);
-    this.boosts = Pokemon.withDefault(gen, options.boosts, 0, false);
-
-    // Gigantamax 'forms' inherit weight from their base species when not dynamaxed
-    // TODO: clean this up with proper Gigantamax support
-    if (this.weightkg === 0 && !this.isDynamaxed && this.species.baseSpecies) {
-      this.weightkg = gen.species.get(toID(this.species.baseSpecies))!.weightkg;
-    }
-
-    if (gen.num > 0 && gen.num < 3) {
-      this.ivs.hp = Stats.DVToIV(
-        Stats.getHPDV({
-          atk: this.ivs.atk,
-          def: this.ivs.def,
-          spe: this.ivs.spe,
-          spc: this.ivs.spa,
-        })
-      );
-    }
-
-    this.rawStats = {} as I.StatsTable;
-    this.stats = {} as I.StatsTable;
-    for (const stat of STATS) {
-      const val = this.calcStat(gen, stat);
-      this.rawStats[stat] = val;
-      this.stats[stat] = val;
-    }
-
-    const curHP = options.curHP || options.originalCurHP;
-    this.originalCurHP = curHP && curHP <= this.rawStats.hp ? curHP : this.rawStats.hp;
-    this.status = options.status || '';
-    this.toxicCounter = options.toxicCounter || 0;
-    this.moves = options.moves || [];
+  let weightkg = species.weightkg;
+  if (weightkg === 0 && !options.isDynamaxed && species.baseSpecies) {
+    weightkg = gen.species.get(toID(species.baseSpecies))!.weightkg;
   }
 
-  maxHP(original = false) {
-    // Shedinja still has 1 max HP during the effect even if its Dynamax Level is maxed (DaWoblefet)
-    if (!original && this.isDynamaxed && this.species.baseStats.hp !== 1) {
-      return Math.floor((this.rawStats.hp * (150 + 5 * this.dynamaxLevel!)) / 100);
-    }
-
-    return this.rawStats.hp;
-  }
-
-  curHP(original = false) {
-    // Shedinja still has 1 max HP during the effect even if its Dynamax Level is maxed (DaWoblefet)
-    if (!original && this.isDynamaxed && this.species.baseStats.hp !== 1) {
-      return Math.ceil((this.originalCurHP * (150 + 5 * this.dynamaxLevel!)) / 100);
-    }
-
-    return this.originalCurHP;
-  }
-
-  hasAbility(...abilities: string[]) {
-    return !!(this.ability && abilities.includes(this.ability));
-  }
-
-  hasItem(...items: string[]) {
-    return !!(this.item && items.includes(this.item));
-  }
-
-  hasStatus(...statuses: I.StatusName[]) {
-    return !!(this.status && statuses.includes(this.status));
-  }
-
-  hasType(...types: I.TypeName[]) {
-    for (const type of types) {
-      if (this.teraType && this.teraType !== 'Stellar'
-        ? this.teraType === type : this.types.includes(type)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /** Ignores Tera type */
-  hasOriginalType(...types: I.TypeName[]) {
-    for (const type of types) {
-      if (this.types.includes(type)) return true;
-    }
-    return false;
-  }
-
-  named(...names: string[]) {
-    return names.includes(this.name);
-  }
-
-  clone() {
-    return new Pokemon(this.gen, this.name, {
-      level: this.level,
-      ability: this.ability,
-      abilityOn: this.abilityOn,
-      isDynamaxed: this.isDynamaxed,
-      dynamaxLevel: this.dynamaxLevel,
-      alliesFainted: this.alliesFainted,
-      boostedStat: this.boostedStat,
-      item: this.item,
-      gender: this.gender,
-      nature: this.nature,
-      ivs: extend(true, {}, this.ivs),
-      evs: extend(true, {}, this.evs),
-      boosts: extend(true, {}, this.boosts),
-      originalCurHP: this.originalCurHP,
-      status: this.status,
-      teraType: this.teraType,
-      toxicCounter: this.toxicCounter,
-      moves: this.moves.slice(),
-      overrides: this.species,
-    });
-  }
-
-  private calcStat(gen: I.Generation, stat: I.StatID) {
-    return Stats.calcStat(
-      gen,
-      stat,
-      this.species.baseStats[stat],
-      this.ivs[stat]!,
-      this.evs[stat]!,
-      this.level,
-      this.nature
+  if (gen.num > 0 && gen.num < 3) {
+    ivs.hp = Stats.DVToIV(
+      Stats.getHPDV({
+        atk: ivs.atk,
+        def: ivs.def,
+        spe: ivs.spe,
+        spc: ivs.spa,
+      })
     );
   }
 
-  static getForme(
-    gen: I.Generation,
-    speciesName: string,
-    item?: I.ItemName,
-    moveName?: I.MoveName
-  ) {
-    const species = gen.species.get(toID(speciesName));
-    if (!species?.otherFormes) {
-      return speciesName;
-    }
-
-    let i = 0;
-    if (
-      (item &&
-        ((item.includes('ite') && !item.includes('ite Y')) ||
-          (speciesName === 'Groudon' && item === 'Red Orb') ||
-          (speciesName === 'Kyogre' && item === 'Blue Orb'))) ||
-      (moveName && speciesName === 'Meloetta' && moveName === 'Relic Song') ||
-      (speciesName === 'Rayquaza' && moveName === 'Dragon Ascent')
-    ) {
-      i = 1;
-    } else if (item?.includes('ite Y')) {
-      i = 2;
-    }
-
-    return i ? species.otherFormes[i - 1] : species.name;
+  const rawStats = {} as I.StatsTable;
+  const stats = {} as I.StatsTable;
+  for (const stat of STATS) {
+    const val = Stats.calcStat(gen, stat, species.baseStats[stat], ivs[stat]!, evs[stat]!, level, nature);
+    rawStats[stat] = val;
+    stats[stat] = val;
   }
 
-  private static withDefault(
-    gen: I.Generation,
-    current: Partial<I.StatsTable> & {spc?: number} | undefined,
-    val: number,
-    match = true,
-  ) {
-    const cur: Partial<I.StatsTable> = {};
-    if (current) {
-      assignWithout(cur, current, SPC);
-      if (current.spc !== undefined) {
-        cur.spa = current.spc;
-        cur.spd = current.spc;
+  const curHP = options.curHP || options.originalCurHP;
+  const isDynamaxed = !!options.isDynamaxed;
+  const dynamaxLevel = isDynamaxed
+    ? (options.dynamaxLevel === undefined ? 10 : options.dynamaxLevel) : undefined;
+
+  const self: Pokemon = {
+    gen,
+    name: options.name || name as I.SpeciesName,
+    species,
+    types: species.types,
+    weightkg,
+    level,
+    gender: options.gender || species.gender || 'M',
+    ability: options.ability || species.abilities?.[0] || undefined,
+    abilityOn: !!options.abilityOn,
+    isDynamaxed,
+    dynamaxLevel,
+    alliesFainted: options.alliesFainted,
+    boostedStat: options.boostedStat,
+    teraType: options.teraType,
+    item: options.item,
+    nature,
+    ivs,
+    evs,
+    boosts,
+    rawStats,
+    stats,
+    originalCurHP: curHP && curHP <= rawStats.hp ? curHP : rawStats.hp,
+    status: options.status || '',
+    toxicCounter: options.toxicCounter || 0,
+    moves: options.moves || [],
+    maxHP(original = false) {
+      if (!original && self.isDynamaxed && self.species.baseStats.hp !== 1) {
+        return Math.floor((self.rawStats.hp * (150 + 5 * self.dynamaxLevel!)) / 100);
       }
-      if (match && gen.num > 0 && gen.num <= 2 && current.spa !== current.spd) {
-        throw new Error('Special Attack and Special Defense must match in Gen 1 and Gen 2');
+      return self.rawStats.hp;
+    },
+    curHP(original = false) {
+      if (!original && self.isDynamaxed && self.species.baseStats.hp !== 1) {
+        return Math.ceil((self.originalCurHP * (150 + 5 * self.dynamaxLevel!)) / 100);
       }
-    }
-    return {hp: val, atk: val, def: val, spa: val, spd: val, spe: val, ...cur};
+      return self.originalCurHP;
+    },
+    hasAbility(...abilities: string[]) {
+      return !!(self.ability && abilities.includes(self.ability));
+    },
+    hasItem(...items: string[]) {
+      return !!(self.item && items.includes(self.item));
+    },
+    hasStatus(...statuses: I.StatusName[]) {
+      return !!(self.status && statuses.includes(self.status));
+    },
+    hasType(...types: I.TypeName[]) {
+      for (const type of types) {
+        if (self.teraType && self.teraType !== 'Stellar'
+          ? self.teraType === type : self.types.includes(type)) {
+          return true;
+        }
+      }
+      return false;
+    },
+    /** Ignores Tera type */
+    hasOriginalType(...types: I.TypeName[]) {
+      for (const type of types) {
+        if (self.types.includes(type)) return true;
+      }
+      return false;
+    },
+    named(...names: string[]) {
+      return names.includes(self.name);
+    },
+    clone() {
+      return Pokemon(self.gen, self.name, {
+        level: self.level,
+        ability: self.ability,
+        abilityOn: self.abilityOn,
+        isDynamaxed: self.isDynamaxed,
+        dynamaxLevel: self.dynamaxLevel,
+        alliesFainted: self.alliesFainted,
+        boostedStat: self.boostedStat,
+        item: self.item,
+        gender: self.gender,
+        nature: self.nature,
+        ivs: extend(true, {}, self.ivs),
+        evs: extend(true, {}, self.evs),
+        boosts: extend(true, {}, self.boosts),
+        originalCurHP: self.originalCurHP,
+        status: self.status,
+        teraType: self.teraType,
+        toxicCounter: self.toxicCounter,
+        moves: self.moves.slice(),
+        overrides: self.species,
+      });
+    },
+  };
+  return self;
+}
+
+export function getPokemonForme(
+  gen: I.Generation,
+  speciesName: string,
+  item?: I.ItemName,
+  moveName?: I.MoveName
+) {
+  const species = gen.species.get(toID(speciesName));
+  if (!species?.otherFormes) {
+    return speciesName;
   }
+
+  let i = 0;
+  if (
+    (item &&
+      ((item.includes('ite') && !item.includes('ite Y')) ||
+        (speciesName === 'Groudon' && item === 'Red Orb') ||
+        (speciesName === 'Kyogre' && item === 'Blue Orb'))) ||
+    (moveName && speciesName === 'Meloetta' && moveName === 'Relic Song') ||
+    (speciesName === 'Rayquaza' && moveName === 'Dragon Ascent')
+  ) {
+    i = 1;
+  } else if (item?.includes('ite Y')) {
+    i = 2;
+  }
+
+  return i ? species.otherFormes[i - 1] : species.name;
+}
+
+function pokemonWithDefault(
+  gen: I.Generation,
+  current: Partial<I.StatsTable> & {spc?: number} | undefined,
+  val: number,
+  match = true,
+) {
+  const cur: Partial<I.StatsTable> = {};
+  if (current) {
+    assignWithout(cur, current, SPC);
+    if (current.spc !== undefined) {
+      cur.spa = current.spc;
+      cur.spd = current.spc;
+    }
+    if (match && gen.num > 0 && gen.num <= 2 && current.spa !== current.spd) {
+      throw new Error('Special Attack and Special Defense must match in Gen 1 and Gen 2');
+    }
+  }
+  return {hp: val, atk: val, def: val, spa: val, spd: val, spe: val, ...cur};
 }

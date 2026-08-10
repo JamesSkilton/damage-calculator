@@ -435,45 +435,34 @@ const CHAMPIONS = SS;
 
 export const TYPE_CHART = [CHAMPIONS, RBY, GSC, ADV, DPP, BW, XY, SM, SS, SV];
 
-export class Types implements I.Types {
-  private readonly gen: I.GenerationNum;
-
-  constructor(gen: I.GenerationNum) {
-    this.gen = gen;
-  }
-
+export const Types: (gen: I.GenerationNum) => I.Types = (gen) => ({
   get(id: I.ID) {
     // toID('???') => '', as do many other things, but returning the '???' type seems appropriate :)
-    return TYPES_BY_ID[this.gen][id];
-  }
+    return TYPES_BY_ID[gen][id];
+  },
 
   *[Symbol.iterator]() {
-    for (const id in TYPES_BY_ID[this.gen]) {
-      yield this.get(id as I.ID)!;
+    for (const id in TYPES_BY_ID[gen]) {
+      yield TYPES_BY_ID[gen][id as I.ID]!;
     }
-  }
+  },
+});
+
+function createType(name: string, effectiveness: TypeChart[I.TypeName]): I.Type {
+  return {
+    kind: 'Type',
+    id: toID(name),
+    name: name as I.TypeName,
+    effectiveness: effectiveness! as {[type in I.TypeName]?: I.TypeEffectiveness},
+  };
 }
 
-class Type implements I.Type {
-  readonly kind: 'Type';
-  readonly id: I.ID;
-  readonly name: I.TypeName;
-  readonly effectiveness: Readonly<{[type in I.TypeName]?: I.TypeEffectiveness}>;
-
-  constructor(name: string, effectiveness: TypeChart[I.TypeName]) {
-    this.kind = 'Type';
-    this.id = toID(name);
-    this.name = name as I.TypeName;
-    this.effectiveness = effectiveness! as {[type in I.TypeName]?: I.TypeEffectiveness};
-  }
-}
-
-const TYPES_BY_ID: Array<{[id: string]: Type}> = [];
+const TYPES_BY_ID: Array<{[id: string]: I.Type}> = [];
 
 for (const typeChart of TYPE_CHART) {
-  const map: {[id: string]: Type} = {};
+  const map: {[id: string]: I.Type} = {};
   for (const type in typeChart) {
-    const t = new Type(type, {...typeChart[type as I.TypeName]!});
+    const t = createType(type, {...typeChart[type as I.TypeName]!});
     map[t.id] = t;
   }
   TYPES_BY_ID.push(map);

@@ -37,6 +37,6 @@ export function calculate(
     attacker.clone(),
     defender.clone(),
     move.clone(),
-    field ? field.clone() : new Field()
+    field ? field.clone() : Field()
   );
 }

@@ -32,7 +32,7 @@ function createPokemon(
     );
   }
 
-  return new CorePokemon(generation, pokemon.species as CoreData.SpeciesName, {
+  return CorePokemon(generation, pokemon.species as CoreData.SpeciesName, {
     name: pokemon.name as CoreData.SpeciesName,
     level: pokemon.level,
     ability: pokemon.ability as CoreData.AbilityName | undefined,
@@ -62,7 +62,7 @@ function createMove(
     throw new CalcRuntimeError('UNKNOWN_MOVE', `Unknown move: ${move.name}`);
   }
 
-  return new CoreMove(generation, move.name as CoreData.MoveName, {
+  return CoreMove(generation, move.name as CoreData.MoveName, {
     ability: attacker.ability as CoreData.AbilityName | undefined,
     item: attacker.item as CoreData.ItemName | undefined,
     species: attacker.species as CoreData.SpeciesName,
@@ -77,7 +77,7 @@ function createMove(
 }
 
 function createField(field: BattleField) {
-  return new CoreField({
+  return CoreField({
     gameType: field.gameType,
     weather: field.weather,
     terrain: field.terrain,

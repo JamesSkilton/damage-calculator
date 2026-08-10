@@ -7,30 +7,20 @@ import {Species} from './species';
 import {Types} from './types';
 import {Natures} from './natures';
 
-export const Generations: I.Generations = new (class {
+export const Generations: I.Generations = {
   get(gen: I.GenerationNum) {
-    return new Generation(gen);
-  }
-})();
+    return createGeneration(gen);
+  },
+};
 
-class Generation implements I.Generation {
-  num: I.GenerationNum;
-
-  abilities: Abilities;
-  items: Items;
-  moves: Moves;
-  species: Species;
-  types: Types;
-  natures: Natures;
-
-  constructor(num: I.GenerationNum) {
-    this.num = num;
-
-    this.abilities = new Abilities(num);
-    this.items = new Items(num);
-    this.moves = new Moves(num);
-    this.species = new Species(num);
-    this.types = new Types(num);
-    this.natures = new Natures();
-  }
+function createGeneration(num: I.GenerationNum): I.Generation {
+  return {
+    num,
+    abilities: Abilities(num),
+    items: Items(num),
+    moves: Moves(num),
+    species: Species(num),
+    types: Types(num),
+    natures: Natures,
+  };
 }
