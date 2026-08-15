@@ -1,5 +1,6 @@
 import type { BattleGeneration } from 'domain/index';
 import type { BattleCombatant } from 'domain/index';
+import type { MoveOption } from './moves/moveOptions';
 import type { MoveDraft } from './moves/moveDraft';
 import CombatantBattleStateFields from './fields/CombatantBattleStateFields';
 import CombatantIdentityFields from './fields/CombatantIdentityFields';
@@ -17,7 +18,7 @@ type CombatantPanelProps = {
   generation: BattleGeneration;
   moves: readonly MoveDraft[];
   onMovesChange: (moves: readonly MoveDraft[]) => void;
-  availableMoves?: string[];
+  availableMoves?: MoveOption[];
 };
 
 export default function CombatantPanel({

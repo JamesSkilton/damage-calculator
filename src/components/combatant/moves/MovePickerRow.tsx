@@ -1,5 +1,6 @@
 import type { BattleGeneration } from 'domain/index';
 import type { MoveDraft } from './moveDraft';
+import type { MoveOption } from './moveOptions';
 import {
   setMoveName,
   setMoveCrit,
@@ -12,13 +13,14 @@ import {
   isGenerationGated,
   resolveMoveDraftForGeneration,
 } from './moveDraft';
+import SearchableMovePicker from './SearchableMovePicker';
 import './MovePickerRow.css';
 
 type MovePickerRowProps = {
   index: number;
   move: MoveDraft;
   generation: BattleGeneration;
-  availableMoves?: string[];
+  availableMoves?: MoveOption[];
   onChange: (move: MoveDraft) => void;
 };
 
@@ -81,18 +83,13 @@ export default function MovePickerRow({
         <label className="move-picker-field">
           <span>Name</span>
           {availableMoves ? (
-            <select
+            <SearchableMovePicker
               value={validatedMove.name}
-              onChange={(event) => handleMoveNameChange(event.target.value)}
-              aria-label={`Move ${slotNumber} name`}
-            >
-              <option value="">— Select move —</option>
-              {availableMoves.map((moveName) => (
-                <option key={moveName} value={moveName}>
-                  {moveName}
-                </option>
-              ))}
-            </select>
+              options={availableMoves}
+              onSelect={handleMoveNameChange}
+              ariaLabel={`Move ${slotNumber} name`}
+              placeholder="— Select move —"
+            />
           ) : (
             <input
               type="text"
