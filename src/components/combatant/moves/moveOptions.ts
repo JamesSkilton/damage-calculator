@@ -1,5 +1,6 @@
 /**
  * Move option for UI selection (name and basic metadata).
+ * Used by SearchableMovePicker for displaying type badges and base power.
  */
 export interface MoveOption {
   name: string;
@@ -16,6 +17,24 @@ export interface MoveOption {
 export function getMovesForGeneration(moves: MoveOption[]): MoveOption[] {
   // Sort alphabetically
   return moves.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * Create a MoveOption from a move name and move data.
+ * Handles cases where full move data may not be available.
+ */
+export function createMoveOption(
+  name: string,
+  type: string = 'Normal',
+  basePower: number = 0,
+  category: string = 'Special',
+): MoveOption {
+  return {
+    name,
+    type,
+    basePower,
+    category,
+  };
 }
 
 /**

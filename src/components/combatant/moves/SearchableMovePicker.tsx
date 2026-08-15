@@ -1,0 +1,217 @@
+import { useState, useRef, useEffect } from 'react';
+import type { MoveOption } from './moveOptions';
+import { filterMoveOptions } from './moveOptions';
+import './SearchableMovePicker.css';
+
+type SearchableMovePickerProps = {
+  value: string;
+  options: MoveOption[];
+  onSelect: (moveName: string) => void;
+  ariaLabel: string;
+  placeholder?: string;
+};
+
+export default function SearchableMovePicker({
+  value,
+  options,
+  onSelect,
+  ariaLabel,
+  placeholder = '— Select move —',
+}: SearchableMovePickerProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+
+  const filteredOptions = filterMoveOptions(options, searchTerm);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+        setSearchTerm('');
+        setHighlightedIndex(-1);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [isOpen]);
+
+  // Reset search and highlighting when dropdown closes
+  useEffect(() => {
+    if (!isOpen) {
+      setSearchTerm('');
+      setHighlightedIndex(-1);
+    }
+  }, [isOpen]);
+
+  // Keep highlighted item in view
+  useEffect(() => {
+    if (highlightedIndex >= 0 && listRef.current) {
+      const highlightedItem = listRef.current.children[highlightedIndex];
+      if (highlightedItem) {
+        highlightedItem.scrollIntoView({ block: 'nearest' });
+      }
+    }
+  }, [highlightedIndex]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newSearchTerm = e.target.value;
+    setSearchTerm(newSearchTerm);
+    setHighlightedIndex(-1);
+
+    if (!isOpen && newSearchTerm.trim()) {
+      setIsOpen(true);
+    }
+  };
+
+  const handleInputFocus = () => {
+    setIsOpen(true);
+  };
+
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!isOpen && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+      setIsOpen(true);
+      e.preventDefault();
+      return;
+    }
+
+    if (!isOpen) {
+      return;
+    }
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setHighlightedIndex((prev) =>
+          prev < filteredOptions.length - 1 ? prev + 1 : prev,
+        );
+        break;
+
+      case 'ArrowUp':
+        e.preventDefault();
+        setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : -1));
+        break;
+
+      case 'Enter':
+        e.preventDefault();
+        if (highlightedIndex >= 0 && filteredOptions[highlightedIndex]) {
+          selectOption(filteredOptions[highlightedIndex].name);
+        } else if (filteredOptions.length > 0) {
+          selectOption(filteredOptions[0].name);
+        }
+        break;
+
+      case 'Escape':
+        e.preventDefault();
+        setIsOpen(false);
+        setSearchTerm('');
+        setHighlightedIndex(-1);
+        inputRef.current?.blur();
+        break;
+
+      default:
+        break;
+    }
+  };
+
+  const selectOption = (moveName: string) => {
+    onSelect(moveName);
+    setIsOpen(false);
+    setSearchTerm('');
+    setHighlightedIndex(-1);
+    inputRef.current?.focus();
+  };
+
+  const handleOptionClick = (moveName: string) => {
+    selectOption(moveName);
+  };
+
+  const handleOptionMouseEnter = (index: number) => {
+    setHighlightedIndex(index);
+  };
+
+  const displayValue = value || placeholder;
+
+  return (
+    <div className="searchable-move-picker" ref={containerRef}>
+      <div className="move-picker-input-wrapper">
+        <input
+          ref={inputRef}
+          type="text"
+          value={searchTerm || displayValue}
+          onChange={handleInputChange}
+          onFocus={handleInputFocus}
+          onKeyDown={handleInputKeyDown}
+          placeholder={placeholder}
+          aria-label={ariaLabel}
+          aria-autocomplete="list"
+          aria-expanded={isOpen}
+          aria-controls="move-options-list"
+          className="move-picker-input"
+        />
+      </div>
+
+      {isOpen && (
+        <ul
+          id="move-options-list"
+          ref={listRef}
+          className="move-options-dropdown"
+          role="listbox"
+          aria-label={`${ariaLabel} options`}
+        >
+          {filteredOptions.length > 0 ? (
+            filteredOptions.map((option, index) => (
+              <li
+                key={option.name}
+                className={`move-option ${
+                  highlightedIndex === index ? 'highlighted' : ''
+                } ${option.basePower === 0 ? 'status-move' : ''}`}
+                role="option"
+                aria-selected={value === option.name}
+                onMouseEnter={() => handleOptionMouseEnter(index)}
+                onClick={() => handleOptionClick(option.name)}
+              >
+                <div className="move-option-content">
+                  <span className="move-name">{option.name}</span>
+                  <div className="move-metadata">
+                    <span
+                      className="move-type-badge"
+                      title={option.type}
+                      data-type={option.type.toLowerCase()}
+                    >
+                      {option.type}
+                    </span>
+                    {option.basePower > 0 && (
+                      <span className="move-base-power">
+                        BP: {option.basePower}
+                      </span>
+                    )}
+                    {option.basePower === 0 && (
+                      <span className="move-status-indicator">Status</span>
+                    )}
+                  </div>
+                </div>
+              </li>
+            ))
+          ) : (
+            <li className="move-option-empty" role="option" aria-disabled>
+              No moves found
+            </li>
+          )}
+        </ul>
+      )}
+    </div>
+  );
+}

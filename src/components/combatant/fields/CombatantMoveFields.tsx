@@ -1,4 +1,5 @@
 import type { BattleGeneration } from 'domain/index';
+import type { MoveOption } from '../moves/moveOptions';
 import type { MoveDraft } from '../moves/moveDraft';
 import MovePickerRow from '../moves/MovePickerRow';
 import { FieldGroup } from '../shared/combatantPanel.helpers';
@@ -6,7 +7,7 @@ import { FieldGroup } from '../shared/combatantPanel.helpers';
 type CombatantMoveFieldsProps = {
   generation: BattleGeneration;
   moves: readonly MoveDraft[];
-  availableMoves?: string[];
+  availableMoves?: MoveOption[];
   onChange: (moves: readonly MoveDraft[]) => void;
 };
 
