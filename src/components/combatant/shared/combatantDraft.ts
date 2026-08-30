@@ -51,8 +51,8 @@ function createBaseCombatant(
 ): BattleCombatant {
   return {
     generation,
-    name: role === 'attacker' ? 'Attacker' : 'Defender',
-    species: role === 'attacker' ? 'Pikachu' : 'Bulbasaur',
+    name: role === 'attacker' ? 'Pikachu' : 'Bulbasaur',
+    species: role === 'attacker' ? '' : '',
     level: 100,
     gender: role === 'attacker' ? 'M' : 'F',
     ability: role === 'attacker' ? 'Static' : 'Overgrow',

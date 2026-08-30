@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import type { BattleGeneration } from 'domain/index';
-import type { CalculatorMode } from 'modes/calculatorModes';
 import CombatantPanel from '../combatant/CombatantPanel';
 import { battleGenerations } from '../combatant/shared/combatantPanel.constants';
 import {
@@ -17,11 +16,7 @@ import BattleResultPanel from './BattleResultPanel';
 import { buildBattleCalcBreakdowns } from 'adapters/battleCalc';
 import './OneVsOneMode.scss';
 
-type OneVsOneModeProps = {
-  mode: CalculatorMode;
-};
-
-export default function OneVsOneMode({ mode }: OneVsOneModeProps) {
+export default function OneVsOneMode() {
   const [generation, setGeneration] = useState<BattleGeneration>(9);
   const [draft, setDraft] = useState(() => createTeamDraft(generation));
   const [field, setField] = useState(() => createBattleFieldDraft(generation));
@@ -61,14 +56,14 @@ export default function OneVsOneMode({ mode }: OneVsOneModeProps) {
   };
 
   return (
-    <section className="one-vs-one-screen">
-      <header className="one-vs-one-intro">
-        <p className="mode-kicker">{mode.label}</p>
-        <div className="one-vs-one-copy">
-          <h2>{mode.title}</h2>
-          <p>{mode.description}</p>
-        </div>
-      </header>
+    <section className="one-vs-one-screen">  
+      <BattleResultPanel
+        generationLabel={`Gen ${generation}`}
+        field={field}
+        attacker={draft.attacker}
+        defender={draft.defender}
+        results={battleResults}
+      />
 
       <section className="battle-controls" aria-label="Battle settings">
         <label className="combatant-field">
@@ -135,14 +130,6 @@ export default function OneVsOneMode({ mode }: OneVsOneModeProps) {
           }
         />
       </div>
-
-      <BattleResultPanel
-        generationLabel={`Gen ${generation}`}
-        field={field}
-        attacker={draft.attacker}
-        defender={draft.defender}
-        results={battleResults}
-      />
     </section>
   );
 }

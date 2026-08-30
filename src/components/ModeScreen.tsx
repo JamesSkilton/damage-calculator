@@ -11,7 +11,7 @@ export default function ModeScreen({ mode }: ModeScreenProps) {
   const currentPath = useOutletContext<string>();
 
   if (mode.slug === 'one-vs-one') {
-    return <OneVsOneMode mode={mode} />;
+    return <OneVsOneMode />;
   }
 
   return (

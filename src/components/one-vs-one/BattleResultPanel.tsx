@@ -1,6 +1,7 @@
 import type { BattleCombatant, BattleField } from 'domain/index';
 import type { BattleCalcBreakdown } from 'adapters/battleCalc';
 import './BattleResultPanel.scss';
+import TypeBadge from 'components/typeBadge/TypeBadge';
 
 type BattleResultPanelProps = {
   generationLabel: string;
@@ -17,9 +18,8 @@ function formatCombatantSummary({
   status,
   currentHp,
 }: BattleCombatant) {
-  return `${name} (${species}) — Lv. ${level}, HP ${currentHp}${
-    status ? `, ${status}` : ''
-  }`;
+  return `${name} (${species}) — Lv. ${level}, HP ${currentHp}${status ? `, ${status}` : ''
+    }`;
 }
 
 function formatFieldSummary(field: BattleField) {
@@ -36,6 +36,9 @@ export default function BattleResultPanel({
   defender,
   results,
 }: BattleResultPanelProps) {
+  //Megas need to formated like "pokemname-mega.jpg" for the image to load correctly. All other forms are just "pokemonname.jpg" excpetion charizard x and y which are "charizard-mega-x.jpg" and "charizard-mega-y.jpg"
+  const baseUrl = `https://img.pokemondb.net/artwork/`
+
   return (
     <section className="battle-results" aria-label="Damage results">
       <div className="battle-results-header">
@@ -96,10 +99,22 @@ export default function BattleResultPanel({
         <div>
           <dt>Attacker</dt>
           <dd>{formatCombatantSummary(attacker)}</dd>
+          <img src={`${baseUrl}${attacker.name.toLocaleLowerCase()}.jpg`} alt={attacker.name} />
+          <div className="d-flex gap-1">
+            {attacker.types.map((type) => (
+              <TypeBadge key={type} type={type} />
+            ))}
+          </div>
         </div>
         <div>
           <dt>Defender</dt>
           <dd>{formatCombatantSummary(defender)}</dd>
+          <img src={`${baseUrl}${defender.name.toLocaleLowerCase()}.jpg`} alt={defender.name} />
+          <div className="d-flex gap-1">
+            {defender.types.map((type) => (
+              <TypeBadge key={type} type={type} />
+            ))}
+          </div>
         </div>
         <div>
           <dt>Generation</dt>

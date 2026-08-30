@@ -3,6 +3,7 @@ import AppShell from 'components/AppShell';
 import ModeScreen from 'components/ModeScreen';
 import { runtimeConfig } from 'config/runtimeConfig';
 import { calculatorModes } from 'modes/calculatorModes';
+import './App.scss';
 
 function App() {
   return (
