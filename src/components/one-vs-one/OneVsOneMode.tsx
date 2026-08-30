@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import type { BattleGeneration } from 'domain/index';
-import type { CalculatorMode } from 'modes/calculatorModes';
 import CombatantPanel from '../combatant/CombatantPanel';
 import { battleGenerations } from '../combatant/shared/combatantPanel.constants';
 import {
@@ -17,11 +16,7 @@ import BattleResultPanel from './BattleResultPanel';
 import { buildBattleCalcBreakdowns } from 'adapters/battleCalc';
 import './OneVsOneMode.scss';
 
-type OneVsOneModeProps = {
-  mode: CalculatorMode;
-};
-
-export default function OneVsOneMode({ mode }: OneVsOneModeProps) {
+export default function OneVsOneMode() {
   const [generation, setGeneration] = useState<BattleGeneration>(9);
   const [draft, setDraft] = useState(() => createTeamDraft(generation));
   const [field, setField] = useState(() => createBattleFieldDraft(generation));
