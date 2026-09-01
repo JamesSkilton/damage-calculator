@@ -18,7 +18,7 @@ type CombatantPanelProps = {
   generation: BattleGeneration;
   moves: readonly MoveDraft[];
   onMovesChange: (moves: readonly MoveDraft[]) => void;
-  availableMoves?: MoveOption[];
+  availableMoves: MoveOption[];
 };
 
 export default function CombatantPanel({
