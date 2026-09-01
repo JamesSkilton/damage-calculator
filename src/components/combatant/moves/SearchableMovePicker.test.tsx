@@ -5,7 +5,7 @@
  * - Rendering and basic functionality
  * - Search/filter behavior
  * - Keyboard navigation (arrow keys, enter, escape)
- * - Type badge display
+ * - Type icon display
  * - Base power display
  * - Accessibility features (ARIA attributes, screen reader support)
  * - Edge cases (empty list, single item, long names)
@@ -14,6 +14,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import type { MoveOption } from './moveOptions';
+import { getMoveTypeColor, getMoveTypeIcon } from './moveTypeIcon';
 
 /**
  * Sample moves for testing.
@@ -227,7 +228,7 @@ describe('SearchableMovePicker', () => {
     });
   });
 
-  describe('Type Badge Display', () => {
+  describe('Type Icon Display', () => {
     it('displays correct type for each move', () => {
       const props = {
         value: '',
@@ -242,18 +243,27 @@ describe('SearchableMovePicker', () => {
       expect(props.options[5].type).toBe('Fire');
     });
 
-    it('type badges use data-type attribute with lowercase type', () => {
-      const props = {
-        value: '',
-        options: sampleMoves,
-        onSelect: vi.fn(),
-        ariaLabel: 'Move selection',
-      };
+    it('type icons resolve a non-empty asset src for each move type', () => {
+      sampleMoves.forEach((move) => {
+        const iconSrc = getMoveTypeIcon(move.type);
+        expect(iconSrc).toBeTruthy();
+        expect(typeof iconSrc).toBe('string');
+      });
+    });
 
-      props.options.forEach((move) => {
-        expect(move.type).toBeTruthy();
-        const dataType = move.type.toLowerCase();
-        expect(dataType).toBeTruthy();
+    it('type icons fall back gracefully for typeless/Stellar types', () => {
+      expect(getMoveTypeIcon('???')).toBeUndefined();
+      expect(getMoveTypeIcon('Stellar')).toBeUndefined();
+      // A color is still available so the chip can render without an icon.
+      expect(getMoveTypeColor('???')).toBeTruthy();
+      expect(getMoveTypeColor('Stellar')).toBeTruthy();
+    });
+
+    it('type icon colors are defined for every move type', () => {
+      sampleMoves.forEach((move) => {
+        const color = getMoveTypeColor(move.type);
+        expect(color).toBeTruthy();
+        expect(color).toMatch(/^#/);
       });
     });
 

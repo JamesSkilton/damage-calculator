@@ -86,101 +86,27 @@
   flex-shrink: 0;
 }
 
-.move-type-badge {
+.move-type-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  min-width: 40px;
-  text-align: center;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
   color: #fff;
-  white-space: nowrap;
 }
 
-/* Type badge colors - common Pokemon type color scheme */
-.move-type-badge[data-type='normal'] {
-  background-color: #a8a878;
+.move-type-icon-img {
+  width: 14px;
+  height: 14px;
 }
 
-.move-type-badge[data-type='fire'] {
-  background-color: #f08030;
-}
-
-.move-type-badge[data-type='water'] {
-  background-color: #6890f0;
-}
-
-.move-type-badge[data-type='electric'] {
-  background-color: #f8d030;
-  color: #333;
-}
-
-.move-type-badge[data-type='grass'] {
-  background-color: #78c850;
-}
-
-.move-type-badge[data-type='ice'] {
-  background-color: #98d8d8;
-  color: #333;
-}
-
-.move-type-badge[data-type='fighting'] {
-  background-color: #c03028;
-}
-
-.move-type-badge[data-type='poison'] {
-  background-color: #a040a0;
-}
-
-.move-type-badge[data-type='ground'] {
-  background-color: #e0c068;
-  color: #333;
-}
-
-.move-type-badge[data-type='flying'] {
-  background-color: #a890f0;
-}
-
-.move-type-badge[data-type='psychic'] {
-  background-color: #f85888;
-}
-
-.move-type-badge[data-type='bug'] {
-  background-color: #a8b820;
-}
-
-.move-type-badge[data-type='rock'] {
-  background-color: #b8a038;
-}
-
-.move-type-badge[data-type='ghost'] {
-  background-color: #705898;
-}
-
-.move-type-badge[data-type='dragon'] {
-  background-color: #7038f8;
-}
-
-.move-type-badge[data-type='dark'] {
-  background-color: #705848;
-}
-
-.move-type-badge[data-type='steel'] {
-  background-color: #b8b8d0;
-  color: #333;
-}
-
-.move-type-badge[data-type='fairy'] {
-  background-color: #ee99ac;
-}
-
-.move-type-badge[data-type='???'] {
-  background-color: #68a090;
+.move-type-icon-fallback {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  line-height: 1;
 }
 
 .move-base-power {

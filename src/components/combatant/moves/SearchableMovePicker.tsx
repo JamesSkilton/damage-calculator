@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import type { MoveOption } from './moveOptions';
 import { filterMoveOptions } from './moveOptions';
+import { getMoveTypeColor, getMoveTypeIcon } from './moveTypeIcon';
 import './SearchableMovePicker.css';
 
 type SearchableMovePickerProps = {
@@ -187,11 +188,27 @@ export default function SearchableMovePicker({
                   <span className="move-name">{option.name}</span>
                   <div className="move-metadata">
                     <span
-                      className="move-type-badge"
+                      className="move-type-icon"
+                      role="img"
+                      aria-label={option.type}
                       title={option.type}
-                      data-type={option.type.toLowerCase()}
+                      style={{ backgroundColor: getMoveTypeColor(option.type) }}
                     >
-                      {option.type}
+                      {getMoveTypeIcon(option.type) ? (
+                        <img
+                          className="move-type-icon-img"
+                          src={getMoveTypeIcon(option.type)}
+                          alt=""
+                          aria-hidden="true"
+                        />
+                      ) : (
+                        <span
+                          className="move-type-icon-fallback"
+                          aria-hidden="true"
+                        >
+                          {option.type.slice(0, 1)}
+                        </span>
+                      )}
                     </span>
                     {option.basePower > 0 && (
                       <span className="move-base-power">
