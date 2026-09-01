@@ -10,11 +10,30 @@
  * - Accessibility features (ARIA attributes, screen reader support)
  * - Edge cases (empty list, single item, long names)
  * - User interactions (focus, blur, click)
+ *
+ * The "Selected value detail display (rendered)" suite below actually mounts
+ * the component with @testing-library/react (this file runs under the jsdom
+ * environment via the `@vitest-environment jsdom` pragma) — the rest of the
+ * suite only exercises plain prop/data objects and does not render the DOM.
  */
 
-import { describe, it, expect, vi } from 'vitest';
+// @vitest-environment jsdom
+
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { render, screen, cleanup, fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import '@testing-library/jest-dom/vitest';
 import type { MoveOption } from './moveOptions';
 import { getMoveTypeColor, getMoveTypeIcon } from './moveTypeIcon';
+import SearchableMovePicker from './SearchableMovePicker';
+
+afterEach(() => {
+  cleanup();
+});
+
+if (!Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = () => {};
+}
 
 /**
  * Sample moves for testing.
@@ -371,7 +390,7 @@ describe('SearchableMovePicker', () => {
   describe('Keyboard Navigation', () => {
     it('supports arrow down navigation logic', () => {
       const options = sampleMoves;
-      let currentIndex = 0;
+      const currentIndex = 0;
 
       // Simulate arrow down
       const nextIndex = Math.min(currentIndex + 1, options.length - 1);
@@ -382,7 +401,7 @@ describe('SearchableMovePicker', () => {
 
     it('supports arrow up navigation logic', () => {
       const options = sampleMoves;
-      let currentIndex = 3;
+      const currentIndex = 3;
 
       // Simulate arrow up
       const prevIndex = Math.max(currentIndex - 1, 0);
@@ -836,6 +855,96 @@ describe('SearchableMovePicker', () => {
       // Other controls should not be affected
       expect(otherControls.isCrit).toBe(false);
       expect(otherControls.hits).toBe(1);
+    });
+  });
+
+  describe('Selected value detail display (rendered)', () => {
+    it('shows the type icon and base power for a selected move when closed', () => {
+      const mockOnSelect = vi.fn();
+      render(
+        <SearchableMovePicker
+          value="Earthquake"
+          options={sampleMoves}
+          onSelect={mockOnSelect}
+          ariaLabel="Move selection"
+        />,
+      );
+
+      const input = screen.getByLabelText('Move selection');
+      expect(input).toHaveValue('Earthquake');
+
+      const icon = document.querySelector('.move-type-icon[title="Ground"]');
+      expect(icon).toBeInTheDocument();
+      expect(screen.getByText('BP: 100')).toBeInTheDocument();
+    });
+
+    it('shows a status indicator for a selected status move when closed', () => {
+      const mockOnSelect = vi.fn();
+      render(
+        <SearchableMovePicker
+          value="Thunder Wave"
+          options={sampleMoves}
+          onSelect={mockOnSelect}
+          ariaLabel="Move selection"
+        />,
+      );
+
+      expect(screen.getByText('Status')).toBeInTheDocument();
+      expect(screen.queryByText(/BP:/)).not.toBeInTheDocument();
+    });
+
+    it('falls back to plain text when the selected value has no matching option', () => {
+      const mockOnSelect = vi.fn();
+      render(
+        <SearchableMovePicker
+          value="Some Stale Move"
+          options={sampleMoves}
+          onSelect={mockOnSelect}
+          ariaLabel="Move selection"
+        />,
+      );
+
+      const input = screen.getByLabelText('Move selection');
+      expect(input).toHaveValue('Some Stale Move');
+      expect(screen.queryByText('BP:', { exact: false })).not.toBeInTheDocument();
+    });
+
+    it('clicking the selected rich display re-opens the dropdown for searching, and reselecting swaps the chip', async () => {
+      const user = userEvent.setup();
+      const mockOnSelect = vi.fn();
+      const { rerender } = render(
+        <SearchableMovePicker
+          value="Earthquake"
+          options={sampleMoves}
+          onSelect={mockOnSelect}
+          ariaLabel="Move selection"
+        />,
+      );
+
+      const input = screen.getByLabelText('Move selection');
+      await user.click(input);
+
+      expect(screen.getByRole('listbox')).toBeInTheDocument();
+
+      await user.clear(input);
+      fireEvent.change(input, { target: { value: 'Ice' } });
+      expect(screen.getByRole('option', { name: /Ice Beam/ })).toBeInTheDocument();
+
+      await user.click(screen.getByRole('option', { name: /Ice Beam/ }));
+      expect(mockOnSelect).toHaveBeenCalledWith('Ice Beam');
+
+      rerender(
+        <SearchableMovePicker
+          value="Ice Beam"
+          options={sampleMoves}
+          onSelect={mockOnSelect}
+          ariaLabel="Move selection"
+        />,
+      );
+
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+      expect(screen.getByLabelText('Move selection')).toHaveValue('Ice Beam');
+      expect(screen.getByText('BP: 90')).toBeInTheDocument();
     });
   });
 });

@@ -25,6 +25,7 @@ export default function SearchableMovePicker({
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const suppressFocusOpenRef = useRef(false);
 
   const filteredOptions = filterMoveOptions(options, searchTerm);
 
@@ -78,6 +79,10 @@ export default function SearchableMovePicker({
   };
 
   const handleInputFocus = () => {
+    if (suppressFocusOpenRef.current) {
+      suppressFocusOpenRef.current = false;
+      return;
+    }
     setIsOpen(true);
   };
 
@@ -132,6 +137,7 @@ export default function SearchableMovePicker({
     setIsOpen(false);
     setSearchTerm('');
     setHighlightedIndex(-1);
+    suppressFocusOpenRef.current = true;
     inputRef.current?.focus();
   };
 
@@ -144,10 +150,49 @@ export default function SearchableMovePicker({
   };
 
   const displayValue = value || placeholder;
+  const selectedOption = value
+    ? options.find((option) => option.name === value)
+    : undefined;
+  const showSelectedChip = !isOpen && !searchTerm && !!selectedOption;
 
   return (
     <div className="searchable-move-picker" ref={containerRef}>
       <div className="move-picker-input-wrapper">
+        {showSelectedChip && selectedOption && (
+          <div className="move-picker-selected-chip" aria-hidden="true">
+            <div className="move-option-content">
+              <span className="move-name">{selectedOption.name}</span>
+              <div className="move-metadata">
+                <span
+                  className="move-type-icon"
+                  title={selectedOption.type}
+                  style={{
+                    backgroundColor: getMoveTypeColor(selectedOption.type),
+                  }}
+                >
+                  {getMoveTypeIcon(selectedOption.type) ? (
+                    <img
+                      className="move-type-icon-img"
+                      src={getMoveTypeIcon(selectedOption.type)}
+                      alt=""
+                    />
+                  ) : (
+                    <span className="move-type-icon-fallback">
+                      {selectedOption.type.slice(0, 1)}
+                    </span>
+                  )}
+                </span>
+                {selectedOption.basePower > 0 ? (
+                  <span className="move-base-power">
+                    BP: {selectedOption.basePower}
+                  </span>
+                ) : (
+                  <span className="move-status-indicator">Status</span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
         <input
           ref={inputRef}
           type="text"
@@ -160,7 +205,9 @@ export default function SearchableMovePicker({
           aria-autocomplete="list"
           aria-expanded={isOpen}
           aria-controls="move-options-list"
-          className="move-picker-input"
+          className={`move-picker-input ${
+            showSelectedChip ? 'move-picker-input-transparent' : ''
+          }`}
         />
       </div>
 

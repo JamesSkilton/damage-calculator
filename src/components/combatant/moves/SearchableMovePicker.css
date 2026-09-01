@@ -24,6 +24,29 @@
   box-shadow: 0 0 0 2px var(--accent-color-light, rgba(0, 102, 204, 0.1));
 }
 
+.move-picker-input-transparent {
+  color: transparent;
+  caret-color: transparent;
+}
+
+.move-picker-selected-chip {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.move-picker-selected-chip .move-option-content {
+  gap: 6px;
+}
+
+.move-picker-selected-chip .move-name {
+  font-size: 0.875rem;
+}
+
 .move-options-dropdown {
   position: absolute;
   top: 100%;
