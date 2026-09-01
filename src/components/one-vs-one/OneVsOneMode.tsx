@@ -11,6 +11,7 @@ import {
   createCombatantMovesState,
   applyCombatantMovesGeneration,
 } from '../combatant/moves/combatantMovesState';
+import { buildMoveCatalog } from '../combatant/moves/moveCatalog';
 import BattleFieldControls from './BattleFieldControls';
 import BattleResultPanel from './BattleResultPanel';
 import { buildBattleCalcBreakdowns } from 'adapters/battleCalc';
@@ -25,6 +26,11 @@ export default function OneVsOneMode() {
   );
   const [defenderMoves, setDefenderMoves] = useState(() =>
     createCombatantMovesState(),
+  );
+
+  const availableMoves = useMemo(
+    () => buildMoveCatalog(generation),
+    [generation],
   );
 
   const battleResults = useMemo(
@@ -102,6 +108,7 @@ export default function OneVsOneMode() {
           }
           generation={generation}
           moves={attackerMoves.slots}
+          availableMoves={availableMoves}
           onMovesChange={(moves) =>
             setAttackerMoves((current) => ({
               ...current,
@@ -122,6 +129,7 @@ export default function OneVsOneMode() {
           }
           generation={generation}
           moves={defenderMoves.slots}
+          availableMoves={availableMoves}
           onMovesChange={(moves) =>
             setDefenderMoves((current) => ({
               ...current,
