@@ -1,38 +1,51 @@
-import type { BattleCombatant } from 'domain/index';
-import { setCombatantField } from '../shared/combatantDraft';
+import type { BattleCombatant, BattleTypeName } from 'domain/index';
+import { setCombatantField, setCombatantTypes } from '../shared/combatantDraft';
 import { battleGenders } from '../shared/combatantPanel.constants';
+import type { SpeciesOption } from '../species/speciesOptions';
+import SearchablePokemonPicker from '../species/SearchablePokemonPicker';
 
 type CombatantIdentityFieldsProps = {
   combatant: BattleCombatant;
   onChange: (combatant: BattleCombatant) => void;
+  availableSpecies?: SpeciesOption[];
 };
 
 export default function CombatantIdentityFields({
   combatant,
   onChange,
+  availableSpecies = [],
 }: CombatantIdentityFieldsProps) {
   return (
     <>
       <label className="combatant-field">
-        <span>Name</span>
-        <input
-          type="text"
-          value={combatant.name}
-          onChange={(event) =>
-            onChange(setCombatantField(combatant, 'name', event.target.value))
-          }
-        />
-      </label>
-      <label className="combatant-field">
-        <span>Species</span>
-        <input
-          type="text"
+        <span>Pokémon</span>
+        <SearchablePokemonPicker
           value={combatant.species}
-          onChange={(event) =>
-            onChange(
-              setCombatantField(combatant, 'species', event.target.value),
-            )
-          }
+          options={availableSpecies}
+          onSelect={(species) => {
+            const withSpecies = setCombatantField(
+              combatant,
+              'species',
+              species,
+            );
+            const withName = setCombatantField(withSpecies, 'name', species);
+
+            const matchedSpecies = availableSpecies.find(
+              (option) => option.name === species,
+            );
+            if (!matchedSpecies) {
+              onChange(withName);
+              return;
+            }
+
+            const [primaryType, secondaryType] = matchedSpecies.types as [
+              BattleTypeName,
+              BattleTypeName | undefined,
+            ];
+            onChange(setCombatantTypes(withName, primaryType, secondaryType));
+          }}
+          ariaLabel="Pokémon species"
+          placeholder="— Select a Pokémon —"
         />
       </label>
       <label className="combatant-field">

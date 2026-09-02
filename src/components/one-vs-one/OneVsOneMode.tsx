@@ -12,6 +12,7 @@ import {
   applyCombatantMovesGeneration,
 } from '../combatant/moves/combatantMovesState';
 import { buildMoveCatalog } from '../combatant/moves/moveCatalog';
+import { buildSpeciesCatalog } from '../combatant/species/speciesCatalog';
 import BattleFieldControls from './BattleFieldControls';
 import BattleResultPanel from './BattleResultPanel';
 import { buildBattleCalcBreakdowns } from 'adapters/battleCalc';
@@ -30,6 +31,11 @@ export default function OneVsOneMode() {
 
   const availableMoves = useMemo(
     () => buildMoveCatalog(generation),
+    [generation],
+  );
+
+  const availableSpecies = useMemo(
+    () => buildSpeciesCatalog(generation),
     [generation],
   );
 
@@ -109,6 +115,7 @@ export default function OneVsOneMode() {
           generation={generation}
           moves={attackerMoves.slots}
           availableMoves={availableMoves}
+          availableSpecies={availableSpecies}
           onMovesChange={(moves) =>
             setAttackerMoves((current) => ({
               ...current,
@@ -130,6 +137,7 @@ export default function OneVsOneMode() {
           generation={generation}
           moves={defenderMoves.slots}
           availableMoves={availableMoves}
+          availableSpecies={availableSpecies}
           onMovesChange={(moves) =>
             setDefenderMoves((current) => ({
               ...current,

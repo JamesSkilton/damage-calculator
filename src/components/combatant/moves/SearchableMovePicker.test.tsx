@@ -24,7 +24,10 @@ import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom/vitest';
 import type { MoveOption } from './moveOptions';
-import { getMoveTypeColor, getMoveTypeIcon } from './moveTypeIcon';
+import {
+  getTypeColor as getMoveTypeColor,
+  getTypeIcon as getMoveTypeIcon,
+} from '../shared/typeIcon';
 import SearchableMovePicker from './SearchableMovePicker';
 
 afterEach(() => {
@@ -690,12 +693,15 @@ describe('SearchableMovePicker', () => {
 
     it('handles very large move lists (100+ moves)', () => {
       const mockOnSelect = vi.fn();
-      const largeMoveList: MoveOption[] = Array.from({ length: 150 }, (_, i) => ({
-        name: `Move ${i}`,
-        type: 'Normal',
-        basePower: Math.floor(Math.random() * 150),
-        category: i % 2 === 0 ? 'Physical' : 'Special',
-      }));
+      const largeMoveList: MoveOption[] = Array.from(
+        { length: 150 },
+        (_, i) => ({
+          name: `Move ${i}`,
+          type: 'Normal',
+          basePower: Math.floor(Math.random() * 150),
+          category: i % 2 === 0 ? 'Physical' : 'Special',
+        }),
+      );
 
       const props = {
         value: '',
@@ -788,12 +794,15 @@ describe('SearchableMovePicker', () => {
 
   describe('Performance', () => {
     it('filtering completes quickly even with many moves', () => {
-      const largeMoveList: MoveOption[] = Array.from({ length: 1000 }, (_, i) => ({
-        name: `Move ${i}`,
-        type: 'Normal',
-        basePower: Math.floor(Math.random() * 150),
-        category: 'Physical',
-      }));
+      const largeMoveList: MoveOption[] = Array.from(
+        { length: 1000 },
+        (_, i) => ({
+          name: `Move ${i}`,
+          type: 'Normal',
+          basePower: Math.floor(Math.random() * 150),
+          category: 'Physical',
+        }),
+      );
 
       const startTime = Date.now();
       const filtered = largeMoveList.filter((m) =>
@@ -873,7 +882,7 @@ describe('SearchableMovePicker', () => {
       const input = screen.getByLabelText('Move selection');
       expect(input).toHaveValue('Earthquake');
 
-      const icon = document.querySelector('.move-type-icon[title="Ground"]');
+      const icon = document.querySelector('.type-badge[title="Ground"]');
       expect(icon).toBeInTheDocument();
       expect(screen.getByText('BP: 100')).toBeInTheDocument();
     });
@@ -906,7 +915,9 @@ describe('SearchableMovePicker', () => {
 
       const input = screen.getByLabelText('Move selection');
       expect(input).toHaveValue('Some Stale Move');
-      expect(screen.queryByText('BP:', { exact: false })).not.toBeInTheDocument();
+      expect(
+        screen.queryByText('BP:', { exact: false }),
+      ).not.toBeInTheDocument();
     });
 
     it('clicking the selected rich display re-opens the dropdown for searching, and reselecting swaps the chip', async () => {
@@ -928,7 +939,9 @@ describe('SearchableMovePicker', () => {
 
       await user.clear(input);
       fireEvent.change(input, { target: { value: 'Ice' } });
-      expect(screen.getByRole('option', { name: /Ice Beam/ })).toBeInTheDocument();
+      expect(
+        screen.getByRole('option', { name: /Ice Beam/ }),
+      ).toBeInTheDocument();
 
       await user.click(screen.getByRole('option', { name: /Ice Beam/ }));
       expect(mockOnSelect).toHaveBeenCalledWith('Ice Beam');
