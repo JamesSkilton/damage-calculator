@@ -1,13 +1,13 @@
-.searchable-move-picker {
+.searchable-type-picker {
   position: relative;
   width: 100%;
 }
 
-.move-picker-input-wrapper {
+.type-picker-input-wrapper {
   position: relative;
 }
 
-.move-picker-input {
+.type-picker-input {
   width: 100%;
   padding: 6px 8px;
   border: 1px solid var(--border-color, #ddd);
@@ -18,18 +18,18 @@
   color: var(--text-color, #333);
 }
 
-.move-picker-input:focus {
+.type-picker-input:focus {
   outline: none;
   border-color: var(--accent-color, #0066cc);
   box-shadow: 0 0 0 2px var(--accent-color-light, rgba(0, 102, 204, 0.1));
 }
 
-.move-picker-input-transparent {
+.type-picker-input.type-picker-input-transparent {
   color: transparent;
   caret-color: transparent;
 }
 
-.move-picker-selected-chip {
+.type-picker-selected-chip {
   position: absolute;
   inset: 0;
   display: flex;
@@ -39,15 +39,15 @@
   overflow: hidden;
 }
 
-.move-picker-selected-chip .move-option-content {
+.type-picker-selected-chip .type-option-content {
   gap: 6px;
 }
 
-.move-picker-selected-chip .move-name {
+.type-picker-selected-chip .type-option-name {
   font-size: 0.875rem;
 }
 
-.move-options-dropdown {
+.type-options-dropdown {
   position: absolute;
   top: 100%;
   left: 0;
@@ -64,7 +64,7 @@
   z-index: 1000;
 }
 
-.move-option {
+.type-option {
   padding: 8px 12px;
   cursor: pointer;
   transition: background-color 0.15s ease;
@@ -72,21 +72,21 @@
   align-items: center;
 }
 
-.move-option:hover,
-.move-option.highlighted {
+.type-option:hover,
+.type-option.highlighted {
   background-color: var(--option-hover-bg, #f0f4ff);
 }
 
-.move-option[aria-selected='true'] {
+.type-option[aria-selected='true'] {
   background-color: var(--option-selected-bg, #e0e8ff);
   font-weight: 500;
 }
 
-.move-option.status-move {
+.type-option.status-move {
   opacity: 0.85;
 }
 
-.move-option-content {
+.type-option-content {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -94,7 +94,7 @@
   gap: 8px;
 }
 
-.move-name {
+.type-option-name {
   flex: 1;
   font-size: 0.875rem;
   overflow: hidden;
@@ -102,14 +102,14 @@
   white-space: nowrap;
 }
 
-.move-metadata {
+.type-option-metadata {
   display: flex;
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
 }
 
-.move-type-icon {
+.type-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -120,12 +120,12 @@
   color: #fff;
 }
 
-.move-type-icon-img {
+.type-badge-img {
   width: 14px;
   height: 14px;
 }
 
-.move-type-icon-fallback {
+.type-badge-fallback {
   font-size: 0.65rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -151,7 +151,7 @@
   white-space: nowrap;
 }
 
-.move-option-empty {
+.type-option-empty {
   padding: 12px;
   text-align: center;
   color: var(--text-secondary, #666);
@@ -159,19 +159,19 @@
 }
 
 /* Scrollbar styling for dropdown */
-.move-options-dropdown::-webkit-scrollbar {
+.type-options-dropdown::-webkit-scrollbar {
   width: 8px;
 }
 
-.move-options-dropdown::-webkit-scrollbar-track {
+.type-options-dropdown::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.move-options-dropdown::-webkit-scrollbar-thumb {
+.type-options-dropdown::-webkit-scrollbar-thumb {
   background-color: var(--scrollbar-color, #ccc);
   border-radius: 4px;
 }
 
-.move-options-dropdown::-webkit-scrollbar-thumb:hover {
+.type-options-dropdown::-webkit-scrollbar-thumb:hover {
   background-color: var(--scrollbar-hover-color, #999);
 }

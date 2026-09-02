@@ -2,6 +2,7 @@ import type { BattleGeneration } from 'domain/index';
 import type { BattleCombatant } from 'domain/index';
 import type { MoveOption } from './moves/moveOptions';
 import type { MoveDraft } from './moves/moveDraft';
+import type { SpeciesOption } from './species/speciesOptions';
 import CombatantBattleStateFields from './fields/CombatantBattleStateFields';
 import CombatantIdentityFields from './fields/CombatantIdentityFields';
 import CombatantMoveFields from './fields/CombatantMoveFields';
@@ -19,6 +20,7 @@ type CombatantPanelProps = {
   moves: readonly MoveDraft[];
   onMovesChange: (moves: readonly MoveDraft[]) => void;
   availableMoves: MoveOption[];
+  availableSpecies?: SpeciesOption[];
 };
 
 export default function CombatantPanel({
@@ -30,6 +32,7 @@ export default function CombatantPanel({
   moves,
   onMovesChange,
   availableMoves,
+  availableSpecies,
 }: CombatantPanelProps) {
   return (
     <article className="combatant-panel">
@@ -42,7 +45,11 @@ export default function CombatantPanel({
       </header>
 
       <FieldGroup title="Identity">
-        <CombatantIdentityFields combatant={combatant} onChange={onChange} />
+        <CombatantIdentityFields
+          combatant={combatant}
+          onChange={onChange}
+          availableSpecies={availableSpecies}
+        />
       </FieldGroup>
 
       <FieldGroup title="Type profile">
