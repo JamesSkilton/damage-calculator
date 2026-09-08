@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { BattleGeneration } from 'domain/index';
 import type { BattleCombatant } from 'domain/index';
 import type { MoveOption } from './moves/moveOptions';
@@ -9,7 +10,14 @@ import CombatantMoveFields from './fields/CombatantMoveFields';
 import CombatantStatGrids from './fields/CombatantStatGrids';
 import CombatantTypeFields from './fields/CombatantTypeFields';
 import { FieldGroup } from './shared/combatantPanel.helpers';
+import TypeBadges from './shared/TypeBadges';
 import './CombatantPanel.scss';
+
+const SPRITE_BASE_URL = 'https://img.pokemondb.net/artwork/';
+
+function toSpriteSlug(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-+|-+$)/g, '');
+}
 
 type CombatantPanelProps = {
   title: string;
@@ -34,39 +42,104 @@ export default function CombatantPanel({
   availableMoves,
   availableSpecies,
 }: CombatantPanelProps) {
+  const [mode, setMode] = useState<'simple' | 'advanced'>('simple');
+  const [isChoosingPokemon, setIsChoosingPokemon] = useState(false);
+  const role = title.toLowerCase().includes('attacker') ? 'attacker' : 'defender';
+  const displayName = combatant.species || combatant.name;
+
   return (
-    <article className="combatant-panel">
-      <header className="combatant-header">
-        <div>
-          <p className="combatant-eyebrow">{title}</p>
-          <h3>{combatant.name || combatant.species || title}</h3>
+    <article
+      className={`combatant-panel combatant-${role} combatant-mode-${mode}`}
+      aria-label={`${title}: ${description}`}
+    >
+      <div className="combatant-panel-topline">
+        <p className="combatant-eyebrow">{title}</p>
+        <div className="combatant-mode-toggle" role="tablist" aria-label={`${title} view`}>
+          {(['simple', 'advanced'] as const).map((nextMode) => (
+            <button
+              key={nextMode}
+              type="button"
+              role="tab"
+              aria-selected={mode === nextMode}
+              className={mode === nextMode ? 'active' : ''}
+              onClick={() => setMode(nextMode)}
+            >
+              {nextMode[0].toUpperCase() + nextMode.slice(1)}
+            </button>
+          ))}
         </div>
-        <p className="combatant-description">{description}</p>
+      </div>
+      <header className="combatant-header combatant-identity-header">
+        <div className="combatant-sprite-placeholder">
+          {displayName !== title && (
+            <img
+              src={`${SPRITE_BASE_URL}${toSpriteSlug(displayName)}.jpg`}
+              alt=""
+              onError={(event) => {
+                event.currentTarget.style.display = 'none';
+                const fallback = event.currentTarget.nextElementSibling;
+                if (fallback instanceof HTMLElement) {
+                  fallback.style.display = 'block';
+                }
+              }}
+            />
+          )}
+          <span aria-hidden="true">{displayName === title ? '◇' : displayName.slice(0, 1)}</span>
+        </div>
+        <div className="combatant-identity-copy">
+          <h3>{displayName || 'Select a Pokémon'}</h3>
+          <div className="combatant-type-summary">
+            <TypeBadges types={[...combatant.types]} />
+            <span>Lv. {combatant.level}</span>
+          </div>
+          <p className="combatant-loadout-summary">
+            {combatant.nature} · {combatant.ability || 'No ability'} · {combatant.item || 'No item'}
+          </p>
+        </div>
+        <button
+          type="button"
+          className="change-pokemon-button"
+          onClick={() => setIsChoosingPokemon((current) => !current)}
+        >
+          {isChoosingPokemon ? 'Done' : 'Change Pokémon'}
+        </button>
       </header>
 
-      <FieldGroup title="Identity">
-        <CombatantIdentityFields
-          combatant={combatant}
-          onChange={onChange}
-          availableSpecies={availableSpecies}
-        />
-      </FieldGroup>
+      {isChoosingPokemon && (
+        <div className="pokemon-picker-editor">
+          <CombatantIdentityFields
+            combatant={combatant}
+            onChange={onChange}
+            availableSpecies={availableSpecies}
+          />
+        </div>
+      )}
 
-      <FieldGroup title="Type profile">
-        <CombatantTypeFields combatant={combatant} onChange={onChange} />
-      </FieldGroup>
-
-      <FieldGroup title="Battle state">
-        <CombatantBattleStateFields combatant={combatant} onChange={onChange} />
-      </FieldGroup>
-
-      <CombatantStatGrids combatant={combatant} onChange={onChange} />
+      {mode === 'simple' ? (
+        <>
+          <FieldGroup title="Common configuration">
+            <CombatantIdentityFields combatant={combatant} onChange={onChange} availableSpecies={availableSpecies} showPokemonPicker={false} />
+          </FieldGroup>
+          <CombatantStatGrids combatant={combatant} onChange={onChange} />
+        </>
+      ) : (
+        <>
+          <FieldGroup title="Common configuration">
+            <CombatantIdentityFields combatant={combatant} onChange={onChange} availableSpecies={availableSpecies} showPokemonPicker={false} />
+          </FieldGroup>
+          <FieldGroup title="Pokémon"><CombatantTypeFields combatant={combatant} onChange={onChange} /></FieldGroup>
+          <FieldGroup title="Mechanics"><CombatantBattleStateFields combatant={combatant} onChange={onChange} /></FieldGroup>
+          <CombatantStatGrids combatant={combatant} onChange={onChange} />
+        </>
+      )}
 
       <CombatantMoveFields
         generation={generation}
         moves={moves}
         availableMoves={availableMoves}
         onChange={onMovesChange}
+        mode={mode}
+        attackerItem={combatant.item}
       />
     </article>
   );

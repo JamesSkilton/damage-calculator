@@ -47,7 +47,7 @@ function createPokemon(
     boosts: pokemon.boosts,
     curHP: pokemon.currentHp,
     status: pokemon.status,
-    teraType: pokemon.teratype,
+    teraType: pokemon.isTerastallized === false ? undefined : pokemon.teratype,
     toxicCounter: pokemon.toxicCounter,
     moves: pokemon.moves as CoreData.MoveName[],
   });

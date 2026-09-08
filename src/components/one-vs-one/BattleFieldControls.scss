@@ -1,11 +1,140 @@
 .battle-field-controls {
   display: grid;
+  gap: 0.9rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid #dbe4dc;
+  border-radius: 0.85rem;
+  background: #fbfdfb;
+}
+
+.battle-field-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 1rem;
-  flex: 1 1 100%;
+}
+
+.battle-field-header h2,
+.battle-field-summary,
+.battle-field-eyebrow {
+  margin: 0;
+}
+
+.battle-field-header h2 {
+  font-size: 1rem;
+}
+
+.battle-field-eyebrow {
+  color: #2f7d4a;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.battle-field-summary {
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.battle-field-quick {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.battle-field-quick > .combatant-fieldset:first-child {
+  grid-column: 1 / -1;
+}
+
+.battle-field-quick > .combatant-fieldset:first-child .combatant-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.battle-field-quick > .combatant-fieldset:nth-child(2) {
+  grid-column: 1 / -1;
+}
+
+.battle-field-quick > .combatant-fieldset:nth-child(2) .combatant-grid,
+.battle-field-quick > .combatant-fieldset:nth-child(n + 3) .combatant-grid,
+.battle-field-advanced .combatant-grid {
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+}
+
+.battle-field-controls .combatant-fieldset {
+  min-width: 0;
+  padding-top: 0.7rem;
+}
+
+.battle-field-controls .combatant-grid {
+  gap: 0.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+}
+
+.battle-field-controls .combatant-field input,
+.battle-field-controls .combatant-field select {
+  padding: 0.45rem 0.55rem;
+  border-radius: 0.45rem;
+}
+
+.battle-field-controls .checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2rem;
+  padding: 0.35rem 0.45rem;
+  border-radius: 0.4rem;
+  color: #64748b;
+}
+
+.battle-field-controls .checkbox-field.is-active {
+  background: #e7f4e9;
+  color: #1f5f38;
+}
+
+.battle-field-controls .checkbox-field input {
+  width: auto;
+}
+
+.battle-field-controls .checkbox-field > span {
+  color: inherit;
+}
+
+.battle-field-advanced {
+  border-top: 1px solid #e2e8f0;
+  padding-top: 0.75rem;
+}
+
+.battle-field-advanced summary {
+  color: #475569;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.battle-field-advanced-content {
+  display: grid;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
 }
 
 .battle-field-sides {
   display: grid;
-  gap: 1rem;
+  gap: 0.75rem;
   grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+}
+
+@media (max-width: 560px) {
+  .battle-field-header {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .battle-field-quick {
+    grid-template-columns: 1fr;
+  }
+
+  .battle-field-quick > .combatant-fieldset:first-child {
+    grid-column: auto;
+  }
 }

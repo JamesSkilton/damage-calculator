@@ -1,6 +1,7 @@
 import type { BattleGeneration } from 'domain/index';
 import type { MoveDraft } from './moveDraft';
 import type { MoveOption } from './moveOptions';
+import { resolveMoveOption } from './moveOptions';
 import {
   setMoveName,
   setMoveCrit,
@@ -22,6 +23,8 @@ type MovePickerRowProps = {
   generation: BattleGeneration;
   availableMoves?: MoveOption[];
   onChange: (move: MoveDraft) => void;
+  mode?: 'simple' | 'advanced';
+  attackerItem?: string;
 };
 
 export default function MovePickerRow({
@@ -30,14 +33,28 @@ export default function MovePickerRow({
   generation,
   availableMoves,
   onChange,
+  mode = 'advanced',
+  attackerItem,
 }: MovePickerRowProps) {
   const slotNumber = index + 1;
   const canUseZ = isGenerationGated('z', generation);
   const canUseMax = isGenerationGated('max', generation);
   const canUseStellar = isGenerationGated('stellar', generation);
+  const isAdvanced = mode === 'advanced';
 
   // Ensure move state is valid for generation
   const validatedMove = resolveMoveDraftForGeneration(move, generation);
+
+  const selectedMoveOption = availableMoves
+    ? resolveMoveOption(validatedMove.name, availableMoves)
+    : undefined;
+  const showHits = isAdvanced
+    ? (selectedMoveOption?.isMultiHit ?? true)
+    : selectedMoveOption?.isMultiHit === true;
+  const showTimesUsed =
+    isAdvanced && (selectedMoveOption?.dropsStatsOnUse ?? true);
+  const showMetronomeTimes =
+    isAdvanced && (attackerItem ?? '').trim().toLowerCase() === 'metronome';
 
   const handleMoveNameChange = (name: string) => {
     onChange(setMoveName(validatedMove, name));
@@ -80,7 +97,7 @@ export default function MovePickerRow({
       <legend>Move {slotNumber}</legend>
 
       <div className="move-picker-container">
-        <label className="move-picker-field">
+        <label className="move-picker-field move-name-field">
           <span>Name</span>
           {availableMoves ? (
             <SearchableMovePicker
@@ -111,19 +128,21 @@ export default function MovePickerRow({
           <span>Crit</span>
         </label>
 
-        <label className="move-picker-field">
-          <span>Hits</span>
-          <input
-            type="number"
-            min={1}
-            max={8}
-            value={validatedMove.hits}
-            onChange={(event) => handleHitsChange(event.target.value)}
-            aria-label={`Move ${slotNumber} hits`}
-          />
-        </label>
+        {showHits && (
+          <label className="move-picker-field number-field">
+            <span>Hits</span>
+            <input
+              type="number"
+              min={1}
+              max={8}
+              value={validatedMove.hits}
+              onChange={(event) => handleHitsChange(event.target.value)}
+              aria-label={`Move ${slotNumber} hits`}
+            />
+          </label>
+        )}
 
-        {canUseZ && (
+        {canUseZ && isAdvanced && (
           <label className="move-picker-field checkbox-field">
             <input
               type="checkbox"
@@ -135,7 +154,7 @@ export default function MovePickerRow({
           </label>
         )}
 
-        {canUseMax && (
+        {canUseMax && isAdvanced && (
           <label className="move-picker-field checkbox-field">
             <input
               type="checkbox"
@@ -147,7 +166,7 @@ export default function MovePickerRow({
           </label>
         )}
 
-        {canUseStellar && (
+        {canUseStellar && isAdvanced && (
           <label className="move-picker-field checkbox-field">
             <input
               type="checkbox"
@@ -159,33 +178,37 @@ export default function MovePickerRow({
           </label>
         )}
 
-        <label className="move-picker-field">
-          <span>Times used</span>
-          <input
-            type="number"
-            min={1}
-            max={255}
-            value={validatedMove.timesUsed}
-            onChange={(event) => handleTimesUsedChange(event.target.value)}
-            aria-label={`Move ${slotNumber} times used`}
-          />
-        </label>
+        {showTimesUsed && (
+          <label className="move-picker-field number-field">
+            <span>Times used</span>
+            <input
+              type="number"
+              min={1}
+              max={255}
+              value={validatedMove.timesUsed}
+              onChange={(event) => handleTimesUsedChange(event.target.value)}
+              aria-label={`Move ${slotNumber} times used`}
+            />
+          </label>
+        )}
 
-        <label className="move-picker-field">
-          <span>Metronome times</span>
-          <input
-            type="number"
-            min={0}
-            max={255}
-            value={validatedMove.timesUsedWithMetronome ?? ''}
-            onChange={(event) =>
-              handleTimesUsedWithMetronomeChange(
-                event.target.value === '' ? undefined : event.target.value,
-              )
-            }
-            aria-label={`Move ${slotNumber} metronome times`}
-          />
-        </label>
+        {showMetronomeTimes && (
+          <label className="move-picker-field number-field">
+            <span>Metronome times</span>
+            <input
+              type="number"
+              min={0}
+              max={255}
+              value={validatedMove.timesUsedWithMetronome ?? ''}
+              onChange={(event) =>
+                handleTimesUsedWithMetronomeChange(
+                  event.target.value === '' ? undefined : event.target.value,
+                )
+              }
+              aria-label={`Move ${slotNumber} metronome times`}
+            />
+          </label>
+        )}
       </div>
     </fieldset>
   );

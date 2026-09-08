@@ -880,7 +880,8 @@ describe('SearchableMovePicker', () => {
       );
 
       const input = screen.getByLabelText('Move selection');
-      expect(input).toHaveValue('Earthquake');
+      expect(input).toHaveValue('');
+      expect(input).toHaveAttribute('placeholder', 'Earthquake');
 
       const icon = document.querySelector('.type-badge[title="Ground"]');
       expect(icon).toBeInTheDocument();
@@ -914,7 +915,8 @@ describe('SearchableMovePicker', () => {
       );
 
       const input = screen.getByLabelText('Move selection');
-      expect(input).toHaveValue('Some Stale Move');
+      expect(input).toHaveValue('');
+      expect(input).toHaveAttribute('placeholder', 'Some Stale Move');
       expect(
         screen.queryByText('BP:', { exact: false }),
       ).not.toBeInTheDocument();
@@ -956,7 +958,11 @@ describe('SearchableMovePicker', () => {
       );
 
       expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
-      expect(screen.getByLabelText('Move selection')).toHaveValue('Ice Beam');
+      expect(screen.getByLabelText('Move selection')).toHaveValue('');
+      expect(screen.getByLabelText('Move selection')).toHaveAttribute(
+        'placeholder',
+        'Ice Beam',
+      );
       expect(screen.getByText('BP: 90')).toBeInTheDocument();
     });
   });

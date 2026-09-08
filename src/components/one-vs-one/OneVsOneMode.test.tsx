@@ -17,15 +17,19 @@ describe('one-vs-one mode', () => {
     expect(markup).toContain('Terrain');
     expect(markup).toContain('Attacker side');
     expect(markup).toContain('Defender side');
+    expect(markup).toContain('Battle Context');
+    expect(markup).toContain('Advanced Context');
     expect(markup).toContain('Attacker panel');
     expect(markup).toContain('Defender panel');
-    expect(markup).toContain('Attacker (Pikachu) — Lv. 100, HP 100');
-    expect(markup).toContain('Defender (Bulbasaur) — Lv. 100, HP 100');
-    expect(markup).toContain('Calc breakdown');
-    expect(markup).toContain('Live result');
-    expect(markup).toContain('No results');
+    expect(markup.indexOf('Defender panel')).toBeLessThan(
+      markup.indexOf('Battle Context'),
+    );
+    expect(markup).toContain('Simple');
+    expect(markup).toContain('Advanced');
+    expect(markup).toContain('EV Investment');
+    expect(markup).toContain('Base');
+    expect(markup).toContain('Final');
     expect(markup).toContain('Add a move to see the calculator breakdown.');
-    expect(markup).toContain('Clear weather, No terrain');
     expect(markup).not.toContain('Placeholder route');
   });
 });

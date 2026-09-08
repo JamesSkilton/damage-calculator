@@ -5,17 +5,19 @@ import { battleTypes } from '../shared/combatantPanel.constants';
 type CombatantTypeFieldsProps = {
   combatant: BattleCombatant;
   onChange: (combatant: BattleCombatant) => void;
+  includeTypes?: boolean;
 };
 
 export default function CombatantTypeFields({
   combatant,
   onChange,
+  includeTypes = true,
 }: CombatantTypeFieldsProps) {
   const [primaryType, secondaryType] = combatant.types;
 
   return (
     <>
-      <label className="combatant-field">
+      {includeTypes && <label className="combatant-field">
         <span>Primary type</span>
         <select
           value={primaryType}
@@ -35,8 +37,8 @@ export default function CombatantTypeFields({
             </option>
           ))}
         </select>
-      </label>
-      <label className="combatant-field">
+      </label>}
+      {includeTypes && <label className="combatant-field">
         <span>Secondary type</span>
         <select
           value={secondaryType ?? ''}
@@ -59,7 +61,7 @@ export default function CombatantTypeFields({
             </option>
           ))}
         </select>
-      </label>
+      </label>}
       <label className="combatant-field">
         <span>Tera type</span>
         <select
@@ -83,6 +85,22 @@ export default function CombatantTypeFields({
             </option>
           ))}
         </select>
+      </label>
+      <label className="combatant-field checkbox-field">
+        <input
+          type="checkbox"
+          checked={combatant.isTerastallized}
+          onChange={(event) =>
+            onChange(
+              setCombatantField(
+                combatant,
+                'isTerastallized',
+                event.target.checked,
+              ),
+            )
+          }
+        />
+        <span>Terastallized</span>
       </label>
     </>
   );

@@ -168,11 +168,11 @@ export default function SearchableTypePicker<T extends { name: string }>({
     setHighlightedIndex(index);
   };
 
-  const displayValue = value || placeholder;
   const selectedOption = value
     ? options.find((option) => option.name === value)
     : undefined;
   const showSelectedChip = !isOpen && !searchTerm && !!selectedOption;
+  const inputPlaceholder = value || placeholder;
 
   return (
     <div className="searchable-type-picker" ref={containerRef}>
@@ -191,11 +191,11 @@ export default function SearchableTypePicker<T extends { name: string }>({
         <input
           ref={inputRef}
           type="text"
-          value={searchTerm || displayValue}
+          value={searchTerm}
           onChange={handleInputChange}
           onFocus={handleInputFocus}
           onKeyDown={handleInputKeyDown}
-          placeholder={placeholder}
+          placeholder={inputPlaceholder}
           aria-label={ariaLabel}
           aria-autocomplete="list"
           aria-expanded={isOpen}
@@ -204,6 +204,16 @@ export default function SearchableTypePicker<T extends { name: string }>({
             showSelectedChip ? 'type-picker-input-transparent' : ''
           }`}
         />
+        {value && !isOpen && (
+          <button
+            type="button"
+            className="type-picker-clear"
+            aria-label={`Clear ${ariaLabel}`}
+            onClick={() => onSelect('')}
+          >
+            ×
+          </button>
+        )}
       </div>
 
       {isOpen && (

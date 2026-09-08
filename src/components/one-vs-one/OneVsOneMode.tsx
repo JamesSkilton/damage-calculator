@@ -10,7 +10,9 @@ import { createBattleFieldDraft } from '../combatant/shared/battleFieldDraft';
 import {
   createCombatantMovesState,
   applyCombatantMovesGeneration,
+  setCombatantMoveSlot,
 } from '../combatant/moves/combatantMovesState';
+import { setMoveName, setMoveCrit } from '../combatant/moves/moveDraft';
 import { buildMoveCatalog } from '../combatant/moves/moveCatalog';
 import { buildSpeciesCatalog } from '../combatant/species/speciesCatalog';
 import BattleFieldControls from './BattleFieldControls';
@@ -28,6 +30,7 @@ export default function OneVsOneMode() {
   const [defenderMoves, setDefenderMoves] = useState(() =>
     createCombatantMovesState(),
   );
+  const [isResultsSwapped, setIsResultsSwapped] = useState(false);
 
   const availableMoves = useMemo(
     () => buildMoveCatalog(generation),
@@ -39,7 +42,7 @@ export default function OneVsOneMode() {
     [generation],
   );
 
-  const battleResults = useMemo(
+  const attackerResults = useMemo(
     () =>
       buildBattleCalcBreakdowns({
         generation,
@@ -50,6 +53,31 @@ export default function OneVsOneMode() {
       }),
     [attackerMoves.slots, draft.attacker, draft.defender, field, generation],
   );
+
+  const defenderResults = useMemo(
+    () =>
+      buildBattleCalcBreakdowns({
+        generation,
+        attacker: draft.defender,
+        defender: draft.attacker,
+        field,
+        moves: defenderMoves.slots,
+      }),
+    [defenderMoves.slots, draft.attacker, draft.defender, field, generation],
+  );
+
+  const displayedAttacker = isResultsSwapped
+    ? draft.defender
+    : draft.attacker;
+  const displayedDefender = isResultsSwapped
+    ? draft.attacker
+    : draft.defender;
+  const displayedMoves = isResultsSwapped
+    ? defenderMoves.slots
+    : attackerMoves.slots;
+  const displayedResults = isResultsSwapped
+    ? defenderResults
+    : attackerResults;
 
   const updateGeneration = (nextGeneration: BattleGeneration) => {
     setGeneration(nextGeneration);
@@ -68,13 +96,54 @@ export default function OneVsOneMode() {
   };
 
   return (
-    <section className="one-vs-one-screen">  
+    <section className="one-vs-one-screen">
       <BattleResultPanel
-        generationLabel={`Gen ${generation}`}
-        field={field}
-        attacker={draft.attacker}
-        defender={draft.defender}
-        results={battleResults}
+        title={isResultsSwapped ? 'Defender damage' : 'Attacker damage'}
+        attacker={displayedAttacker}
+        defender={displayedDefender}
+        moves={displayedMoves}
+        results={displayedResults}
+        availableMoves={availableMoves}
+        availableSpecies={availableSpecies}
+        onSwapSides={() => setIsResultsSwapped((current) => !current)}
+        onAttackerChange={(combatant) =>
+          setDraft((current) => ({
+            ...current,
+            [isResultsSwapped ? 'defender' : 'attacker']: combatant,
+          }))
+        }
+        onDefenderChange={(combatant) =>
+          setDraft((current) => ({
+            ...current,
+            [isResultsSwapped ? 'attacker' : 'defender']: combatant,
+          }))
+        }
+        onMoveNameChange={(slotIndex, moveName) =>
+          (isResultsSwapped ? setDefenderMoves : setAttackerMoves)((current) => {
+            const existing = current.slots[slotIndex];
+            if (!existing) {
+              return current;
+            }
+            return setCombatantMoveSlot(
+              current,
+              slotIndex,
+              setMoveName(existing, moveName),
+            );
+          })
+        }
+        onMoveCritChange={(slotIndex, isCrit) =>
+          (isResultsSwapped ? setDefenderMoves : setAttackerMoves)((current) => {
+            const existing = current.slots[slotIndex];
+            if (!existing) {
+              return current;
+            }
+            return setCombatantMoveSlot(
+              current,
+              slotIndex,
+              setMoveCrit(existing, isCrit),
+            );
+          })
+        }
       />
 
       <section className="battle-controls" aria-label="Battle settings">
@@ -98,7 +167,6 @@ export default function OneVsOneMode() {
           Singles matchup
         </div>
 
-        <BattleFieldControls field={field} onChange={setField} />
       </section>
 
       <div className="one-vs-one-panels">
@@ -145,6 +213,8 @@ export default function OneVsOneMode() {
             }))
           }
         />
+
+        <BattleFieldControls field={field} onChange={setField} />
       </div>
     </section>
   );

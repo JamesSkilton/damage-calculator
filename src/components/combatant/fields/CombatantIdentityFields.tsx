@@ -1,53 +1,86 @@
-import type { BattleCombatant, BattleTypeName } from 'domain/index';
-import { setCombatantField, setCombatantTypes } from '../shared/combatantDraft';
+import type { BattleCombatant } from 'domain/index';
+import {
+  setCombatantField,
+  setCombatantSpecies,
+} from '../shared/combatantDraft';
 import { battleGenders } from '../shared/combatantPanel.constants';
 import type { SpeciesOption } from '../species/speciesOptions';
 import SearchablePokemonPicker from '../species/SearchablePokemonPicker';
+import SearchableTypePicker from '../shared/SearchableTypePicker';
+import { Generations } from 'calc-runtime/core/data';
 
 type CombatantIdentityFieldsProps = {
   combatant: BattleCombatant;
   onChange: (combatant: BattleCombatant) => void;
   availableSpecies?: SpeciesOption[];
+  showPokemonPicker?: boolean;
 };
+
+const STAT_LABELS: Record<string, string> = {
+  atk: 'Atk',
+  def: 'Def',
+  spa: 'SpA',
+  spd: 'SpD',
+  spe: 'Spe',
+};
+
+function formatNatureLabel(nature: {
+  name: string;
+  plus?: string;
+  minus?: string;
+}): string {
+  if (!nature.plus || !nature.minus || nature.plus === nature.minus) {
+    return nature.name;
+  }
+  const plus = STAT_LABELS[nature.plus] ?? nature.plus;
+  const minus = STAT_LABELS[nature.minus] ?? nature.minus;
+  return `${nature.name} (+${plus}, -${minus})`;
+}
 
 export default function CombatantIdentityFields({
   combatant,
   onChange,
   availableSpecies = [],
+  showPokemonPicker = true,
 }: CombatantIdentityFieldsProps) {
+  const generation = Generations.get(9);
+  const abilities = Array.from(generation.abilities).map((entry) => ({
+    name: entry.name,
+  }));
+  const items = Array.from(generation.items).map((entry) => ({
+    name: entry.name,
+  }));
+  const filterNamedOptions = (
+    options: { name: string }[],
+    searchTerm: string,
+  ) => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+    return normalizedSearch
+      ? options.filter((option) =>
+          option.name.toLowerCase().includes(normalizedSearch),
+        )
+      : options;
+  };
+  const natures = Array.from(generation.natures);
+
   return (
     <>
-      <label className="combatant-field">
-        <span>Pokémon</span>
-        <SearchablePokemonPicker
-          value={combatant.species}
-          options={availableSpecies}
-          onSelect={(species) => {
-            const withSpecies = setCombatantField(
-              combatant,
-              'species',
-              species,
-            );
-            const withName = setCombatantField(withSpecies, 'name', species);
-
-            const matchedSpecies = availableSpecies.find(
-              (option) => option.name === species,
-            );
-            if (!matchedSpecies) {
-              onChange(withName);
-              return;
+      {showPokemonPicker && (
+        <label className="combatant-field">
+          <span>Pokémon</span>
+          <SearchablePokemonPicker
+            value={combatant.species}
+            options={availableSpecies}
+            onSelect={(species) =>
+              onChange(
+                setCombatantSpecies(combatant, species, availableSpecies),
+              )
             }
-
-            const [primaryType, secondaryType] = matchedSpecies.types as [
-              BattleTypeName,
-              BattleTypeName | undefined,
-            ];
-            onChange(setCombatantTypes(withName, primaryType, secondaryType));
-          }}
-          ariaLabel="Pokémon species"
-          placeholder="— Select a Pokémon —"
-        />
-      </label>
+            ariaLabel="Pokémon species"
+            placeholder="— Select a Pokémon —"
+          />
+        </label>
+      )}
       <label className="combatant-field">
         <span>Gender</span>
         <select
@@ -83,35 +116,60 @@ export default function CombatantIdentityFields({
       </label>
       <label className="combatant-field">
         <span>Ability</span>
-        <input
-          type="text"
+        <SearchableTypePicker
           value={combatant.ability ?? ''}
-          onChange={(event) =>
-            onChange(
-              setCombatantField(combatant, 'ability', event.target.value),
-            )
+          options={abilities}
+          onSelect={(ability) =>
+            onChange(setCombatantField(combatant, 'ability', ability))
           }
+          ariaLabel="Ability"
+          placeholder="— Select ability —"
+          filterOptions={filterNamedOptions}
+          getTypes={() => []}
+          emptyMessage="No abilities found"
         />
       </label>
       <label className="combatant-field">
         <span>Item</span>
-        <input
-          type="text"
+        <SearchableTypePicker
           value={combatant.item ?? ''}
-          onChange={(event) =>
-            onChange(setCombatantField(combatant, 'item', event.target.value))
+          options={items}
+          onSelect={(item) =>
+            onChange(setCombatantField(combatant, 'item', item))
           }
+          ariaLabel="Item"
+          placeholder="— Select item —"
+          filterOptions={filterNamedOptions}
+          getTypes={() => []}
+          emptyMessage="No items found"
         />
       </label>
       <label className="combatant-field">
         <span>Nature</span>
-        <input
-          type="text"
+        <select
           value={combatant.nature}
           onChange={(event) =>
             onChange(setCombatantField(combatant, 'nature', event.target.value))
           }
+        >
+          {natures.map((nature) => (
+            <option key={nature.name} value={nature.name}>
+              {formatNatureLabel(nature)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="combatant-field checkbox-field">
+        <input
+          type="checkbox"
+          checked={combatant.shiny ?? false}
+          onChange={(event) =>
+            onChange(
+              setCombatantField(combatant, 'shiny', event.target.checked),
+            )
+          }
         />
+        <span>Shiny</span>
       </label>
     </>
   );
