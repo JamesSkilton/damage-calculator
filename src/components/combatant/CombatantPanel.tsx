@@ -11,13 +11,8 @@ import CombatantStatGrids from './fields/CombatantStatGrids';
 import CombatantTypeFields from './fields/CombatantTypeFields';
 import { FieldGroup } from './shared/combatantPanel.helpers';
 import TypeBadges from './shared/TypeBadges';
+import PokemonSprite from '../shared/PokemonSprite';
 import './CombatantPanel.scss';
-
-const SPRITE_BASE_URL = 'https://img.pokemondb.net/artwork/';
-
-function toSpriteSlug(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-+|-+$)/g, '');
-}
 
 type CombatantPanelProps = {
   title: string;
@@ -72,8 +67,8 @@ export default function CombatantPanel({
       <header className="combatant-header combatant-identity-header">
         <div className="combatant-sprite-placeholder">
           {displayName !== title && (
-            <img
-              src={`${SPRITE_BASE_URL}${toSpriteSlug(displayName)}.jpg`}
+            <PokemonSprite
+              name={displayName}
               alt=""
               onError={(event) => {
                 event.currentTarget.style.display = 'none';

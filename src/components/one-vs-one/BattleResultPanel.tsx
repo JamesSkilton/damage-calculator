@@ -12,6 +12,8 @@ import type { SpeciesOption } from '../combatant/species/speciesOptions';
 import { setCombatantSpecies } from '../combatant/shared/combatantDraft';
 import SearchableMovePicker from '../combatant/moves/SearchableMovePicker';
 import SearchablePokemonPicker from '../combatant/species/SearchablePokemonPicker';
+import HpRangeBar from '../shared/HpRangeBar';
+import PokemonSprite from '../shared/PokemonSprite';
 import TypeBadge from 'components/typeBadge/TypeBadge';
 import './BattleResultPanel.scss';
 
@@ -30,8 +32,6 @@ type BattleResultPanelProps = {
   onSwapSides?: () => void;
 };
 
-const SPRITE_BASE_URL = 'https://img.pokemondb.net/artwork/';
-
 const STAT_LABELS: Record<BattleStatId, string> = {
   hp: 'HP',
   atk: 'Atk',
@@ -40,13 +40,6 @@ const STAT_LABELS: Record<BattleStatId, string> = {
   spd: 'SpD',
   spe: 'Spe',
 };
-
-function toSpriteSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-+|-+$)/g, '');
-}
 
 function capitalize(text: string): string {
   return text.length > 0 ? text[0].toUpperCase() + text.slice(1) : text;
@@ -102,7 +95,7 @@ function remainingHpRange(details: BattleCalcDetails): {
 }
 
 function HpRemainingBar({ details }: { details: BattleCalcDetails }) {
-  const { defenderMaxHp, defenderCurrentHp } = details;
+  const { defenderMaxHp } = details;
 
   if (defenderMaxHp <= 0) {
     return null;
@@ -110,9 +103,6 @@ function HpRemainingBar({ details }: { details: BattleCalcDetails }) {
 
   const { remainingMin, remainingMax } = remainingHpRange(details);
   const toPercent = (value: number) => (value / defenderMaxHp) * 100;
-  const alreadyMissingPercent = toPercent(defenderMaxHp - defenderCurrentHp);
-  const guaranteedRemainingPercent = toPercent(remainingMin);
-  const swingPercent = toPercent(remainingMax - remainingMin);
   const primary = primaryKo(details);
 
   return (
@@ -156,26 +146,12 @@ function HpRemainingBar({ details }: { details: BattleCalcDetails }) {
         </div>
       </div>
 
-      <div
-        className="calc-hp-remaining-bar"
-        role="img"
-        aria-label={`Defender left with ${remainingMin} to ${remainingMax} of ${defenderMaxHp} HP after this hit`}
-      >
-        <div
-          className="calc-hp-remaining-segment calc-hp-remaining-safe"
-          style={{ width: `${guaranteedRemainingPercent}%` }}
-        />
-        <div
-          className="calc-hp-remaining-segment calc-hp-remaining-swing"
-          style={{ width: `${swingPercent}%` }}
-        />
-        {alreadyMissingPercent > 0 && (
-          <div
-            className="calc-hp-remaining-segment calc-hp-remaining-missing"
-            style={{ width: `${alreadyMissingPercent}%` }}
-          />
-        )}
-      </div>
+      <HpRangeBar
+        min={remainingMin}
+        max={remainingMax}
+        maxHp={defenderMaxHp}
+        label="Defender"
+      />
     </div>
   );
 }
@@ -204,9 +180,9 @@ function CombatantCard({
   return (
     <div className={`calc-node calc-combatant calc-${accent}`}>
       <p className="calc-combatant-label">{label}</p>
-      <img
+      <PokemonSprite
         className="calc-sprite"
-        src={`${SPRITE_BASE_URL}${toSpriteSlug(combatant.species || combatant.name)}.jpg`}
+        name={combatant.species || combatant.name}
         alt={combatant.name || combatant.species}
       />
 

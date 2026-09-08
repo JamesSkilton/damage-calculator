@@ -361,31 +361,6 @@
   white-space: nowrap;
 }
 
-.calc-hp-remaining-bar {
-  display: flex;
-  width: 100%;
-  height: 0.6rem;
-  border-radius: 999px;
-  background: #e2e8f0;
-  overflow: hidden;
-}
-
-.calc-hp-remaining-segment {
-  height: 100%;
-}
-
-.calc-hp-remaining-safe {
-  background: #16a34a;
-}
-
-.calc-hp-remaining-swing {
-  background: #facc15;
-}
-
-.calc-hp-remaining-missing {
-  background: #cbd5e1;
-}
-
 .calc-roll-odds {
   width: 100%;
   margin-top: 0.45rem;
