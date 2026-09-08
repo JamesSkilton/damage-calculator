@@ -21,6 +21,7 @@ describe('one-vs-one mode', () => {
     expect(markup).toContain('Advanced Context');
     expect(markup).toContain('Attacker panel');
     expect(markup).toContain('Defender panel');
+    expect(markup).toContain('Plan battle');
     expect(markup.indexOf('Defender panel')).toBeLessThan(
       markup.indexOf('Battle Context'),
     );

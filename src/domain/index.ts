@@ -3,3 +3,4 @@ export * from 'domain/field';
 export * from 'domain/combatant';
 export * from 'domain/move';
 export * from 'domain/result';
+export * from 'domain/battlePlan';

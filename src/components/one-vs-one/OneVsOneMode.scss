@@ -25,6 +25,15 @@
   flex-wrap: wrap;
 }
 
+.battle-planner-toggle {
+  border: 1px solid #172554;
+  border-radius: 0.45rem;
+  padding: 0.55rem 0.75rem;
+  background: #172554;
+  color: #fff;
+  cursor: pointer;
+}
+
 .one-vs-one-panels {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(220px, 0.75fr);

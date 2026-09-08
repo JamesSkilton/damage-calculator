@@ -17,6 +17,7 @@ import { buildMoveCatalog } from '../combatant/moves/moveCatalog';
 import { buildSpeciesCatalog } from '../combatant/species/speciesCatalog';
 import BattleFieldControls from './BattleFieldControls';
 import BattleResultPanel from './BattleResultPanel';
+import BattlePlanner from '../battle-planner/BattlePlanner';
 import { buildBattleCalcBreakdowns } from 'adapters/battleCalc';
 import './OneVsOneMode.scss';
 
@@ -31,6 +32,7 @@ export default function OneVsOneMode() {
     createCombatantMovesState(),
   );
   const [isResultsSwapped, setIsResultsSwapped] = useState(false);
+  const [isPlannerOpen, setIsPlannerOpen] = useState(false);
 
   const availableMoves = useMemo(
     () => buildMoveCatalog(generation),
@@ -97,7 +99,18 @@ export default function OneVsOneMode() {
 
   return (
     <section className="one-vs-one-screen">
-      <BattleResultPanel
+      {isPlannerOpen ? (
+        <BattlePlanner
+          generation={generation}
+          attacker={draft.attacker}
+          defender={draft.defender}
+          field={field}
+          availableMoves={availableMoves}
+          attackerMoves={attackerMoves.slots}
+          defenderMoves={defenderMoves.slots}
+        />
+      ) : (
+        <BattleResultPanel
         title={isResultsSwapped ? 'Defender damage' : 'Attacker damage'}
         attacker={displayedAttacker}
         defender={displayedDefender}
@@ -144,7 +157,8 @@ export default function OneVsOneMode() {
             );
           })
         }
-      />
+        />
+      )}
 
       <section className="battle-controls" aria-label="Battle settings">
         <label className="combatant-field">
@@ -166,6 +180,14 @@ export default function OneVsOneMode() {
         <div className="battle-control-chip" aria-label="Battle format">
           Singles matchup
         </div>
+
+        <button
+          type="button"
+          className="battle-planner-toggle"
+          onClick={() => setIsPlannerOpen((current) => !current)}
+        >
+          {isPlannerOpen ? 'Back to calculator' : 'Plan battle'}
+        </button>
 
       </section>
 
