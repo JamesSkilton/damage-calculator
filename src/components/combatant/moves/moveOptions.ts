@@ -7,6 +7,10 @@ export interface MoveOption {
   type: string;
   basePower: number;
   category: string;
+  /** True when the move hits multiple times per use (e.g. Bullet Seed). */
+  isMultiHit?: boolean;
+  /** True when using the move repeatedly lowers the user's own stats (e.g. via self.boosts). */
+  dropsStatsOnUse?: boolean;
 }
 
 /**

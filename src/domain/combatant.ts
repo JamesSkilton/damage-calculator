@@ -16,6 +16,8 @@ export interface BattleCombatant {
   ability?: string;
   item?: string;
   nature: string;
+  shiny?: boolean;
+  isTerastallized?: boolean;
   types: readonly [BattleTypeName] | readonly [BattleTypeName, BattleTypeName];
   ivs: BattleStats;
   evs: BattleStats;

@@ -1,20 +1,26 @@
 .move-picker-row {
-  border: 1px solid var(--border-color, #ddd);
-  border-radius: 4px;
-  padding: 12px;
-  margin-bottom: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 0.55rem 0;
+  border: 0;
+  border-top: 1px solid #e2e8f0;
 }
 
 .move-picker-row legend {
-  font-weight: 500;
-  padding: 0 4px;
-  margin-bottom: 8px;
+  padding: 0;
+  margin: 0 0 0.5rem;
+  color: #475569;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .move-picker-container {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem 0.75rem;
+  align-items: end;
 }
 
 .move-picker-field {
@@ -22,6 +28,20 @@
   flex-direction: column;
   gap: 4px;
   font-size: 0.875rem;
+  flex: 1 1 8rem;
+  min-width: 0;
+}
+
+.move-picker-field.move-name-field {
+  flex: 3 1 12rem;
+}
+
+.move-picker-field.number-field {
+  flex: 0 1 5.5rem;
+}
+
+.move-picker-field.checkbox-field {
+  flex: 0 1 auto;
 }
 
 .move-picker-field span {
@@ -42,6 +62,11 @@
   font-size: 0.875rem;
 }
 
+.move-picker-field input[type='text'],
+.move-picker-field select {
+  min-width: 0;
+}
+
 .move-picker-field input[type='text']:focus,
 .move-picker-field input[type='number']:focus,
 .move-picker-field select:focus {
@@ -54,6 +79,9 @@
   flex-direction: row;
   align-items: center;
   gap: 6px;
+  align-self: center;
+  padding-top: 1.25rem;
+  white-space: nowrap;
 }
 
 .move-picker-field.checkbox-field input[type='checkbox'] {
@@ -69,4 +97,20 @@
   color: var(--text-color, #333);
   font-weight: 400;
   cursor: pointer;
+}
+
+@media (max-width: 700px) {
+  .move-picker-container {
+    gap: 0.4rem 0.5rem;
+  }
+
+  .move-picker-field.move-name-field {
+    flex-basis: 100%;
+  }
+}
+
+@media (max-width: 400px) {
+  .move-picker-field.number-field {
+    flex: 1 1 4.5rem;
+  }
 }

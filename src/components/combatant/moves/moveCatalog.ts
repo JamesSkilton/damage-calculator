@@ -17,11 +17,17 @@ export function buildMoveCatalog(generation: BattleGeneration): MoveOption[] {
       continue;
     }
 
+    const dropsStatsOnUse = Object.values(move.self?.boosts ?? {}).some(
+      (boost) => typeof boost === 'number' && boost < 0,
+    );
+
     moves.push({
       name: move.name,
       type: move.type,
       basePower: move.basePower,
       category: move.category ?? 'Status',
+      isMultiHit: move.multihit !== undefined,
+      dropsStatsOnUse,
     });
   }
 

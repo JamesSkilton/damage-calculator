@@ -13,10 +13,13 @@ type BattleFieldControlsProps = {
   onChange: (field: BattleField) => void;
 };
 
-const fieldToggles = [
+const commonFieldToggles = [
   { key: 'isMagicRoom', label: 'Magic Room' },
   { key: 'isWonderRoom', label: 'Wonder Room' },
   { key: 'isGravity', label: 'Gravity' },
+] as const;
+
+const advancedFieldToggles = [
   { key: 'isAuraBreak', label: 'Aura Break' },
   { key: 'isFairyAura', label: 'Fairy Aura' },
   { key: 'isDarkAura', label: 'Dark Aura' },
@@ -26,6 +29,12 @@ const fieldToggles = [
   { key: 'isVesselOfRuin', label: 'Vessel of Ruin' },
 ] as const;
 
+const screenToggles = [
+  { key: 'isReflect', label: 'Reflect' },
+  { key: 'isLightScreen', label: 'Light Screen' },
+  { key: 'isAuroraVeil', label: 'Aurora Veil' },
+] as const;
+
 const sideToggles = [
   { key: 'isSR', label: 'Stealth Rock' },
   { key: 'steelsurge', label: 'Steelsurge' },
@@ -33,8 +42,6 @@ const sideToggles = [
   { key: 'wildfire', label: 'Wildfire' },
   { key: 'cannonade', label: 'Cannonade' },
   { key: 'volcalith', label: 'Volcalith' },
-  { key: 'isReflect', label: 'Reflect' },
-  { key: 'isLightScreen', label: 'Light Screen' },
   { key: 'isProtected', label: 'Protect' },
   { key: 'isSeeded', label: 'Leech Seed' },
   { key: 'isSaltCured', label: 'Salt Cure' },
@@ -44,11 +51,13 @@ const sideToggles = [
   { key: 'isFlowerGift', label: 'Flower Gift' },
   { key: 'isPowerTrick', label: 'Power Trick' },
   { key: 'isFriendGuard', label: 'Friend Guard' },
-  { key: 'isAuroraVeil', label: 'Aurora Veil' },
   { key: 'isBattery', label: 'Battery' },
   { key: 'isPowerSpot', label: 'Power Spot' },
   { key: 'isSteelySpirit', label: 'Steely Spirit' },
 ] as const;
+
+const activeClassName = (isActive: boolean) =>
+  isActive ? 'combatant-field checkbox-field is-active' : 'combatant-field checkbox-field';
 
 function BattleSideControls({
   label,
@@ -109,8 +118,47 @@ function BattleSideControls({
         </select>
       </label>
 
+      {screenToggles.map((toggle) => (
+        <label
+          key={toggle.key}
+          className={activeClassName(side[toggle.key])}
+        >
+          <input
+            type="checkbox"
+            checked={side[toggle.key]}
+            onChange={(event) =>
+              onChange(
+                setBattleFieldSideCondition(
+                  field,
+                  sideKey,
+                  toggle.key,
+                  event.target.checked,
+                ),
+              )
+            }
+          />
+          <span>{toggle.label}</span>
+        </label>
+      ))}
+    </FieldGroup>
+  );
+}
+
+function AdvancedSideControls({
+  sideKey,
+  field,
+  onChange,
+}: {
+  sideKey: 'attackerSide' | 'defenderSide';
+  field: BattleField;
+  onChange: (field: BattleField) => void;
+}) {
+  const side = field[sideKey];
+
+  return (
+    <FieldGroup title={sideKey === 'attackerSide' ? 'Attacker effects' : 'Defender effects'}>
       {sideToggles.map((toggle) => (
-        <label key={toggle.key} className="combatant-field checkbox-field">
+        <label key={toggle.key} className={activeClassName(side[toggle.key])}>
           <input
             type="checkbox"
             checked={side[toggle.key]}
@@ -137,74 +185,118 @@ export default function BattleFieldControls({
   onChange,
 }: BattleFieldControlsProps) {
   return (
-    <div className="battle-field-controls">
-      <FieldGroup title="Field conditions">
-        <label className="combatant-field">
-          <span>Weather</span>
-          <select
-            value={field.weather ?? ''}
-            onChange={(event) =>
-              onChange(
-                setBattleFieldField(field, 'weather', event.target.value),
-              )
-            }
-          >
-            {battleWeatherOptions.map((option) => (
-              <option key={option.value || 'clear'} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
+    <section className="battle-field-controls" aria-labelledby="battle-context-title">
+      <div className="battle-field-header">
+        <div>
+          <p className="battle-field-eyebrow">Battlefield</p>
+          <h2 id="battle-context-title">Battle Context</h2>
+        </div>
+        <p className="battle-field-summary">
+          {field.weather || 'Clear'} weather, {field.terrain || 'No'} terrain
+        </p>
+      </div>
 
-        <label className="combatant-field">
-          <span>Terrain</span>
-          <select
-            value={field.terrain ?? ''}
-            onChange={(event) =>
-              onChange(
-                setBattleFieldField(field, 'terrain', event.target.value),
-              )
-            }
-          >
-            {battleTerrainOptions.map((option) => (
-              <option key={option.value || 'none'} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        {fieldToggles.map((toggle) => (
-          <label key={toggle.key} className="combatant-field checkbox-field">
-            <input
-              type="checkbox"
-              checked={field[toggle.key]}
+      <div className="battle-field-quick">
+        <FieldGroup title="Weather and terrain">
+          <label className="combatant-field">
+            <span>Weather</span>
+            <select
+              value={field.weather ?? ''}
               onChange={(event) =>
                 onChange(
-                  setBattleFieldField(field, toggle.key, event.target.checked),
+                  setBattleFieldField(field, 'weather', event.target.value),
                 )
               }
-            />
-            <span>{toggle.label}</span>
+            >
+              {battleWeatherOptions.map((option) => (
+                <option key={option.value || 'clear'} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
           </label>
-        ))}
-      </FieldGroup>
 
-      <div className="battle-field-sides">
+          <label className="combatant-field">
+            <span>Terrain</span>
+            <select
+              value={field.terrain ?? ''}
+              onChange={(event) =>
+                onChange(
+                  setBattleFieldField(field, 'terrain', event.target.value),
+                )
+              }
+            >
+              {battleTerrainOptions.map((option) => (
+                <option key={option.value || 'none'} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </FieldGroup>
+
+        <FieldGroup title="Field effects">
+          {commonFieldToggles.map((toggle) => (
+            <label
+              key={toggle.key}
+              className={activeClassName(field[toggle.key])}
+            >
+              <input
+                type="checkbox"
+                checked={field[toggle.key]}
+                onChange={(event) =>
+                  onChange(
+                    setBattleFieldField(field, toggle.key, event.target.checked),
+                  )
+                }
+              />
+              <span>{toggle.label}</span>
+            </label>
+          ))}
+        </FieldGroup>
+
         <BattleSideControls
-          label="Attacker side"
+          label="Screens and hazards: Attacker side"
           sideKey="attackerSide"
           field={field}
           onChange={onChange}
         />
         <BattleSideControls
-          label="Defender side"
+          label="Screens and hazards: Defender side"
           sideKey="defenderSide"
           field={field}
           onChange={onChange}
         />
       </div>
-    </div>
+
+      <details className="battle-field-advanced">
+        <summary>Advanced Context</summary>
+        <div className="battle-field-advanced-content">
+          <FieldGroup title="Auras and Ruin abilities">
+            {advancedFieldToggles.map((toggle) => (
+              <label
+                key={toggle.key}
+                className={activeClassName(field[toggle.key])}
+              >
+                <input
+                  type="checkbox"
+                  checked={field[toggle.key]}
+                  onChange={(event) =>
+                    onChange(
+                      setBattleFieldField(field, toggle.key, event.target.checked),
+                    )
+                  }
+                />
+                <span>{toggle.label}</span>
+              </label>
+            ))}
+          </FieldGroup>
+          <div className="battle-field-sides">
+            <AdvancedSideControls sideKey="attackerSide" field={field} onChange={onChange} />
+            <AdvancedSideControls sideKey="defenderSide" field={field} onChange={onChange} />
+          </div>
+        </div>
+      </details>
+    </section>
   );
 }

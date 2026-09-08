@@ -132,6 +132,8 @@ export function mapLegacyPokemonToBattleCombatant(
     ability: input.ability || species.abilities?.[0] || undefined,
     item: input.item,
     nature: input.nature || 'Serious',
+    shiny: false,
+    isTerastallized: input.teraType !== undefined,
     types: species.types,
     ivs: mapStats(generation.num, input.ivs, 31, true),
     evs: mapStats(

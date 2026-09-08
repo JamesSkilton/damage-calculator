@@ -9,6 +9,8 @@ type CombatantMoveFieldsProps = {
   moves: readonly MoveDraft[];
   availableMoves?: MoveOption[];
   onChange: (moves: readonly MoveDraft[]) => void;
+  mode?: 'simple' | 'advanced';
+  attackerItem?: string;
 };
 
 export default function CombatantMoveFields({
@@ -16,6 +18,8 @@ export default function CombatantMoveFields({
   moves,
   availableMoves,
   onChange,
+  mode,
+  attackerItem,
 }: CombatantMoveFieldsProps) {
   const handleMoveChange = (index: number, move: MoveDraft) => {
     const updated = [...moves];
@@ -25,7 +29,7 @@ export default function CombatantMoveFields({
 
   return (
     <FieldGroup title="Moves">
-      <div className="moves-container">
+      <div className={`moves-container moves-container-${mode ?? 'advanced'}`}>
         {moves.map((move, index) => (
           <MovePickerRow
             key={`move-${index}`}
@@ -34,6 +38,8 @@ export default function CombatantMoveFields({
             generation={generation}
             availableMoves={availableMoves}
             onChange={(updatedMove) => handleMoveChange(index, updatedMove)}
+            mode={mode}
+            attackerItem={attackerItem}
           />
         ))}
       </div>

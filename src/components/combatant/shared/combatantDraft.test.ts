@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   createTeamDraft,
+  getEvValidationError,
   setCombatantField,
   setCombatantMove,
   setCombatantStat,
@@ -27,7 +28,7 @@ describe('combatantDraft', () => {
       ability: 'Static',
       item: 'Choice Band',
       nature: 'Adamant',
-      currentHp: 100,
+      currentHp: 0,
       toxicCounter: 0,
       abilityOn: false,
       isDynamaxed: false,
@@ -42,7 +43,7 @@ describe('combatantDraft', () => {
       ability: 'Overgrow',
       item: 'Eviolite',
       nature: 'Bold',
-      currentHp: 100,
+      currentHp: 0,
       toxicCounter: 0,
       abilityOn: false,
       isDynamaxed: false,
@@ -86,7 +87,7 @@ describe('combatantDraft', () => {
     expect(draft.attacker.name).toBe('Attacker');
     expect(levelFallback.level).toBe(100);
     expect(blankLevel.level).toBe(100);
-    expect(partialCurrentHp.currentHp).toBe(100);
+    expect(partialCurrentHp.currentHp).toBe(0);
     expect(dynamaxFallback.dynamaxLevel).toBe(5);
     expect(Number.isNaN(levelFallback.level)).toBe(false);
   });
@@ -110,6 +111,20 @@ describe('combatantDraft', () => {
     expect(moved.moves[0]).toBe('');
     expect(statused.status).toBeUndefined();
     expect(draft.attacker.name).toBe('Attacker');
+  });
+
+  it('validates EV limits without changing another stat', () => {
+    const draft = createTeamDraft(9);
+    const invested = setCombatantStat(draft.attacker, 'evs', 'spa', 252);
+
+    expect(getEvValidationError(invested, 'spe', 259)).toContain('0–252');
+    expect(getEvValidationError(invested, 'spe', 252)).toBeUndefined();
+    expect(
+      setCombatantStat(invested, 'evs', 'spe', 252).evs.spe,
+    ).toBe(252);
+    expect(
+      setCombatantStat(invested, 'evs', 'spe', 252).evs.spa,
+    ).toBe(252);
   });
 
   it('maps combatant drafts to legacy-compatible inputs', () => {

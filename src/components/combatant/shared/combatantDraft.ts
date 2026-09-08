@@ -51,13 +51,15 @@ function createBaseCombatant(
 ): BattleCombatant {
   return {
     generation,
-    name: role === 'attacker' ? 'Pikachu' : 'Bulbasaur',
-    species: role === 'attacker' ? '' : '',
+    name: role === 'attacker' ? 'Attacker' : 'Defender',
+    species: role === 'attacker' ? 'Pikachu' : 'Bulbasaur',
     level: 100,
     gender: role === 'attacker' ? 'M' : 'F',
     ability: role === 'attacker' ? 'Static' : 'Overgrow',
     item: role === 'attacker' ? 'Choice Band' : 'Eviolite',
     nature: role === 'attacker' ? 'Adamant' : 'Bold',
+    shiny: false,
+    isTerastallized: false,
     types: role === 'attacker' ? attackerTypes : defenderTypes,
     ivs: {
       hp: 31,
@@ -83,7 +85,9 @@ function createBaseCombatant(
       spd: 0,
       spe: 0,
     },
-    currentHp: 100,
+    // 0 is a sentinel meaning "full HP" (see core/pokemon.ts originalCurHP),
+    // matching the legacy calculator's default of a fully healthy defender.
+    currentHp: 0,
     status: undefined,
     toxicCounter: 0,
     abilityOn: false,
@@ -211,13 +215,48 @@ export function setCombatantStat(
     return combatant;
   }
 
+  const normalized = Math.trunc(parsed);
+  if (bucket === 'evs') {
+    if (normalized < 0 || normalized > 252) {
+      return combatant;
+    }
+    const otherEvs = statIds
+      .filter((id) => id !== statId)
+      .reduce((sum, id) => sum + combatant.evs[id], 0);
+    if (otherEvs + normalized > 510) {
+      return combatant;
+    }
+  }
+
   return {
     ...combatant,
     [bucket]: {
       ...combatant[bucket],
-      [statId]: Math.trunc(parsed),
+      [statId]: normalized,
     },
   };
+}
+
+export function getEvValidationError(
+  combatant: BattleCombatant,
+  statId: BattleStatId,
+  value: number | string | null | undefined,
+): string | undefined {
+  const rawValue = typeof value === 'string' ? value.trim() : value;
+  if (rawValue === '' || rawValue === null || rawValue === undefined) {
+    return undefined;
+  }
+  const parsed = Number(rawValue);
+  if (!Number.isFinite(parsed) || !Number.isInteger(parsed)) {
+    return 'Enter a whole number.';
+  }
+  if (parsed < 0 || parsed > 252) {
+    return 'Each stat allows 0–252 EVs.';
+  }
+  const otherEvs = statIds
+    .filter((id) => id !== statId)
+    .reduce((sum, id) => sum + combatant.evs[id], 0);
+  return otherEvs + parsed > 510 ? 'EVs cannot exceed 510 total.' : undefined;
 }
 
 export function setCombatantMove(
@@ -232,6 +271,32 @@ export function setCombatantMove(
     ...combatant,
     moves,
   };
+}
+
+/**
+ * Apply a species selection: sets `species`/`name` and, when the species is
+ * found in `availableSpecies`, auto-syncs `types` to match it.
+ */
+export function setCombatantSpecies(
+  combatant: BattleCombatant,
+  speciesName: string,
+  availableSpecies: readonly { name: string; types: readonly string[] }[],
+): BattleCombatant {
+  const withSpecies = setCombatantField(combatant, 'species', speciesName);
+  const withName = setCombatantField(withSpecies, 'name', speciesName);
+
+  const matchedSpecies = availableSpecies.find(
+    (option) => option.name === speciesName,
+  );
+  if (!matchedSpecies) {
+    return withName;
+  }
+
+  const [primaryType, secondaryType] = matchedSpecies.types as [
+    BattleTypeName,
+    BattleTypeName | undefined,
+  ];
+  return setCombatantTypes(withName, primaryType, secondaryType);
 }
 
 export function setCombatantTypes(
@@ -279,7 +344,7 @@ export function toLegacyPokemonInput(
     currentHp: combatant.currentHp,
     status: combatant.status ?? '',
     toxicCounter: combatant.toxicCounter,
-    teraType: combatant.teratype,
+    teraType: combatant.isTerastallized === false ? undefined : combatant.teratype,
     moves,
   };
 }

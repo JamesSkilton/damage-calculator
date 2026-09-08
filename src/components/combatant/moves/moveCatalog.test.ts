@@ -20,7 +20,21 @@ describe('buildMoveCatalog', () => {
       type: 'Ground',
       basePower: 100,
       category: 'Physical',
+      isMultiHit: false,
+      dropsStatsOnUse: false,
     });
+  });
+
+  it('flags multi-hit moves', () => {
+    const moves = buildMoveCatalog(9);
+    const bulletSeed = moves.find((move) => move.name === 'Bullet Seed');
+    expect(bulletSeed?.isMultiHit).toBe(true);
+  });
+
+  it('flags moves that drop the user\'s own stats on use', () => {
+    const moves = buildMoveCatalog(9);
+    const overheat = moves.find((move) => move.name === 'Overheat');
+    expect(overheat?.dropsStatsOnUse).toBe(true);
   });
 
   it('is sorted alphabetically', () => {

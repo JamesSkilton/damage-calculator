@@ -1,6 +1,21 @@
 .searchable-type-picker {
   position: relative;
   width: 100%;
+  position: relative;
+}
+
+.type-picker-clear {
+  position: absolute;
+  top: 50%;
+  right: 0.45rem;
+  transform: translateY(-50%);
+  border: 0;
+  padding: 0.15rem 0.35rem;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
 }
 
 .type-picker-input-wrapper {
@@ -29,12 +44,16 @@
   caret-color: transparent;
 }
 
+.type-picker-input.type-picker-input-transparent::placeholder {
+  color: transparent;
+}
+
 .type-picker-selected-chip {
   position: absolute;
   inset: 0;
   display: flex;
   align-items: center;
-  padding: 0 8px;
+  padding: 0 1.75rem 0 8px;
   pointer-events: none;
   overflow: hidden;
 }
