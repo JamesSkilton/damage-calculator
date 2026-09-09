@@ -5,6 +5,9 @@
 export interface SpeciesOption {
   name: string;
   types: string[];
+  displayName?: string;
+  group?: string;
+  importedSetId?: string;
 }
 
 /**
@@ -29,6 +32,6 @@ export function filterSpeciesOptions(
 
   const lowerSearch = searchTerm.toLowerCase();
   return options.filter((species) =>
-    species.name.toLowerCase().includes(lowerSearch),
+    (species.displayName ?? species.name).toLowerCase().includes(lowerSearch),
   );
 }

@@ -10,6 +10,7 @@ import type { LegacyPokemonInput } from 'adapters/legacyPokemon';
 import type { LegacyMoveInput } from 'adapters/legacyMove.types';
 import type { MoveDraft } from '../moves/moveDraft';
 import { toMoveLegacyInput } from '../moves/moveDraft';
+import type { ImportedPokemonSet } from '../../../import/pokemonSet';
 
 const statIds: readonly BattleStatId[] = [
   'hp',
@@ -297,6 +298,35 @@ export function setCombatantSpecies(
     BattleTypeName | undefined,
   ];
   return setCombatantTypes(withName, primaryType, secondaryType);
+}
+
+export function applyImportedPokemonSet(
+  combatant: BattleCombatant,
+  importedSet: ImportedPokemonSet,
+  availableSpecies: readonly { name: string; types: readonly string[] }[],
+): BattleCombatant {
+  const selected = setCombatantSpecies(combatant, importedSet.species, availableSpecies);
+  return {
+    ...selected,
+    name: importedSet.nickname || importedSet.species,
+    level: importedSet.level,
+    gender: importedSet.gender,
+    ability: importedSet.ability,
+    item: importedSet.item,
+    nature: importedSet.nature,
+    teratype: importedSet.teraType,
+    isTerastallized: importedSet.teraType !== undefined,
+    ivs: importedSet.ivs,
+    evs: importedSet.evs,
+    status: undefined,
+    toxicCounter: 0,
+    abilityOn: false,
+    isDynamaxed: false,
+    dynamaxLevel: undefined,
+    boosts: { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 },
+    currentHp: 0,
+    moves: importedSet.moves,
+  };
 }
 
 export function setCombatantTypes(

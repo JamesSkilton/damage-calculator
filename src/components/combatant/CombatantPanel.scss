@@ -100,6 +100,12 @@
   grid-column: 1 / -1;
 }
 
+.combatant-pokemon-picker {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.25rem 0 0.5rem;
+}
+
 .combatant-eyebrow,
 .combatant-description {
   color: #64748b;
@@ -446,4 +452,43 @@
 
 .checkbox-field input {
   width: auto;
+}
+
+.imported-set-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  min-height: 2.5rem;
+}
+
+.imported-set-actions .checkbox-field {
+  padding-top: 0;
+}
+
+.update-imported-set-button {
+  border: 1px solid #2f7d4a;
+  border-radius: 0.55rem;
+  padding: 0.48rem 0.8rem;
+  background: #2f7d4a;
+  color: #fff;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease, transform 120ms ease;
+}
+
+.update-imported-set-button:hover {
+  border-color: #25623a;
+  background: #25623a;
+}
+
+.update-imported-set-button:focus-visible {
+  outline: 3px solid #2f7d4a55;
+  outline-offset: 2px;
+}
+
+.update-imported-set-button:active {
+  transform: translateY(1px);
 }

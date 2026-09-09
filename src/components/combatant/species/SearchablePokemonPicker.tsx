@@ -26,6 +26,8 @@ export default function SearchablePokemonPicker({
       placeholder={placeholder}
       filterOptions={filterSpeciesOptions}
       getTypes={(option) => option.types}
+      getDisplayName={(option) => option.displayName ?? option.name}
+      getGroup={(option) => option.group}
       emptyMessage="No Pokémon found"
     />
   );
