@@ -1,0 +1,32 @@
+.pokemon-set-tools {
+  display: grid;
+  gap: 0.65rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid #dbe4dc;
+  border-radius: 0.85rem;
+  background: #fbfdfb;
+}
+
+.pokemon-set-tools h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.pokemon-set-tools-content {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.pokemon-set-tools textarea {
+  min-width: 0;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.45rem;
+  resize: vertical;
+}
+
+.pokemon-set-tools-content > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}

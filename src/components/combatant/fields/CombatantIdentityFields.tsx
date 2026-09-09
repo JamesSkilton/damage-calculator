@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { BattleCombatant } from 'domain/index';
 import {
   setCombatantField,
@@ -8,11 +9,17 @@ import type { SpeciesOption } from '../species/speciesOptions';
 import SearchablePokemonPicker from '../species/SearchablePokemonPicker';
 import SearchableTypePicker from '../shared/SearchableTypePicker';
 import { Generations } from 'calc-runtime/core/data';
+import type { ImportedPokemonSet } from '../../../import/pokemonSet';
 
 type CombatantIdentityFieldsProps = {
   combatant: BattleCombatant;
   onChange: (combatant: BattleCombatant) => void;
   availableSpecies?: SpeciesOption[];
+  importedSets?: ImportedPokemonSet[];
+  onImportedSet?: (set: ImportedPokemonSet) => void;
+  onImportedSetCleared?: () => void;
+  selectedImportedSetId?: string;
+  onUpdateImportedSet?: () => void;
   showPokemonPicker?: boolean;
 };
 
@@ -41,8 +48,14 @@ export default function CombatantIdentityFields({
   combatant,
   onChange,
   availableSpecies = [],
+  importedSets = [],
+  onImportedSet,
+  onImportedSetCleared,
+  selectedImportedSetId,
+  onUpdateImportedSet,
   showPokemonPicker = true,
 }: CombatantIdentityFieldsProps) {
+  const [showOnlyImportedSets, setShowOnlyImportedSets] = useState(false);
   const generation = Generations.get(9);
   const abilities = Array.from(generation.abilities).map((entry) => ({
     name: entry.name,
@@ -62,24 +75,78 @@ export default function CombatantIdentityFields({
       : options;
   };
   const natures = Array.from(generation.natures);
+  const pokemonOptions: SpeciesOption[] = [
+    ...importedSets.map((set) => ({
+      name: `@imported:${set.id}`,
+      displayName: `${set.nickname ? `${set.nickname} (${set.species})` : set.species} [Imported]`,
+      types: availableSpecies.find((species) => species.name === set.species)?.types ?? [],
+      group: 'Imported sets',
+      importedSetId: set.id,
+    })),
+    ...availableSpecies.map((species) => ({
+      ...species,
+      group: 'Pokémon',
+    })),
+  ];
+  const visiblePokemonOptions = showOnlyImportedSets
+    ? pokemonOptions.filter((option) => option.importedSetId)
+    : pokemonOptions;
+  const selectedImportedSet = importedSets.find(
+    (set) => set.id === selectedImportedSetId,
+  );
+  const pokemonPickerValue =
+    selectedImportedSet?.species === combatant.species
+      ? `@imported:${selectedImportedSet.id}`
+      : combatant.species;
 
   return (
     <>
       {showPokemonPicker && (
-        <label className="combatant-field">
-          <span>Pokémon</span>
-          <SearchablePokemonPicker
-            value={combatant.species}
-            options={availableSpecies}
-            onSelect={(species) =>
-              onChange(
-                setCombatantSpecies(combatant, species, availableSpecies),
-              )
-            }
-            ariaLabel="Pokémon species"
-            placeholder="— Select a Pokémon —"
-          />
-        </label>
+        <div className="combatant-pokemon-picker">
+          <label className="combatant-field">
+            <span>Pokémon</span>
+            <SearchablePokemonPicker
+              value={pokemonPickerValue}
+              options={visiblePokemonOptions}
+              onSelect={(selection) => {
+                const importedSet = importedSets.find(
+                  (set) => selection === `@imported:${set.id}`,
+                );
+                if (importedSet) {
+                  onImportedSet?.(importedSet);
+                  return;
+                }
+                onImportedSetCleared?.();
+                onChange(setCombatantSpecies(combatant, selection, availableSpecies));
+              }}
+              ariaLabel="Pokémon"
+              placeholder="— Select a Pokémon or imported set —"
+            />
+          </label>
+          {(importedSets.length > 0 || (selectedImportedSetId && onUpdateImportedSet)) && (
+            <div className="imported-set-actions">
+              {importedSets.length > 0 && (
+                <label className="combatant-field checkbox-field">
+                  <input
+                    type="checkbox"
+                    checked={showOnlyImportedSets}
+                    onChange={(event) => setShowOnlyImportedSets(event.target.checked)}
+                  />
+                  <span>Only show imported sets</span>
+                </label>
+              )}
+              {selectedImportedSetId && onUpdateImportedSet && (
+                <button
+                  className="update-imported-set-button"
+                  type="button"
+                  onClick={onUpdateImportedSet}
+                >
+                  Save changes
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       )}
       <label className="combatant-field">
         <span>Gender</span>

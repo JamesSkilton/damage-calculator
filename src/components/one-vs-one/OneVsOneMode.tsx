@@ -13,9 +13,15 @@ import {
   setCombatantMoveSlot,
 } from '../combatant/moves/combatantMovesState';
 import { setMoveName, setMoveCrit } from '../combatant/moves/moveDraft';
+import { applyImportedPokemonSet } from '../combatant/shared/combatantDraft';
+import { parsePokemonSets } from '../../import/pokemonSetParser';
+import { serializePokemonSet } from '../../import/pokemonSetSerializer';
+import { loadImportedPokemonSets, saveImportedPokemonSets } from '../../import/pokemonSetStorage';
+import type { ImportedPokemonSet } from '../../import/pokemonSet';
 import { buildMoveCatalog } from '../combatant/moves/moveCatalog';
 import { buildSpeciesCatalog } from '../combatant/species/speciesCatalog';
 import BattleFieldControls from './BattleFieldControls';
+import PokemonSetTools from './PokemonSetTools';
 import BattleResultPanel from './BattleResultPanel';
 import BattlePlanner from '../battle-planner/BattlePlanner';
 import { buildBattleCalcBreakdowns } from 'adapters/battleCalc';
@@ -33,6 +39,16 @@ export default function OneVsOneMode() {
   );
   const [isResultsSwapped, setIsResultsSwapped] = useState(false);
   const [isPlannerOpen, setIsPlannerOpen] = useState(false);
+  const [selectedImportedSetIds, setSelectedImportedSetIds] = useState<{
+    attacker?: string;
+    defender?: string;
+  }>({});
+  const [importedSets, setImportedSets] = useState<ImportedPokemonSet[]>(() =>
+    loadImportedPokemonSets(),
+  );
+  const [importText, setImportText] = useState('');
+  const [importErrors, setImportErrors] = useState<string[]>([]);
+  const [exportText, setExportText] = useState('');
 
   const availableMoves = useMemo(
     () => buildMoveCatalog(generation),
@@ -97,6 +113,84 @@ export default function OneVsOneMode() {
     }));
   };
 
+  const importSets = () => {
+    const result = parsePokemonSets(importText, generation);
+    setImportErrors(result.errors);
+    if (result.sets.length === 0) return;
+    const imported = result.sets.map((set, index) => ({
+      ...set,
+      id: `${set.id}-${Date.now()}-${index}`,
+    }));
+    setImportedSets((current) => {
+      const next = [...current, ...imported];
+      saveImportedPokemonSets(next);
+      return next;
+    });
+    setImportText('');
+  };
+
+  const selectImportedSet = (role: 'attacker' | 'defender', set: ImportedPokemonSet) => {
+    setSelectedImportedSetIds((current) => ({ ...current, [role]: set.id }));
+    setDraft((current) => ({
+      ...current,
+      [role]: applyImportedPokemonSet(current[role], set, availableSpecies),
+    }));
+    const updateMoves = (current: ReturnType<typeof createCombatantMovesState>) => ({
+      ...current,
+      slots: current.slots.map((slot, index) =>
+        setMoveName(slot, set.moves[index] || ''),
+      ),
+    });
+    (role === 'attacker' ? setAttackerMoves : setDefenderMoves)(updateMoves);
+  };
+
+  const updateImportedSet = (role: 'attacker' | 'defender') => {
+    const setId = selectedImportedSetIds[role];
+    if (!setId) return;
+
+    const combatant = draft[role];
+    const moves = (role === 'attacker' ? attackerMoves : defenderMoves).slots
+      .map((slot) => slot.name.trim())
+      .filter(Boolean);
+    setImportedSets((current) => {
+      const existing = current.find((set) => set.id === setId);
+      if (!existing) return current;
+      const updated = current.map((set) =>
+        set.id === setId
+          ? {
+              ...set,
+              species: combatant.species,
+              nickname: combatant.name !== combatant.species ? combatant.name : undefined,
+              level: combatant.level,
+              gender: combatant.gender,
+              ability: combatant.ability,
+              item: combatant.item,
+              nature: combatant.nature,
+              teraType: combatant.teratype,
+              evs: combatant.evs,
+              ivs: combatant.ivs,
+              moves,
+            }
+          : set,
+      );
+      saveImportedPokemonSets(updated);
+      return updated;
+    });
+  };
+
+  const clearSelectedImportedSet = (role: 'attacker' | 'defender') => {
+    setSelectedImportedSetIds((current) => ({
+      ...current,
+      [role]: undefined,
+    }));
+  };
+
+  const exportSet = (role: 'attacker' | 'defender') => {
+    const text = serializePokemonSet(role === 'attacker' ? draft.attacker : draft.defender);
+    setExportText(text);
+    void navigator.clipboard?.writeText(text);
+  };
+
   return (
     <section className="one-vs-one-screen">
       {isPlannerOpen ? (
@@ -111,52 +205,52 @@ export default function OneVsOneMode() {
         />
       ) : (
         <BattleResultPanel
-        title={isResultsSwapped ? 'Defender damage' : 'Attacker damage'}
-        attacker={displayedAttacker}
-        defender={displayedDefender}
-        moves={displayedMoves}
-        results={displayedResults}
-        availableMoves={availableMoves}
-        availableSpecies={availableSpecies}
-        onSwapSides={() => setIsResultsSwapped((current) => !current)}
-        onAttackerChange={(combatant) =>
-          setDraft((current) => ({
-            ...current,
-            [isResultsSwapped ? 'defender' : 'attacker']: combatant,
-          }))
-        }
-        onDefenderChange={(combatant) =>
-          setDraft((current) => ({
-            ...current,
-            [isResultsSwapped ? 'attacker' : 'defender']: combatant,
-          }))
-        }
-        onMoveNameChange={(slotIndex, moveName) =>
-          (isResultsSwapped ? setDefenderMoves : setAttackerMoves)((current) => {
-            const existing = current.slots[slotIndex];
-            if (!existing) {
-              return current;
-            }
-            return setCombatantMoveSlot(
-              current,
-              slotIndex,
-              setMoveName(existing, moveName),
-            );
-          })
-        }
-        onMoveCritChange={(slotIndex, isCrit) =>
-          (isResultsSwapped ? setDefenderMoves : setAttackerMoves)((current) => {
-            const existing = current.slots[slotIndex];
-            if (!existing) {
-              return current;
-            }
-            return setCombatantMoveSlot(
-              current,
-              slotIndex,
-              setMoveCrit(existing, isCrit),
-            );
-          })
-        }
+          title={isResultsSwapped ? 'Defender damage' : 'Attacker damage'}
+          attacker={displayedAttacker}
+          defender={displayedDefender}
+          moves={displayedMoves}
+          results={displayedResults}
+          availableMoves={availableMoves}
+          availableSpecies={availableSpecies}
+          onSwapSides={() => setIsResultsSwapped((current) => !current)}
+          onAttackerChange={(combatant) =>
+            setDraft((current) => ({
+              ...current,
+              [isResultsSwapped ? 'defender' : 'attacker']: combatant,
+            }))
+          }
+          onDefenderChange={(combatant) =>
+            setDraft((current) => ({
+              ...current,
+              [isResultsSwapped ? 'attacker' : 'defender']: combatant,
+            }))
+          }
+          onMoveNameChange={(slotIndex, moveName) =>
+            (isResultsSwapped ? setDefenderMoves : setAttackerMoves)((current) => {
+              const existing = current.slots[slotIndex];
+              if (!existing) {
+                return current;
+              }
+              return setCombatantMoveSlot(
+                current,
+                slotIndex,
+                setMoveName(existing, moveName),
+              );
+            })
+          }
+          onMoveCritChange={(slotIndex, isCrit) =>
+            (isResultsSwapped ? setDefenderMoves : setAttackerMoves)((current) => {
+              const existing = current.slots[slotIndex];
+              if (!existing) {
+                return current;
+              }
+              return setCombatantMoveSlot(
+                current,
+                slotIndex,
+                setMoveCrit(existing, isCrit),
+              );
+            })
+          }
         />
       )}
 
@@ -206,6 +300,11 @@ export default function OneVsOneMode() {
           moves={attackerMoves.slots}
           availableMoves={availableMoves}
           availableSpecies={availableSpecies}
+          importedSets={importedSets}
+          onImportedSet={(set) => selectImportedSet('attacker', set)}
+          onImportedSetCleared={() => clearSelectedImportedSet('attacker')}
+          selectedImportedSetId={selectedImportedSetIds.attacker}
+          onUpdateImportedSet={() => updateImportedSet('attacker')}
           onMovesChange={(moves) =>
             setAttackerMoves((current) => ({
               ...current,
@@ -213,30 +312,47 @@ export default function OneVsOneMode() {
             }))
           }
         />
+          <CombatantPanel
+            title="Defender panel"
+            description="Edit the defending combatant before calculating damage."
+            combatant={draft.defender}
+            onChange={(defender) =>
+              setDraft((current) => ({
+                ...current,
+                defender,
+              }))
+            }
+            generation={generation}
+            moves={defenderMoves.slots}
+            availableMoves={availableMoves}
+            availableSpecies={availableSpecies}
+            importedSets={importedSets}
+            onImportedSet={(set) => selectImportedSet('defender', set)}
+            onImportedSetCleared={() => clearSelectedImportedSet('defender')}
+            selectedImportedSetId={selectedImportedSetIds.defender}
+            onUpdateImportedSet={() => updateImportedSet('defender')}
+            onMovesChange={(moves) =>
+              setDefenderMoves((current) => ({
+                ...current,
+                slots: moves,
+              }))
+            }
+            />
 
-        <CombatantPanel
-          title="Defender panel"
-          description="Edit the defending combatant before calculating damage."
-          combatant={draft.defender}
-          onChange={(defender) =>
-            setDraft((current) => ({
-              ...current,
-              defender,
-            }))
-          }
-          generation={generation}
-          moves={defenderMoves.slots}
-          availableMoves={availableMoves}
-          availableSpecies={availableSpecies}
-          onMovesChange={(moves) =>
-            setDefenderMoves((current) => ({
-              ...current,
-              slots: moves,
-            }))
-          }
-        />
-
-        <BattleFieldControls field={field} onChange={setField} />
+          <div className="d-flex gap-3 flex-column">
+          <BattleFieldControls
+            field={field}
+            onChange={setField}
+          />
+          <PokemonSetTools
+            importText={importText}
+            onImportTextChange={setImportText}
+            onImport={importSets}
+            importErrors={importErrors}
+            exportText={exportText}
+            onExport={exportSet}
+          />
+        </div>
       </div>
     </section>
   );

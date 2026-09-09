@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useId } from 'react';
+import { Fragment, useState, useRef, useEffect, useId } from 'react';
 import TypeBadges from './TypeBadges';
 import './SearchableTypePicker.css';
 
@@ -12,6 +12,8 @@ type SearchableTypePickerProps<T extends { name: string }> = {
   filterOptions: (options: T[], searchTerm: string) => T[];
   /** Type(s) to render as badges for a given option. */
   getTypes: (option: T) => string[];
+  getDisplayName?: (option: T) => string;
+  getGroup?: (option: T) => string | undefined;
   /** Optional extra metadata rendered after the type badges (e.g. move base power). */
   renderExtra?: (option: T) => React.ReactNode;
   /** Optional extra class name applied to an option's <li> (e.g. "status-move"). */
@@ -33,6 +35,8 @@ export default function SearchableTypePicker<T extends { name: string }>({
   placeholder = '— Select —',
   filterOptions,
   getTypes,
+  getDisplayName = (option) => option.name,
+  getGroup,
   renderExtra,
   getOptionClassName,
   emptyMessage = 'No options found',
@@ -172,7 +176,9 @@ export default function SearchableTypePicker<T extends { name: string }>({
     ? options.find((option) => option.name === value)
     : undefined;
   const showSelectedChip = !isOpen && !searchTerm && !!selectedOption;
-  const inputPlaceholder = value || placeholder;
+  const inputPlaceholder = value
+    ? getDisplayName(selectedOption ?? ({ name: value } as T))
+    : placeholder;
 
   return (
     <div className="searchable-type-picker" ref={containerRef}>
@@ -180,7 +186,7 @@ export default function SearchableTypePicker<T extends { name: string }>({
         {showSelectedChip && selectedOption && (
           <div className="type-picker-selected-chip" aria-hidden="true">
             <div className="type-option-content">
-              <span className="type-option-name">{selectedOption.name}</span>
+              <span className="type-option-name">{getDisplayName(selectedOption)}</span>
               <div className="type-option-metadata">
                 <TypeBadges types={getTypes(selectedOption)} />
                 {renderExtra?.(selectedOption)}
@@ -194,6 +200,11 @@ export default function SearchableTypePicker<T extends { name: string }>({
           value={searchTerm}
           onChange={handleInputChange}
           onFocus={handleInputFocus}
+          onMouseDown={() => {
+            if (!isOpen) {
+              setIsOpen(true);
+            }
+          }}
           onKeyDown={handleInputKeyDown}
           placeholder={inputPlaceholder}
           aria-label={ariaLabel}
@@ -225,26 +236,33 @@ export default function SearchableTypePicker<T extends { name: string }>({
           aria-label={`${ariaLabel} options`}
         >
           {filteredOptions.length > 0 ? (
-            filteredOptions.map((option, index) => (
-              <li
-                key={option.name}
-                className={`type-option ${
-                  highlightedIndex === index ? 'highlighted' : ''
-                } ${getOptionClassName?.(option) ?? ''}`}
-                role="option"
-                aria-selected={value === option.name}
-                onMouseEnter={() => handleOptionMouseEnter(index)}
-                onClick={() => handleOptionClick(option.name)}
-              >
-                <div className="type-option-content">
-                  <span className="type-option-name">{option.name}</span>
-                  <div className="type-option-metadata">
-                    <TypeBadges types={getTypes(option)} />
-                    {renderExtra?.(option)}
-                  </div>
-                </div>
-              </li>
-            ))
+            filteredOptions.map((option, index) => {
+              const previousOption = filteredOptions[index - 1];
+              const group = getGroup?.(option);
+              const showGroup = group && (!previousOption || getGroup?.(previousOption) !== group);
+              return (
+                <Fragment key={option.name}>
+                  {showGroup && <li className="type-option-group">{group}</li>}
+                  <li
+                    className={`type-option ${
+                      highlightedIndex === index ? 'highlighted' : ''
+                    } ${getOptionClassName?.(option) ?? ''}`}
+                    role="option"
+                    aria-selected={value === option.name}
+                    onMouseEnter={() => handleOptionMouseEnter(index)}
+                    onClick={() => handleOptionClick(option.name)}
+                  >
+                    <div className="type-option-content">
+                      <span className="type-option-name">{getDisplayName(option)}</span>
+                      <div className="type-option-metadata">
+                        <TypeBadges types={getTypes(option)} />
+                        {renderExtra?.(option)}
+                      </div>
+                    </div>
+                  </li>
+                </Fragment>
+              );
+            })
           ) : (
             <li className="type-option-empty" role="option" aria-disabled>
               {emptyMessage}

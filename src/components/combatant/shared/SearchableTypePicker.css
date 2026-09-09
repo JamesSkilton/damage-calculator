@@ -91,6 +91,21 @@
   align-items: center;
 }
 
+.type-option-group {
+  padding: 6px 12px 4px;
+  color: #64748b;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+}
+
+.type-option-group:first-child {
+  border-top: 0;
+}
+
 .type-option:hover,
 .type-option.highlighted {
   background-color: var(--option-hover-bg, #f0f4ff);

@@ -18,6 +18,10 @@ describe('one-vs-one mode', () => {
     expect(markup).toContain('Attacker side');
     expect(markup).toContain('Defender side');
     expect(markup).toContain('Battle Context');
+    expect(markup).toContain('pokemon-set-tools');
+    expect(markup.indexOf('pokemon-set-tools')).toBeGreaterThan(
+      markup.indexOf('Weather and terrain'),
+    );
     expect(markup).toContain('Advanced Context');
     expect(markup).toContain('Attacker panel');
     expect(markup).toContain('Defender panel');

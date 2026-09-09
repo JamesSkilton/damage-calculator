@@ -964,6 +964,9 @@ describe('SearchableMovePicker', () => {
         'Ice Beam',
       );
       expect(screen.getByText('BP: 90')).toBeInTheDocument();
+
+      await user.click(screen.getByLabelText('Move selection'));
+      expect(screen.getByRole('listbox')).toBeInTheDocument();
     });
   });
 });

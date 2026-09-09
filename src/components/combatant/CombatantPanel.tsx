@@ -4,6 +4,7 @@ import type { BattleCombatant } from 'domain/index';
 import type { MoveOption } from './moves/moveOptions';
 import type { MoveDraft } from './moves/moveDraft';
 import type { SpeciesOption } from './species/speciesOptions';
+import type { ImportedPokemonSet } from '../../import/pokemonSet';
 import CombatantBattleStateFields from './fields/CombatantBattleStateFields';
 import CombatantIdentityFields from './fields/CombatantIdentityFields';
 import CombatantMoveFields from './fields/CombatantMoveFields';
@@ -24,6 +25,11 @@ type CombatantPanelProps = {
   onMovesChange: (moves: readonly MoveDraft[]) => void;
   availableMoves: MoveOption[];
   availableSpecies?: SpeciesOption[];
+  importedSets?: ImportedPokemonSet[];
+  onImportedSet?: (set: ImportedPokemonSet) => void;
+  onImportedSetCleared?: () => void;
+  selectedImportedSetId?: string;
+  onUpdateImportedSet?: () => void;
 };
 
 export default function CombatantPanel({
@@ -36,6 +42,11 @@ export default function CombatantPanel({
   onMovesChange,
   availableMoves,
   availableSpecies,
+  importedSets = [],
+  onImportedSet,
+  onImportedSetCleared,
+  selectedImportedSetId,
+  onUpdateImportedSet,
 }: CombatantPanelProps) {
   const [mode, setMode] = useState<'simple' | 'advanced'>('simple');
   const [isChoosingPokemon, setIsChoosingPokemon] = useState(false);
@@ -106,6 +117,11 @@ export default function CombatantPanel({
             combatant={combatant}
             onChange={onChange}
             availableSpecies={availableSpecies}
+            importedSets={importedSets}
+            onImportedSet={onImportedSet}
+            onImportedSetCleared={onImportedSetCleared}
+            selectedImportedSetId={selectedImportedSetId}
+            onUpdateImportedSet={onUpdateImportedSet}
           />
         </div>
       )}
@@ -113,14 +129,14 @@ export default function CombatantPanel({
       {mode === 'simple' ? (
         <>
           <FieldGroup title="Common configuration">
-            <CombatantIdentityFields combatant={combatant} onChange={onChange} availableSpecies={availableSpecies} showPokemonPicker={false} />
+            <CombatantIdentityFields combatant={combatant} onChange={onChange} availableSpecies={availableSpecies} importedSets={importedSets} onImportedSet={onImportedSet} onImportedSetCleared={onImportedSetCleared} selectedImportedSetId={selectedImportedSetId} onUpdateImportedSet={onUpdateImportedSet} showPokemonPicker={false} />
           </FieldGroup>
           <CombatantStatGrids combatant={combatant} onChange={onChange} />
         </>
       ) : (
         <>
           <FieldGroup title="Common configuration">
-            <CombatantIdentityFields combatant={combatant} onChange={onChange} availableSpecies={availableSpecies} showPokemonPicker={false} />
+            <CombatantIdentityFields combatant={combatant} onChange={onChange} availableSpecies={availableSpecies} importedSets={importedSets} onImportedSet={onImportedSet} onImportedSetCleared={onImportedSetCleared} selectedImportedSetId={selectedImportedSetId} onUpdateImportedSet={onUpdateImportedSet} showPokemonPicker={false} />
           </FieldGroup>
           <FieldGroup title="Pokémon"><CombatantTypeFields combatant={combatant} onChange={onChange} /></FieldGroup>
           <FieldGroup title="Mechanics"><CombatantBattleStateFields combatant={combatant} onChange={onChange} /></FieldGroup>
