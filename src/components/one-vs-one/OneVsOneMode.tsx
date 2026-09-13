@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react';
-import type { BattleGeneration } from 'domain/index';
+import { useEffect, useMemo, useState } from 'react';
+import { useOutletContext } from 'react-router-dom';
+import type { AppShellContext } from '../AppShell';
 import CombatantPanel from '../combatant/CombatantPanel';
-import { battleGenerations } from '../combatant/shared/combatantPanel.constants';
 import {
   createTeamDraft,
   setTeamGeneration,
@@ -16,7 +16,11 @@ import { setMoveName, setMoveCrit } from '../combatant/moves/moveDraft';
 import { applyImportedPokemonSet } from '../combatant/shared/combatantDraft';
 import { parsePokemonSets } from '../../import/pokemonSetParser';
 import { serializePokemonSet } from '../../import/pokemonSetSerializer';
-import { loadImportedPokemonSets, saveImportedPokemonSets } from '../../import/pokemonSetStorage';
+import {
+  loadImportedPokemonSets,
+  removeImportedPokemonSet,
+  saveImportedPokemonSets,
+} from '../../import/pokemonSetStorage';
 import type { ImportedPokemonSet } from '../../import/pokemonSet';
 import { buildMoveCatalog } from '../combatant/moves/moveCatalog';
 import { buildSpeciesCatalog } from '../combatant/species/speciesCatalog';
@@ -24,11 +28,13 @@ import BattleFieldControls from './BattleFieldControls';
 import PokemonSetTools from './PokemonSetTools';
 import BattleResultPanel from './BattleResultPanel';
 import BattlePlanner from '../battle-planner/BattlePlanner';
+import Party from '../party/Party';
+import PartyPicker from '../party/PartyPicker';
 import { buildBattleCalcBreakdowns } from 'adapters/battleCalc';
 import './OneVsOneMode.scss';
 
 export default function OneVsOneMode() {
-  const [generation, setGeneration] = useState<BattleGeneration>(9);
+  const { generation } = useOutletContext<AppShellContext>();
   const [draft, setDraft] = useState(() => createTeamDraft(generation));
   const [field, setField] = useState(() => createBattleFieldDraft(generation));
   const [attackerMoves, setAttackerMoves] = useState(() =>
@@ -49,6 +55,21 @@ export default function OneVsOneMode() {
   const [importText, setImportText] = useState('');
   const [importErrors, setImportErrors] = useState<string[]>([]);
   const [exportText, setExportText] = useState('');
+  const [partyVersion, setPartyVersion] = useState(0);
+
+  useEffect(() => {
+    setDraft((current) => setTeamGeneration(current, generation));
+    setAttackerMoves((current) =>
+      applyCombatantMovesGeneration(current, generation),
+    );
+    setDefenderMoves((current) =>
+      applyCombatantMovesGeneration(current, generation),
+    );
+    setField((current) => ({
+      ...current,
+      generation,
+    }));
+  }, [generation]);
 
   const availableMoves = useMemo(
     () => buildMoveCatalog(generation),
@@ -96,22 +117,6 @@ export default function OneVsOneMode() {
   const displayedResults = isResultsSwapped
     ? defenderResults
     : attackerResults;
-
-  const updateGeneration = (nextGeneration: BattleGeneration) => {
-    setGeneration(nextGeneration);
-    setDraft((current) => setTeamGeneration(current, nextGeneration));
-    // Apply generation gating to move state
-    setAttackerMoves((current) =>
-      applyCombatantMovesGeneration(current, nextGeneration),
-    );
-    setDefenderMoves((current) =>
-      applyCombatantMovesGeneration(current, nextGeneration),
-    );
-    setField((current) => ({
-      ...current,
-      generation: nextGeneration,
-    }));
-  };
 
   const importSets = () => {
     const result = parsePokemonSets(importText, generation);
@@ -185,6 +190,11 @@ export default function OneVsOneMode() {
     }));
   };
 
+  const deleteImportedSet = (id: string) => {
+    setImportedSets((current) => current.filter((set) => set.id !== id));
+    removeImportedPokemonSet(id);
+  };
+
   const exportSet = (role: 'attacker' | 'defender') => {
     const text = serializePokemonSet(role === 'attacker' ? draft.attacker : draft.defender);
     setExportText(text);
@@ -202,88 +212,76 @@ export default function OneVsOneMode() {
           availableMoves={availableMoves}
           attackerMoves={attackerMoves.slots}
           defenderMoves={defenderMoves.slots}
+          onBack={() => setIsPlannerOpen(false)}
         />
       ) : (
-        <BattleResultPanel
-          title={isResultsSwapped ? 'Defender damage' : 'Attacker damage'}
-          attacker={displayedAttacker}
-          defender={displayedDefender}
-          moves={displayedMoves}
-          results={displayedResults}
-          availableMoves={availableMoves}
-          availableSpecies={availableSpecies}
-          onSwapSides={() => setIsResultsSwapped((current) => !current)}
-          onAttackerChange={(combatant) =>
-            setDraft((current) => ({
-              ...current,
-              [isResultsSwapped ? 'defender' : 'attacker']: combatant,
-            }))
-          }
-          onDefenderChange={(combatant) =>
-            setDraft((current) => ({
-              ...current,
-              [isResultsSwapped ? 'attacker' : 'defender']: combatant,
-            }))
-          }
-          onMoveNameChange={(slotIndex, moveName) =>
-            (isResultsSwapped ? setDefenderMoves : setAttackerMoves)((current) => {
-              const existing = current.slots[slotIndex];
-              if (!existing) {
-                return current;
-              }
-              return setCombatantMoveSlot(
-                current,
-                slotIndex,
-                setMoveName(existing, moveName),
-              );
-            })
-          }
-          onMoveCritChange={(slotIndex, isCrit) =>
-            (isResultsSwapped ? setDefenderMoves : setAttackerMoves)((current) => {
-              const existing = current.slots[slotIndex];
-              if (!existing) {
-                return current;
-              }
-              return setCombatantMoveSlot(
-                current,
-                slotIndex,
-                setMoveCrit(existing, isCrit),
-              );
-            })
-          }
-        />
+        <>
+          <PartyPicker
+            key={partyVersion}
+            importedSets={importedSets}
+            onSelectSet={(set) => selectImportedSet('attacker', set)}
+          />
+          <BattleResultPanel
+            title={isResultsSwapped ? 'Defender damage' : 'Attacker damage'}
+            attacker={displayedAttacker}
+            defender={displayedDefender}
+            moves={displayedMoves}
+            results={displayedResults}
+            availableMoves={availableMoves}
+            availableSpecies={availableSpecies}
+            onSwapSides={() => setIsResultsSwapped((current) => !current)}
+            onTogglePlanner={() => setIsPlannerOpen(true)}
+            onAttackerChange={(combatant) =>
+              setDraft((current) => ({
+                ...current,
+                [isResultsSwapped ? 'defender' : 'attacker']: combatant,
+              }))
+            }
+            onDefenderChange={(combatant) =>
+              setDraft((current) => ({
+                ...current,
+                [isResultsSwapped ? 'attacker' : 'defender']: combatant,
+              }))
+            }
+            onMoveNameChange={(slotIndex, moveName) =>
+              (isResultsSwapped ? setDefenderMoves : setAttackerMoves)((current) => {
+                const existing = current.slots[slotIndex];
+                if (!existing) {
+                  return current;
+                }
+                return setCombatantMoveSlot(
+                  current,
+                  slotIndex,
+                  setMoveName(existing, moveName),
+                );
+              })
+            }
+            onMoveCritChange={(slotIndex, isCrit) =>
+              (isResultsSwapped ? setDefenderMoves : setAttackerMoves)((current) => {
+                const existing = current.slots[slotIndex];
+                if (!existing) {
+                  return current;
+                }
+                return setCombatantMoveSlot(
+                  current,
+                  slotIndex,
+                  setMoveCrit(existing, isCrit),
+                );
+              })
+            }
+          />
+        </>
       )}
 
-      <section className="battle-controls" aria-label="Battle settings">
-        <label className="combatant-field">
-          <span>Generation</span>
-          <select
-            value={generation}
-            onChange={(event) =>
-              updateGeneration(Number(event.target.value) as BattleGeneration)
-            }
-          >
-            {battleGenerations.map((battleGeneration) => (
-              <option key={battleGeneration} value={battleGeneration}>
-                Gen {battleGeneration}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <div className="battle-control-chip" aria-label="Battle format">
-          Singles matchup
-        </div>
-
-        <button
-          type="button"
-          className="battle-planner-toggle"
-          onClick={() => setIsPlannerOpen((current) => !current)}
-        >
-          {isPlannerOpen ? 'Back to calculator' : 'Plan battle'}
-        </button>
-
-      </section>
+      <details className="party-manager">
+        <summary>Manage party and imported Pokemon</summary>
+        <Party
+          importedSets={importedSets}
+          onDeleteSet={deleteImportedSet}
+          onSelectSet={(set) => selectImportedSet('attacker', set)}
+          onPartyChange={() => setPartyVersion((current) => current + 1)}
+        />
+      </details>
 
       <div className="one-vs-one-panels">
         <CombatantPanel

@@ -8,12 +8,12 @@ export function FieldGroup({
   title,
   children,
 }: {
-  title: string;
+  title?: string;
   children: ReactNode;
 }) {
   return (
     <fieldset className="combatant-fieldset">
-      <legend>{title}</legend>
+      {title && <legend>{title}</legend>}
       <div className="combatant-grid">{children}</div>
     </fieldset>
   );

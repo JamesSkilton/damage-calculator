@@ -18,6 +18,9 @@ describe('one-vs-one mode', () => {
     expect(markup).toContain('Attacker side');
     expect(markup).toContain('Defender side');
     expect(markup).toContain('Battle Context');
+    expect(markup).toContain('Attacker party');
+    expect(markup).toContain('Choose a candidate');
+    expect(markup).toContain('Manage party and imported Pokemon');
     expect(markup).toContain('pokemon-set-tools');
     expect(markup.indexOf('pokemon-set-tools')).toBeGreaterThan(
       markup.indexOf('Weather and terrain'),
@@ -26,8 +29,12 @@ describe('one-vs-one mode', () => {
     expect(markup).toContain('Attacker panel');
     expect(markup).toContain('Defender panel');
     expect(markup).toContain('Plan battle');
+    expect(markup).not.toContain('battle-controls');
     expect(markup.indexOf('Defender panel')).toBeLessThan(
       markup.indexOf('Battle Context'),
+    );
+    expect(markup.indexOf('Attacker party')).toBeLessThan(
+      markup.indexOf('Attacker damage'),
     );
     expect(markup).toContain('Simple');
     expect(markup).toContain('Advanced');

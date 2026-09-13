@@ -83,6 +83,12 @@
   z-index: 1000;
 }
 
+.type-options-dropdown.drop-up {
+  top: auto;
+  bottom: 100%;
+  margin: 0 0 4px;
+}
+
 .type-option {
   padding: 8px 12px;
   cursor: pointer;

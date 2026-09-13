@@ -21,6 +21,10 @@ type CombatantIdentityFieldsProps = {
   selectedImportedSetId?: string;
   onUpdateImportedSet?: () => void;
   showPokemonPicker?: boolean;
+  showShiny?: boolean;
+  showGender?: boolean;
+  showItem?: boolean;
+  pokemonPickerOnly?: boolean;
 };
 
 const STAT_LABELS: Record<string, string> = {
@@ -54,6 +58,10 @@ export default function CombatantIdentityFields({
   selectedImportedSetId,
   onUpdateImportedSet,
   showPokemonPicker = true,
+  showShiny = true,
+  showGender = true,
+  showItem = true,
+  pokemonPickerOnly = false,
 }: CombatantIdentityFieldsProps) {
   const [showOnlyImportedSets, setShowOnlyImportedSets] = useState(false);
   const generation = Generations.get(9);
@@ -148,96 +156,106 @@ export default function CombatantIdentityFields({
           )}
         </div>
       )}
-      <label className="combatant-field">
-        <span>Gender</span>
-        <select
-          value={combatant.gender ?? 'N'}
-          onChange={(event) =>
-            onChange(
-              setCombatantField(
-                combatant,
-                'gender',
-                event.target.value as (typeof battleGenders)[number],
-              ),
-            )
-          }
-        >
-          {battleGenders.map((gender) => (
-            <option key={gender} value={gender}>
-              {gender}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="combatant-field">
-        <span>Level</span>
-        <input
-          type="number"
-          min={1}
-          max={100}
-          value={combatant.level}
-          onChange={(event) =>
-            onChange(setCombatantField(combatant, 'level', event.target.value))
-          }
-        />
-      </label>
-      <label className="combatant-field">
-        <span>Ability</span>
-        <SearchableTypePicker
-          value={combatant.ability ?? ''}
-          options={abilities}
-          onSelect={(ability) =>
-            onChange(setCombatantField(combatant, 'ability', ability))
-          }
-          ariaLabel="Ability"
-          placeholder="— Select ability —"
-          filterOptions={filterNamedOptions}
-          getTypes={() => []}
-          emptyMessage="No abilities found"
-        />
-      </label>
-      <label className="combatant-field">
-        <span>Item</span>
-        <SearchableTypePicker
-          value={combatant.item ?? ''}
-          options={items}
-          onSelect={(item) =>
-            onChange(setCombatantField(combatant, 'item', item))
-          }
-          ariaLabel="Item"
-          placeholder="— Select item —"
-          filterOptions={filterNamedOptions}
-          getTypes={() => []}
-          emptyMessage="No items found"
-        />
-      </label>
-      <label className="combatant-field">
-        <span>Nature</span>
-        <select
-          value={combatant.nature}
-          onChange={(event) =>
-            onChange(setCombatantField(combatant, 'nature', event.target.value))
-          }
-        >
-          {natures.map((nature) => (
-            <option key={nature.name} value={nature.name}>
-              {formatNatureLabel(nature)}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="combatant-field checkbox-field">
-        <input
-          type="checkbox"
-          checked={combatant.shiny ?? false}
-          onChange={(event) =>
-            onChange(
-              setCombatantField(combatant, 'shiny', event.target.checked),
-            )
-          }
-        />
-        <span>Shiny</span>
-      </label>
+      {!pokemonPickerOnly && (
+        <>
+          {showGender && (
+            <label className="combatant-field">
+              <span>Gender</span>
+              <select
+                value={combatant.gender ?? 'N'}
+                onChange={(event) =>
+                  onChange(
+                    setCombatantField(
+                      combatant,
+                      'gender',
+                      event.target.value as (typeof battleGenders)[number],
+                    ),
+                  )
+                }
+              >
+                {battleGenders.map((gender) => (
+                  <option key={gender} value={gender}>
+                    {gender}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <label className="combatant-field">
+            <span>Level</span>
+            <input
+              type="number"
+              min={1}
+              max={100}
+              value={combatant.level}
+              onChange={(event) =>
+                onChange(setCombatantField(combatant, 'level', event.target.value))
+              }
+            />
+          </label>
+          <label className="combatant-field">
+            <span>Ability</span>
+            <SearchableTypePicker
+              value={combatant.ability ?? ''}
+              options={abilities}
+              onSelect={(ability) =>
+                onChange(setCombatantField(combatant, 'ability', ability))
+              }
+              ariaLabel="Ability"
+              placeholder="— Select ability —"
+              filterOptions={filterNamedOptions}
+              getTypes={() => []}
+              emptyMessage="No abilities found"
+            />
+          </label>
+          {showItem && (
+            <label className="combatant-field">
+              <span>Item</span>
+              <SearchableTypePicker
+                value={combatant.item ?? ''}
+                options={items}
+                onSelect={(item) =>
+                  onChange(setCombatantField(combatant, 'item', item))
+                }
+                ariaLabel="Item"
+                placeholder="— Select item —"
+                filterOptions={filterNamedOptions}
+                getTypes={() => []}
+                emptyMessage="No items found"
+              />
+            </label>
+          )}
+          <label className="combatant-field">
+            <span>Nature</span>
+            <select
+              value={combatant.nature}
+              onChange={(event) =>
+                onChange(setCombatantField(combatant, 'nature', event.target.value))
+              }
+            >
+              {natures.map((nature) => (
+                <option key={nature.name} value={nature.name}>
+                  {formatNatureLabel(nature)}
+                </option>
+              ))}
+            </select>
+          </label>
+          {showShiny && (
+            <label className="combatant-field checkbox-field">
+              <input
+                type="checkbox"
+                checked={combatant.shiny ?? false}
+                onChange={(event) =>
+                  onChange(
+                    setCombatantField(combatant, 'shiny', event.target.checked),
+                  )
+                }
+              />
+              <span>Shiny</span>
+            </label>
+          )}
+        </>
+      )}
     </>
   );
 }

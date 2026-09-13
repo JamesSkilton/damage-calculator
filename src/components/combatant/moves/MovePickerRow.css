@@ -20,7 +20,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.55rem 0.75rem;
-  align-items: end;
+  align-items: center;
 }
 
 .move-picker-field {
@@ -80,7 +80,6 @@
   align-items: center;
   gap: 6px;
   align-self: center;
-  padding-top: 1.25rem;
   white-space: nowrap;
 }
 
