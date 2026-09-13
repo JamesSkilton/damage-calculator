@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { loadImportedPokemonSets, saveImportedPokemonSets } from './pokemonSetStorage';
+import {
+  loadImportedPokemonSets,
+  loadPartyPokemonSetIds,
+  removeImportedPokemonSet,
+  saveImportedPokemonSets,
+  savePartyPokemonSetIds,
+} from './pokemonSetStorage';
 
 describe('pokemon set storage', () => {
   it('round trips imported sets through session storage', () => {
@@ -7,6 +13,18 @@ describe('pokemon set storage', () => {
     const sets = [{ id: 'pikachu-0', species: 'Pikachu' }] as never[];
     saveImportedPokemonSets(sets, storage);
     expect(loadImportedPokemonSets(storage)).toEqual(sets);
+  });
+
+  it('persists party ids and removes deleted sets from both collections', () => {
+    const storage = new StorageMock();
+    const sets = [{ id: 'pikachu-0' }, { id: 'bulbasaur-0' }] as never[];
+    saveImportedPokemonSets(sets, storage);
+    savePartyPokemonSetIds(['pikachu-0', 'bulbasaur-0'], storage);
+
+    removeImportedPokemonSet('pikachu-0', storage);
+
+    expect(loadImportedPokemonSets(storage)).toEqual([{ id: 'bulbasaur-0' }]);
+    expect(loadPartyPokemonSetIds(storage)).toEqual(['bulbasaur-0']);
   });
 });
 

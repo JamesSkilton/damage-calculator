@@ -28,7 +28,7 @@ export default function CombatantMoveFields({
   };
 
   return (
-    <FieldGroup title="Moves">
+    <FieldGroup>
       <div className={`moves-container moves-container-${mode ?? 'advanced'}`}>
         {moves.map((move, index) => (
           <MovePickerRow

@@ -21,6 +21,7 @@ type BattlePlannerProps = {
   availableMoves: MoveOption[];
   attackerMoves: readonly MoveDraft[];
   defenderMoves: readonly MoveDraft[];
+  onBack: () => void;
 };
 
 function createAction(actor: BattlePlanActor): BattlePlanAction {
@@ -99,6 +100,7 @@ export default function BattlePlanner({
   availableMoves,
   attackerMoves,
   defenderMoves,
+  onBack,
 }: BattlePlannerProps) {
   const [actions, setActions] = useState<BattlePlanAction[]>(() => [
     createAction('attacker'),
@@ -162,22 +164,27 @@ export default function BattlePlanner({
           </p>
         </div>
         <div className="d-flex gap-2">
-        <button
-          type="button"
-          className="battle-planner-add"
-          onClick={() =>
-            setActions((current) => [
+          <button type="button" className="battle-planner-reset" onClick={onBack}>
+            Back to calculator
+          </button>
+          <button
+            type="button"
+            className="battle-planner-add"
+            onClick={() =>
+              setActions((current) => [
                 ...current,
-                createAction(current.at(-1)?.actor === 'attacker' ? 'defender' : 'attacker'),
-            ])
-        }
-        >
-          + Add action
-        </button>
-        <button type="button" className="battle-planner-reset" onClick={resetPlan}>
-          Reset plan
-        </button>
-            </div>
+                createAction(
+                  current.at(-1)?.actor === 'attacker' ? 'defender' : 'attacker',
+                ),
+              ])
+            }
+          >
+            + Add action
+          </button>
+          <button type="button" className="battle-planner-reset" onClick={resetPlan}>
+            Reset plan
+          </button>
+        </div>
       </div>
 
       <ol className="battle-plan-list">

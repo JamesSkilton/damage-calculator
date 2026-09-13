@@ -11,10 +11,10 @@ const STAT_LABELS: Record<BattleStatId, string> = {
 
 const EV_PRESETS: Record<string, Partial<Record<BattleStatId, number>>> = {
   Custom: {},
-  'Max / Max': { spa: 252, spe: 252 },
-  Offensive: { atk: 252, spe: 252 },
-  Defensive: { hp: 252, def: 252 },
-  Speed: { spe: 252 },
+  'Special Attack + Speed': { spa: 252, spe: 252 },
+  'Attack + Speed': { atk: 252, spe: 252 },
+  'HP + Defense': { hp: 252, def: 252 },
+  'Max Speed': { spe: 252 },
 };
 
 type CombatantStatGridsProps = {
@@ -81,8 +81,7 @@ export default function CombatantStatGrids({
   return (
     <div className="combatant-stat-sections">
       <fieldset className="combatant-fieldset ev-editor">
-        <legend>EV Investment</legend>
-        <div className="ev-toolbar">
+        <div className="ev-toolbar d-flex align-items-center">
           <label className="ev-preset">
             <span>Preset</span>
             <select
@@ -96,7 +95,7 @@ export default function CombatantStatGrids({
               ))}
             </select>
           </label>
-          <span className="ev-budget">Remaining: {510 - totalEvs}</span>
+          <span className="ev-budget align-self-center">Remaining: {510 - totalEvs}</span>
           <button type="button" className="ev-clear" onClick={() => applyPreset('Custom')}>
             Clear EVs
           </button>
@@ -124,6 +123,7 @@ export default function CombatantStatGrids({
               type="number"
               min={0}
               max={252}
+              step={4}
               value={combatant.evs[statId]}
               onChange={(event) => updateEv(statId, event.target.value)}
               aria-label={`${STAT_LABELS[statId]} EVs`}
@@ -132,6 +132,7 @@ export default function CombatantStatGrids({
               type="range"
               min={0}
               max={252}
+              step={4}
               value={combatant.evs[statId]}
               onChange={(event) => updateEv(statId, event.target.value)}
               aria-label={`${STAT_LABELS[statId]} EV slider`}

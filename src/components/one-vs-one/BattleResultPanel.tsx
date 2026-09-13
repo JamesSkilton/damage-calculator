@@ -30,6 +30,7 @@ type BattleResultPanelProps = {
   onMoveNameChange: (slotIndex: number, moveName: string) => void;
   onMoveCritChange?: (slotIndex: number, isCrit: boolean) => void;
   onSwapSides?: () => void;
+  onTogglePlanner?: () => void;
 };
 
 const STAT_LABELS: Record<BattleStatId, string> = {
@@ -232,6 +233,7 @@ export default function BattleResultPanel({
   onMoveNameChange,
   onMoveCritChange,
   onSwapSides,
+  onTogglePlanner,
 }: BattleResultPanelProps) {
   const [editingAttacker, setEditingAttacker] = useState(false);
   const [editingDefender, setEditingDefender] = useState(false);
@@ -256,16 +258,31 @@ export default function BattleResultPanel({
   return (
     <section className="battle-results" aria-label={title}>
       <div className="calc-results-header">
-        <h2 className="calc-results-title">{title}</h2>
-        {onSwapSides && (
-          <button
-            type="button"
-            className="calc-swap-button"
-            onClick={onSwapSides}
-            aria-label="Swap attacker and defender"
-          >
-            ⇄ <span>Swap sides</span>
-          </button>
+        <div className="calc-results-heading">
+          <h2 className="calc-results-title">{title}</h2>
+        </div>
+        {(onSwapSides || onTogglePlanner) && (
+          <div className="calc-results-actions">
+            {onSwapSides && (
+              <button
+                type="button"
+                className="calc-swap-button"
+                onClick={onSwapSides}
+                aria-label="Swap attacker and defender"
+              >
+                ⇄ <span>Swap sides</span>
+              </button>
+            )}
+            {onTogglePlanner && (
+              <button
+                type="button"
+                className="battle-planner-toggle"
+                onClick={onTogglePlanner}
+              >
+                Plan battle
+              </button>
+            )}
+          </div>
         )}
       </div>
       {rows.length === 0 ? (

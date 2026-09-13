@@ -1,4 +1,4 @@
-import { Fragment, useState, useRef, useEffect, useId } from 'react';
+import { Fragment, useState, useRef, useEffect, useLayoutEffect, useId } from 'react';
 import TypeBadges from './TypeBadges';
 import './SearchableTypePicker.css';
 
@@ -44,6 +44,7 @@ export default function SearchableTypePicker<T extends { name: string }>({
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [isDropUp, setIsDropUp] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
@@ -90,6 +91,33 @@ export default function SearchableTypePicker<T extends { name: string }>({
       }
     }
   }, [highlightedIndex]);
+
+  useLayoutEffect(() => {
+    if (!isOpen || !containerRef.current || !listRef.current) {
+      return;
+    }
+
+    const updatePlacement = () => {
+      const containerBounds = containerRef.current?.getBoundingClientRect();
+      const listBounds = listRef.current?.getBoundingClientRect();
+      if (!containerBounds || !listBounds) {
+        return;
+      }
+
+      const spaceAbove = containerBounds.top;
+      const spaceBelow = window.innerHeight - containerBounds.bottom;
+      setIsDropUp(spaceBelow < listBounds.height && spaceAbove > spaceBelow);
+    };
+
+    updatePlacement();
+    window.addEventListener('resize', updatePlacement);
+    window.addEventListener('scroll', updatePlacement, true);
+
+    return () => {
+      window.removeEventListener('resize', updatePlacement);
+      window.removeEventListener('scroll', updatePlacement, true);
+    };
+  }, [filteredOptions.length, isOpen]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newSearchTerm = e.target.value;
@@ -231,7 +259,7 @@ export default function SearchableTypePicker<T extends { name: string }>({
         <ul
           id={listId}
           ref={listRef}
-          className="type-options-dropdown"
+          className={`type-options-dropdown${isDropUp ? ' drop-up' : ''}`}
           role="listbox"
           aria-label={`${ariaLabel} options`}
         >

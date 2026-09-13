@@ -94,11 +94,8 @@ export default function MovePickerRow({
 
   return (
     <fieldset className="move-picker-row">
-      <legend>Move {slotNumber}</legend>
-
       <div className="move-picker-container">
         <label className="move-picker-field move-name-field">
-          <span>Name</span>
           {availableMoves ? (
             <SearchableMovePicker
               value={validatedMove.name}

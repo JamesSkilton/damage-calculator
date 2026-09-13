@@ -1,0 +1,207 @@
+.party-screen {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.party-header,
+.party-section-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+}
+
+.party-header h2,
+.party-header p,
+.party-section-heading h3,
+.party-section-heading span {
+  margin: 0;
+}
+
+.party-header h2 {
+  font-size: clamp(1.8rem, 4vw, 2.8rem);
+}
+
+.party-header p:last-child,
+.party-section-heading span,
+.party-empty {
+  color: #64748b;
+}
+
+.party-kicker {
+  margin: 0 0 0.25rem;
+  color: #2f7d4a;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.party-count {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #86efac;
+  border-radius: 0.5rem;
+  background: #f0fdf4;
+  color: #166534;
+  font-size: 1.1rem;
+}
+
+.party-roster,
+.party-box {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.party-slots {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.party-slot {
+  display: grid;
+  min-width: 0;
+  min-height: 7rem;
+  place-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.65rem;
+  background: #fff;
+  color: #334155;
+  text-align: center;
+}
+
+.party-slot.empty {
+  cursor: copy;
+}
+
+.party-slot-select,
+.party-slot-remove {
+  cursor: pointer;
+}
+
+.party-slot-select {
+  display: grid;
+  min-width: 0;
+  place-items: center;
+  gap: 0.25rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: center;
+}
+
+.party-slot img {
+  width: 4rem;
+  height: 4rem;
+  object-fit: contain;
+}
+
+.party-slot span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.party-slot.empty {
+  border-style: dashed;
+  background: #f8fafc;
+  color: #94a3b8;
+  font-size: 1.5rem;
+}
+
+.party-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: 0.8rem;
+}
+
+.party-card {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.65rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.65rem;
+  background: #fff;
+  cursor: grab;
+}
+
+.party-card:active {
+  cursor: grabbing;
+}
+
+.party-card.selected {
+  border-color: #2f7d4a;
+  box-shadow: 0 0 0 2px #bbf7d0;
+}
+
+.party-card-select {
+  display: grid;
+  min-width: 0;
+  place-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border: 0;
+  background: transparent;
+  color: #172554;
+  cursor: pointer;
+}
+
+.party-card-select img {
+  width: 7rem;
+  height: 7rem;
+  object-fit: contain;
+}
+
+.party-card-select strong,
+.party-card-select span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.party-card-select span {
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.party-card-delete {
+  border: 1px solid #fecaca;
+  border-radius: 0.35rem;
+  padding: 0.3rem;
+  background: #fff1f2;
+  color: #be123c;
+  cursor: pointer;
+}
+
+@media (max-width: 700px) {
+  .party-slots {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.party-slot-remove {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #be123c;
+  font-size: 0.7rem;
+}
+
+.party-card-party-toggle {
+  border: 1px solid #bbf7d0;
+  border-radius: 0.35rem;
+  padding: 0.3rem;
+  background: #f0fdf4;
+  color: #166534;
+  cursor: pointer;
+}
+
+.party-card-party-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}

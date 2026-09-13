@@ -59,7 +59,6 @@ export default function CombatantPanel({
       aria-label={`${title}: ${description}`}
     >
       <div className="combatant-panel-topline">
-        <p className="combatant-eyebrow">{title}</p>
         <div className="combatant-mode-toggle" role="tablist" aria-label={`${title} view`}>
           {(['simple', 'advanced'] as const).map((nextMode) => (
             <button
@@ -76,7 +75,10 @@ export default function CombatantPanel({
         </div>
       </div>
       <header className="combatant-header combatant-identity-header">
-        <div className="combatant-sprite-placeholder">
+        <div
+          key={displayName}
+          className="combatant-sprite-placeholder"
+        >
           {displayName !== title && (
             <PokemonSprite
               name={displayName}
@@ -102,44 +104,45 @@ export default function CombatantPanel({
             {combatant.nature} · {combatant.ability || 'No ability'} · {combatant.item || 'No item'}
           </p>
         </div>
-        <button
-          type="button"
-          className="change-pokemon-button"
-          onClick={() => setIsChoosingPokemon((current) => !current)}
-        >
-          {isChoosingPokemon ? 'Done' : 'Change Pokémon'}
-        </button>
-      </header>
-
-      {isChoosingPokemon && (
-        <div className="pokemon-picker-editor">
-          <CombatantIdentityFields
-            combatant={combatant}
-            onChange={onChange}
-            availableSpecies={availableSpecies}
-            importedSets={importedSets}
-            onImportedSet={onImportedSet}
-            onImportedSetCleared={onImportedSetCleared}
-            selectedImportedSetId={selectedImportedSetId}
-            onUpdateImportedSet={onUpdateImportedSet}
-          />
+        <div className="combatant-change-controls">
+          {isChoosingPokemon && (
+            <CombatantIdentityFields
+              combatant={combatant}
+              onChange={onChange}
+              availableSpecies={availableSpecies}
+              importedSets={importedSets}
+              onImportedSet={onImportedSet}
+              onImportedSetCleared={onImportedSetCleared}
+              selectedImportedSetId={selectedImportedSetId}
+              onUpdateImportedSet={onUpdateImportedSet}
+              pokemonPickerOnly
+              showItem
+            />
+          )}
+          <button
+            type="button"
+            className="change-pokemon-button"
+            onClick={() => setIsChoosingPokemon((current) => !current)}
+          >
+            {isChoosingPokemon ? 'Done' : 'Change Pokémon'}
+          </button>
         </div>
-      )}
+      </header>
 
       {mode === 'simple' ? (
         <>
-          <FieldGroup title="Common configuration">
-            <CombatantIdentityFields combatant={combatant} onChange={onChange} availableSpecies={availableSpecies} importedSets={importedSets} onImportedSet={onImportedSet} onImportedSetCleared={onImportedSetCleared} selectedImportedSetId={selectedImportedSetId} onUpdateImportedSet={onUpdateImportedSet} showPokemonPicker={false} />
+          <FieldGroup>
+            <CombatantIdentityFields combatant={combatant} onChange={onChange} availableSpecies={availableSpecies} importedSets={importedSets} onImportedSet={onImportedSet} onImportedSetCleared={onImportedSetCleared} selectedImportedSetId={selectedImportedSetId} onUpdateImportedSet={onUpdateImportedSet} showPokemonPicker={false} showShiny={false} showGender={false} showItem />
           </FieldGroup>
           <CombatantStatGrids combatant={combatant} onChange={onChange} />
         </>
       ) : (
         <>
-          <FieldGroup title="Common configuration">
+          <FieldGroup>
             <CombatantIdentityFields combatant={combatant} onChange={onChange} availableSpecies={availableSpecies} importedSets={importedSets} onImportedSet={onImportedSet} onImportedSetCleared={onImportedSetCleared} selectedImportedSetId={selectedImportedSetId} onUpdateImportedSet={onUpdateImportedSet} showPokemonPicker={false} />
           </FieldGroup>
-          <FieldGroup title="Pokémon"><CombatantTypeFields combatant={combatant} onChange={onChange} /></FieldGroup>
-          <FieldGroup title="Mechanics"><CombatantBattleStateFields combatant={combatant} onChange={onChange} /></FieldGroup>
+          <FieldGroup><CombatantTypeFields combatant={combatant} onChange={onChange} /></FieldGroup>
+          <FieldGroup><CombatantBattleStateFields combatant={combatant} onChange={onChange} /></FieldGroup>
           <CombatantStatGrids combatant={combatant} onChange={onChange} />
         </>
       )}

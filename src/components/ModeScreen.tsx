@@ -1,5 +1,6 @@
 import { useOutletContext } from 'react-router-dom';
 import type { CalculatorMode } from 'modes/calculatorModes';
+import type { AppShellContext } from './AppShell';
 import OneVsOneMode from './one-vs-one/OneVsOneMode';
 import './ModeScreen.css';
 
@@ -8,7 +9,9 @@ type ModeScreenProps = {
 };
 
 export default function ModeScreen({ mode }: ModeScreenProps) {
-  const currentPath = useOutletContext<string>();
+  const outletContext = useOutletContext<AppShellContext | string>();
+  const currentPath =
+    typeof outletContext === 'string' ? outletContext : outletContext.pathname;
 
   if (mode.slug === 'one-vs-one') {
     return <OneVsOneMode />;
