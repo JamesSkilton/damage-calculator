@@ -27,10 +27,33 @@
   gap: 1rem;
 }
 
-.calc-results-actions {
-  display: grid;
-  justify-items: end;
-  gap: 0.35rem;
+.battle-results .btn {
+  border-radius: 0.4rem;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.battle-results .btn-outline-primary {
+  border-color: #cbd5e1;
+  background: #fff;
+  color: #2563eb;
+}
+
+.battle-results .btn-outline-primary:hover {
+  border-color: #2563eb;
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.battle-results .btn-primary {
+  border-color: #172554;
+  background: #172554;
+}
+
+.battle-results .btn-primary:hover {
+  border-color: #0f172a;
+  background: #0f172a;
 }
 
 .calc-generation-field {
@@ -49,26 +72,6 @@
   background: #fff;
   color: #0f172a;
   font: inherit;
-}
-
-.calc-swap-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 0.4rem;
-  padding: 0.35rem 0.6rem;
-  background: #fff;
-  color: #2563eb;
-  font: inherit;
-  font-size: 0.8rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.calc-swap-button:hover {
-  border-color: #2563eb;
-  background: #eff6ff;
 }
 
 .calc-empty {
@@ -93,7 +96,7 @@
 .calc-grid {
   display: grid;
   grid-template-columns:
-    minmax(160px, 0.85fr) auto minmax(460px, 3.3fr) auto minmax(160px, 0.85fr);
+    minmax(96px, 0.45fr) auto minmax(460px, 4.4fr) auto minmax(96px, 0.45fr);
   column-gap: 0.75rem;
   row-gap: 0.45rem;
   align-items: stretch;
@@ -103,17 +106,18 @@
   display: grid;
   align-content: start;
   justify-items: start;
-  gap: 0.25rem;
-  padding: 0.6rem 0.85rem;
+  gap: 0.15rem;
+  padding: 0.35rem 0.65rem;
   border-radius: 0.65rem;
 }
 
 .calc-arrow {
-  align-self: center;
+  align-self: stretch;
   justify-self: center;
-  color: #94a3b8;
-  font-size: 1.25rem;
-  line-height: 1;
+  width: 1px;
+  min-height: 100%;
+  background: #e2e8f0;
+  font-size: 0;
 }
 
 .calc-attacker {
@@ -126,19 +130,26 @@
   grid-row: 1 / span var(--calc-rows, 1);
 }
 
+.calc-attack-grid {
+  grid-column: 3;
+  grid-row: 1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+  min-width: 0;
+}
+
 .calc-move {
   background: transparent;
 }
 
 .calc-attack-row {
-  grid-column: 3;
-  grid-row: var(--calc-row);
   display: grid;
-  grid-template-columns: minmax(180px, 0.9fr) auto minmax(260px, 1.5fr);
+  grid-template-columns: minmax(105px, 0.55fr) auto minmax(0, 2.2fr);
   column-gap: 0.6rem;
   align-items: stretch;
   min-width: 0;
-  padding: 0.25rem;
+  padding: 0.15rem;
   border-radius: 0.65rem;
   background: #f8fafc;
 }
@@ -152,7 +163,7 @@
 }
 
 .calc-arrow-mid {
-  align-self: center;
+  align-self: stretch;
 }
 
 .calc-damage {
@@ -233,21 +244,17 @@
   text-decoration: underline;
 }
 
+.calc-move-action {
+  justify-self: start;
+}
+
 /* Move column */
 .calc-move-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  flex-wrap: wrap;
   width: 100%;
-}
-
-.calc-move-slot {
-  margin: 0;
-  color: #94a3b8;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  gap: 0.35rem;
 }
 
 .calc-crit-toggle {
@@ -268,32 +275,52 @@
 
 .calc-move-name {
   margin: 0;
+  flex: 1 1 7rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-weight: 700;
+}
+
+.calc-move-detail-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  min-width: 0;
 }
 
 .calc-move-meta {
   margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
   color: #475569;
   font-size: 0.85rem;
 }
 
 /* Damage column: the visual focal point */
-.calc-damage-label {
-  margin: 0;
-  color: #94a3b8;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.calc-damage-headline {
-  margin: 0;
+.calc-damage-summary {
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.15rem 0.4rem;
+  min-width: 0;
   width: 100%;
+  line-height: 1.2;
+}
+
+.calc-damage-summary .calc-damage-range {
+  font-size: 1.1rem;
+}
+
+.calc-damage-summary .calc-damage-percent {
+  font-size: 0.8rem;
+}
+
+.calc-damage-headline {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .calc-damage-range {
@@ -306,13 +333,6 @@
   font-size: 0.95rem;
   color: #334155;
   font-weight: 500;
-}
-
-.calc-damage-ko {
-  margin-left: auto;
-  font-weight: 600;
-  color: #0f172a;
-  font-size: 0.9rem;
 }
 
 .calc-damage-bar {
@@ -337,54 +357,22 @@
 }
 
 .calc-hp-remaining {
-  margin-top: 0.4rem;
   width: 100%;
 }
 
-.calc-hp-remaining-header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.35rem 0.75rem;
-  margin-bottom: 0.3rem;
-}
-
-.calc-hp-remaining-summary {
-  display: grid;
-  gap: 0.1rem;
-}
-
-.calc-hp-remaining-label {
-  margin: 0;
-  color: #94a3b8;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+.calc-hp-remaining .hp-range-bar {
+  margin-top: 0.3rem;
 }
 
 .calc-hp-remaining-value {
-  margin: 0;
-  font-size: 1rem;
   font-weight: 700;
   color: #0f172a;
 }
 
 .calc-hp-remaining-percent {
-  margin-left: 0.4rem;
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   font-weight: 500;
   color: #334155;
-}
-
-.calc-hp-remaining-stats {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 0.2rem;
-  font-size: 0.8rem;
-  color: #475569;
 }
 
 .calc-hp-stat {
@@ -393,11 +381,9 @@
 
 .calc-roll-odds {
   width: 100%;
-  margin-top: 0.45rem;
-  padding-top: 0.45rem;
-  border-top: 1px solid #eef1f5;
+  padding-top: 0.25rem;
   display: grid;
-  gap: 0.2rem;
+  gap: 0.1rem;
   align-content: start;
 }
 
@@ -457,10 +443,13 @@
     grid-row: auto;
   }
 
-  .calc-attack-row {
+  .calc-attack-grid {
     grid-column: auto;
-    grid-row: auto;
-    grid-template-columns: minmax(150px, 0.9fr) auto minmax(0, 1.5fr);
+    grid-template-columns: 1fr;
+  }
+
+  .calc-attack-row {
+    grid-template-columns: minmax(125px, 0.8fr) auto minmax(0, 1.4fr);
   }
 
   .calc-move,
@@ -472,6 +461,9 @@
 
   .calc-arrow-in,
   .calc-arrow-out {
-    transform: rotate(90deg);
+    width: 100%;
+    min-height: 1px;
+    height: 1px;
+    align-self: center;
   }
 }

@@ -42,10 +42,6 @@ const STAT_LABELS: Record<BattleStatId, string> = {
   spe: 'Spe',
 };
 
-function capitalize(text: string): string {
-  return text.length > 0 ? text[0].toUpperCase() + text.slice(1) : text;
-}
-
 function formatPercent(chance: number): string {
   return `${Math.round(chance * 100)}%`;
 }
@@ -95,7 +91,13 @@ function remainingHpRange(details: BattleCalcDetails): {
   };
 }
 
-function HpRemainingBar({ details }: { details: BattleCalcDetails }) {
+function HpRemainingBar({
+  details,
+  rangeText,
+}: {
+  details: BattleCalcDetails;
+  rangeText: string;
+}) {
   const { defenderMaxHp } = details;
 
   if (defenderMaxHp <= 0) {
@@ -108,43 +110,43 @@ function HpRemainingBar({ details }: { details: BattleCalcDetails }) {
 
   return (
     <div className="calc-hp-remaining">
-      <div className="calc-hp-remaining-header">
-        <div className="calc-hp-remaining-summary">
-          <p className="calc-hp-remaining-label">Defender HP after this hit</p>
-          <p className="calc-hp-remaining-value">
-            {remainingMin === remainingMax
-              ? `${remainingMin}`
-              : `${remainingMin}–${remainingMax}`}{' '}
-            / {defenderMaxHp}
-            <span className="calc-hp-remaining-percent">
-              ({toPercent(remainingMin).toFixed(1)}–
-              {toPercent(remainingMax).toFixed(1)}%)
-            </span>
-          </p>
-        </div>
-
-        <div className="calc-hp-remaining-stats">
-          <span className="calc-hp-stat">
-            Avg.{' '}
-            <strong>
-              {details.averageDamage.toFixed(1)} (
-              {details.averagePercent.toFixed(1)}%)
-            </strong>
-          </span>
-          <span className="calc-summary-sep" aria-hidden="true">
-            ·
-          </span>
-          <span className="calc-hp-stat">
-            {primary.label} chance{' '}
-            <strong>{formatPercent(primary.chance)}</strong>
-          </span>
-          <span className="calc-summary-sep" aria-hidden="true">
-            ·
-          </span>
-          <span className="calc-hp-stat">
-            Crit. OHKO <strong>{details.isCritOhko ? 'Yes' : 'No'}</strong>
-          </span>
-        </div>
+      <div className="calc-damage-summary">
+        <strong className="calc-damage-range">{rangeText}</strong>
+        <span className="calc-damage-percent">
+          ({details.percentRange.min.toFixed(1)}–
+          {details.percentRange.max.toFixed(1)}%) dmg
+        </span>
+        <span className="calc-summary-sep" aria-hidden="true">
+          ·
+        </span>
+        <strong className="calc-hp-remaining-value">
+          {remainingMin === remainingMax
+            ? `${remainingMin}`
+            : `${remainingMin}–${remainingMax}`}{' '}
+          / {defenderMaxHp} HP
+        </strong>
+        <span className="calc-hp-remaining-percent">
+          ({toPercent(remainingMin).toFixed(1)}–
+          {toPercent(remainingMax).toFixed(1)}%)
+        </span>
+        <span className="calc-summary-sep" aria-hidden="true">
+          ·
+        </span>
+        <span className="calc-hp-stat">
+          Avg <strong>{details.averageDamage.toFixed(1)}</strong>
+        </span>
+        <span className="calc-summary-sep" aria-hidden="true">
+          ·
+        </span>
+        <span className="calc-hp-stat">
+          {primary.label} <strong>{formatPercent(primary.chance)}</strong>
+        </span>
+        <span className="calc-summary-sep" aria-hidden="true">
+          ·
+        </span>
+        <span className="calc-hp-stat">
+          Crit OHKO <strong>{details.isCritOhko ? 'Yes' : 'No'}</strong>
+        </span>
       </div>
 
       <HpRangeBar
@@ -253,7 +255,9 @@ export default function BattleResultPanel({
   const defenderStat = relevantStatFor(firstMoveOption?.category, 'defender');
 
   const rowCount = Math.max(rows.length, 1);
-  const gridStyle = { '--calc-rows': rowCount } as CSSProperties;
+  const gridStyle = {
+    '--calc-rows': Math.ceil(rowCount / 2),
+  } as CSSProperties;
 
   return (
     <section className="battle-results" aria-label={title}>
@@ -262,11 +266,11 @@ export default function BattleResultPanel({
           <h2 className="calc-results-title">{title}</h2>
         </div>
         {(onSwapSides || onTogglePlanner) && (
-          <div className="calc-results-actions">
+          <div className="d-flex flex-row align-items-center gap-2">
             {onSwapSides && (
               <button
                 type="button"
-                className="calc-swap-button"
+                className="btn btn-outline-primary btn-sm"
                 onClick={onSwapSides}
                 aria-label="Swap attacker and defender"
               >
@@ -276,7 +280,7 @@ export default function BattleResultPanel({
             {onTogglePlanner && (
               <button
                 type="button"
-                className="battle-planner-toggle"
+                className="btn btn-primary btn-sm"
                 onClick={onTogglePlanner}
               >
                 Plan battle
@@ -310,25 +314,26 @@ export default function BattleResultPanel({
             →
           </div>
 
-          {rows.map((row, index) => {
+          <div className="calc-attack-grid">
+            {rows.map((row) => {
             const moveDraft = moves[row.slotIndex];
             const moveOption = resolveMoveOption(
               moveDraft?.name ?? '',
               availableMoves,
             );
             const isEditingMove = editingMoveSlot === row.slotIndex;
-            const rowStyle = { '--calc-row': index + 1 } as CSSProperties;
             const details = row.details;
 
             return (
               <div
                 key={row.slotIndex}
                 className="calc-attack-row"
-                style={rowStyle}
               >
-                <div className="calc-node calc-move" style={rowStyle}>
+                <div className="calc-node calc-move">
                   <div className="calc-move-header">
-                    <p className="calc-move-slot">Move {row.slotIndex + 1}</p>
+                    {!isEditingMove && (
+                      <p className="calc-move-name">{row.label}</p>
+                    )}
                     <label className="calc-crit-toggle">
                       <input
                         type="checkbox"
@@ -346,64 +351,57 @@ export default function BattleResultPanel({
                   </div>
 
                   {isEditingMove ? (
-                    <SearchableMovePicker
-                      value={moveDraft?.name ?? ''}
-                      options={availableMoves}
-                      onSelect={(moveName) => {
-                        onMoveNameChange(row.slotIndex, moveName);
-                        setEditingMoveSlot(null);
-                      }}
-                      ariaLabel={`Move ${row.slotIndex + 1}`}
-                      placeholder="— Select move —"
-                    />
+                    <div className="calc-move-detail-line">
+                      <SearchableMovePicker
+                        value={moveDraft?.name ?? ''}
+                        options={availableMoves}
+                        onSelect={(moveName) => {
+                          onMoveNameChange(row.slotIndex, moveName);
+                          setEditingMoveSlot(null);
+                        }}
+                        ariaLabel={`Move ${row.slotIndex + 1}`}
+                        placeholder="— Select move —"
+                      />
+                    </div>
                   ) : (
-                    <>
-                      <p className="calc-move-name">{row.label}</p>
+                    <div className="calc-move-detail-line">
                       <p className="calc-move-meta">
                         {moveOption
                           ? `${moveOption.category} · ${moveOption.type}${moveOption.basePower > 0 ? ` · ${moveOption.basePower} BP` : ''}`
                           : '—'}
                       </p>
-                    </>
+                    </div>
                   )}
 
                   <button
                     type="button"
-                    className="calc-change-link"
+                    className="calc-change-link calc-move-action"
                     onClick={() =>
                       setEditingMoveSlot(isEditingMove ? null : row.slotIndex)
                     }
                   >
-                    {isEditingMove ? 'Done' : 'Change Move'}
+                    {isEditingMove ? 'Done' : 'Change'}
                   </button>
                 </div>
 
                 <div
                   className="calc-arrow calc-arrow-mid"
-                  style={rowStyle}
                   aria-hidden="true"
                 >
                   →
                 </div>
 
-                <div className="calc-node calc-damage" style={rowStyle}>
-                  <p className="calc-damage-label">Damage range</p>
-                  <p className="calc-damage-headline">
-                    <span className="calc-damage-range">
+                <div className="calc-node calc-damage">
+                  {details ? (
+                    <HpRemainingBar
+                      details={details}
+                      rangeText={row.result.rangeText}
+                    />
+                  ) : (
+                    <strong className="calc-damage-range">
                       {row.result.rangeText}
-                    </span>
-                    {details && (
-                      <span className="calc-damage-percent">
-                        ({details.percentRange.min.toFixed(1)}–
-                        {details.percentRange.max.toFixed(1)}%)
-                      </span>
-                    )}
-                    <span className="calc-damage-ko">
-                      {row.result.koText ? capitalize(row.result.koText) : '—'}
-                    </span>
-                  </p>
-
-                  {details && <HpRemainingBar details={details} />}
+                    </strong>
+                  )}
 
                   {details && details.damageRollFrequency.length > 1 && (
                     <div className="calc-roll-odds">
@@ -429,7 +427,8 @@ export default function BattleResultPanel({
                 </div>
               </div>
             );
-          })}
+            })}
+          </div>
 
           <div className="calc-arrow calc-arrow-out" aria-hidden="true">
             →

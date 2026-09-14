@@ -18,25 +18,27 @@ export default function SearchableMovePicker({
   placeholder = '— Select move —',
 }: SearchableMovePickerProps) {
   return (
-    <SearchableTypePicker
-      value={value}
-      options={options}
-      onSelect={onSelect}
-      ariaLabel={ariaLabel}
-      placeholder={placeholder}
-      filterOptions={filterMoveOptions}
-      getTypes={(option) => [option.type]}
-      getOptionClassName={(option) =>
-        option.basePower === 0 ? 'status-move' : ''
-      }
-      renderExtra={(option) =>
-        option.basePower > 0 ? (
-          <span className="move-base-power">BP: {option.basePower}</span>
-        ) : (
-          <span className="move-status-indicator">Status</span>
-        )
-      }
-      emptyMessage="No moves found"
-    />
+    <div className="move-picker">
+      <SearchableTypePicker
+        value={value}
+        options={options}
+        onSelect={onSelect}
+        ariaLabel={ariaLabel}
+        placeholder={placeholder}
+        filterOptions={filterMoveOptions}
+        getTypes={(option) => [option.type]}
+        getOptionClassName={(option) =>
+          option.basePower === 0 ? 'status-move' : ''
+        }
+        renderExtra={(option) =>
+          option.basePower > 0 ? (
+            <span className="move-base-power">BP: {option.basePower}</span>
+          ) : (
+            <span className="move-status-indicator">Status</span>
+          )
+        }
+        emptyMessage="No moves found"
+      />
+    </div>
   );
 }

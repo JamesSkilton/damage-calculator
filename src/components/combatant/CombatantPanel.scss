@@ -8,15 +8,6 @@
   background: #fff;
 }
 
-.combatant-panel-topline {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 1rem;
-  padding-bottom: 0.65rem;
-  border-bottom: 1px solid #e2e8f0;
-}
-
 .combatant-header {
   display: flex;
   flex-wrap: wrap;
@@ -60,9 +51,20 @@
   min-width: 0;
 }
 
-.combatant-identity-copy h3 {
+.combatant-name-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.6rem;
+  min-width: 0;
+}
+
+.combatant-name-row h3 {
+  flex: 0 1 auto;
+  min-width: 0;
   margin: 0;
   font-size: 1.1rem;
+  overflow-wrap: anywhere;
 }
 
 .combatant-type-summary,
@@ -75,20 +77,36 @@
   font-size: 0.8rem;
 }
 
+.combatant-name-row .combatant-type-summary {
+  flex: 0 1 auto;
+  margin-top: 0;
+}
+
 .combatant-loadout-summary {
-  display: block;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.45rem;
   color: #334155;
   font-weight: 600;
 }
 
 .change-pokemon-button {
-  border: 1px solid #cbd5e1;
-  border-radius: 0.45rem;
-  padding: 0.35rem 0.55rem;
-  background: transparent;
-  color: #475569;
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin: 0;
+  border: 0;
+  padding: 0;
+  background: none;
+  color: #2563eb;
   font-size: 0.78rem;
+  font-weight: 600;
   cursor: pointer;
+}
+
+.change-pokemon-button:hover {
+  text-decoration: underline;
 }
 
 .combatant-change-controls {
@@ -97,6 +115,18 @@
   align-items: end;
   justify-content: flex-end;
   gap: 0.45rem;
+}
+
+.combatant-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.combatant-change-controls .combatant-action-row {
+  justify-content: flex-end;
 }
 
 .combatant-change-controls .combatant-pokemon-picker {
@@ -111,8 +141,13 @@
 }
 
 .combatant-change-controls .combatant-pokemon-picker > .combatant-field > span {
-  display: block;
-  margin-bottom: 0.2rem;
+  flex: 0 0 auto;
+  margin-bottom: 0;
+}
+
+.combatant-change-controls .combatant-pokemon-picker > .combatant-field > :last-child {
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .combatant-change-controls .imported-set-actions {
@@ -125,6 +160,7 @@
   }
 
   .combatant-change-controls {
+    display: grid;
     grid-column: 1 / -1;
   }
 }
@@ -170,10 +206,8 @@
   font-weight: 700;
 }
 
-.combatant-grid {
-  display: grid;
-  gap: 0.75rem;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+.combatant-fieldset > .row {
+  margin-top: 0;
 }
 
 .combatant-stat-grid {
@@ -189,25 +223,38 @@
 }
 
 .combatant-field {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 0.35rem;
   font-size: 0.95rem;
-}
-
-.combatant-field input,
-.combatant-field select {
-  width: 100%;
-  padding: 0.4rem 0.55rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 0.7rem;
-  background: #fff;
-  color: inherit;
 }
 
 .combatant-field > span {
   color: #475569;
   font-size: 0.78rem;
   font-weight: 600;
+}
+
+.combatant-field > .form-label {
+  margin-bottom: 0;
+}
+
+.combatant-field.form-check {
+  flex-direction: row;
+  gap: 0.5rem;
+  padding-left: 0.75rem;
+}
+
+.combatant-checkbox-field {
+  align-self: flex-start;
+  min-height: 2.375rem;
+  margin-top: 3rem !important;
+}
+
+.combatant-field.form-check > span {
+  color: inherit;
+  font-size: inherit;
+  font-weight: 400;
 }
 
 .combatant-field-hint {
@@ -471,24 +518,11 @@
     padding: 1.25rem;
   }
 
-  .combatant-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 .advanced-options {
   display: grid;
   gap: 0.75rem;
-}
-
-.checkbox-field {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.checkbox-field input {
-  width: auto;
 }
 
 .imported-set-actions {
@@ -497,10 +531,6 @@
   flex-wrap: wrap;
   gap: 0.75rem 1rem;
   min-height: 2.5rem;
-}
-
-.imported-set-actions .checkbox-field {
-  padding-top: 0;
 }
 
 .update-imported-set-button {

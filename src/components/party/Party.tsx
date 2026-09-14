@@ -110,23 +110,13 @@ export default function Party({
 
   return (
     <section className="party-screen" aria-labelledby="party-title">
-      <header className="party-header">
-        <div>
-          <p className="party-kicker">Imported Pokemon</p>
-          <h2 id="party-title">Party</h2>
-          <p>Select up to six imported sets for your active party.</p>
-        </div>
-        <strong className="party-count" aria-label={`${partySets.length} of ${PARTY_LIMIT} party slots selected`}>
-          {partySets.length}/{PARTY_LIMIT}
-        </strong>
-      </header>
 
       <section className="party-roster" aria-labelledby="party-roster-title">
         <div className="party-section-heading">
           <h3 id="party-roster-title">Your party</h3>
           <span>{partySets.length === PARTY_LIMIT ? 'Party full' : `${PARTY_LIMIT - partySets.length} slots open`}</span>
         </div>
-        <div className="party-slots">
+        <div className={`party-slots${draggedSetId && !draggedFromParty ? ' is-dragging-in' : ''}`}>
           {Array.from({ length: PARTY_LIMIT }, (_, index) => {
             const set = partySets[index];
             return set ? (
@@ -141,9 +131,10 @@ export default function Party({
                   <PokemonSprite name={set.species} alt="" />
                   <span>{displayName(set)}</span>
                 </button>
-                <button type="button" className="party-slot-remove" onClick={() => toggleParty(set.id)} aria-label={`Remove ${displayName(set)} from party`}>
-                  Remove
+                <button type="button" className="party-slot-remove" onClick={() => toggleParty(set.id)} aria-label={`Remove ${displayName(set)} from party`} title={`Remove ${displayName(set)} from party`}>
+                  x
                 </button>
+
               </div>
             ) : (
               <div
@@ -191,21 +182,45 @@ export default function Party({
                   key={set.id}
                   className={`party-card${isSelected ? ' selected' : ''}`}
                   draggable
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Load ${displayName(set)} into attacker`}
+                  onClick={(event) => {
+                    if ((event.target as HTMLElement).closest('button')) return;
+                    onSelectSet(set);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.target !== event.currentTarget) return;
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      onSelectSet(set);
+                    }
+                  }}
                   onDragStart={() => startDrag(set.id, isSelected)}
                   onDragEnd={finishDrag}
                 >
-                  <button type="button" className="party-card-select" onClick={() => onSelectSet(set)}>
-                    <PokemonSprite name={set.species} alt="" />
-                    <strong>{displayName(set)}</strong>
-                    <span>{set.nickname ? set.species : `Lv. ${set.level}`}</span>
-                    <TypeBadges types={types} />
-                  </button>
-                  <button type="button" className="party-card-party-toggle" onClick={() => toggleParty(set.id)} disabled={!isSelected && partyIds.length >= PARTY_LIMIT}>
-                    {isSelected ? 'Remove from party' : 'Add to party'}
-                  </button>
-                  <button type="button" className="party-card-delete" onClick={() => deleteSet(set.id)} aria-label={`Delete ${displayName(set)}`}>
-                    Delete
-                  </button>
+                  <div className="party-card-content">
+                    {!isSelected && (
+                      <button type="button" className="party-card-party-toggle" onClick={() => toggleParty(set.id)} disabled={partyIds.length >= PARTY_LIMIT} aria-label={`Add ${displayName(set)} to party`} title={`Add ${displayName(set)} to party`}>
+                        +
+                      </button>
+                    )}
+                    <button type="button" className="party-card-select" onClick={() => onSelectSet(set)}>
+                      <PokemonSprite name={set.species} alt="" />
+                    </button>
+                    <button type="button" className="party-card-delete" onClick={() => deleteSet(set.id)} aria-label={`Delete ${displayName(set)}`} title={`Delete ${displayName(set)}`}>
+                      x
+                    </button>
+                    <div className="d-flex flex-column align-items-center">
+                      <strong>{displayName(set)}</strong>
+                      <div className="party-card-meta">
+                        <span>{set.nickname ? set.species : `Lv. ${set.level}`}</span>
+                        <span className="party-card-types">
+                          <TypeBadges types={types} />
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </article>
               );
             })}

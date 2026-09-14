@@ -85,9 +85,19 @@ export default function SearchableTypePicker<T extends { name: string }>({
   // Keep highlighted item in view
   useEffect(() => {
     if (highlightedIndex >= 0 && listRef.current) {
-      const highlightedItem = listRef.current.children[highlightedIndex];
+      const highlightedItem = listRef.current.querySelector<HTMLElement>(
+        `[data-option-index="${highlightedIndex}"]`,
+      );
       if (highlightedItem) {
-        highlightedItem.scrollIntoView({ block: 'nearest' });
+        const itemTop = highlightedItem.offsetTop;
+        const itemBottom = itemTop + highlightedItem.offsetHeight;
+        const listTop = listRef.current.scrollTop;
+        const listBottom = listTop + listRef.current.clientHeight;
+        if (itemTop < listTop) {
+          listRef.current.scrollTop = itemTop;
+        } else if (itemBottom > listBottom) {
+          listRef.current.scrollTop = itemBottom - listRef.current.clientHeight;
+        }
       }
     }
   }, [highlightedIndex]);
@@ -239,7 +249,7 @@ export default function SearchableTypePicker<T extends { name: string }>({
           aria-autocomplete="list"
           aria-expanded={isOpen}
           aria-controls={listId}
-          className={`type-picker-input ${
+          className={`form-control type-picker-input ${
             showSelectedChip ? 'type-picker-input-transparent' : ''
           }`}
         />
@@ -272,6 +282,7 @@ export default function SearchableTypePicker<T extends { name: string }>({
                 <Fragment key={option.name}>
                   {showGroup && <li className="type-option-group">{group}</li>}
                   <li
+                    data-option-index={index}
                     className={`type-option ${
                       highlightedIndex === index ? 'highlighted' : ''
                     } ${getOptionClassName?.(option) ?? ''}`}

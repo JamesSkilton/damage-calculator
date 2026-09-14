@@ -22,6 +22,8 @@ import {
   saveImportedPokemonSets,
 } from '../../import/pokemonSetStorage';
 import type { ImportedPokemonSet } from '../../import/pokemonSet';
+import type { PokemonPreset } from '../../import/legacySets/legacyPresetCatalog';
+import { getLegacyPokemonPresets } from '../../import/legacySets/legacyPresetCatalog';
 import { buildMoveCatalog } from '../combatant/moves/moveCatalog';
 import { buildSpeciesCatalog } from '../combatant/species/speciesCatalog';
 import BattleFieldControls from './BattleFieldControls';
@@ -29,7 +31,6 @@ import PokemonSetTools from './PokemonSetTools';
 import BattleResultPanel from './BattleResultPanel';
 import BattlePlanner from '../battle-planner/BattlePlanner';
 import Party from '../party/Party';
-import PartyPicker from '../party/PartyPicker';
 import { buildBattleCalcBreakdowns } from 'adapters/battleCalc';
 import './OneVsOneMode.scss';
 
@@ -49,13 +50,16 @@ export default function OneVsOneMode() {
     attacker?: string;
     defender?: string;
   }>({});
+  const [selectedPresetIds, setSelectedPresetIds] = useState<{
+    attacker?: string;
+    defender?: string;
+  }>({});
   const [importedSets, setImportedSets] = useState<ImportedPokemonSet[]>(() =>
     loadImportedPokemonSets(),
   );
   const [importText, setImportText] = useState('');
   const [importErrors, setImportErrors] = useState<string[]>([]);
   const [exportText, setExportText] = useState('');
-  const [partyVersion, setPartyVersion] = useState(0);
 
   useEffect(() => {
     setDraft((current) => setTeamGeneration(current, generation));
@@ -69,6 +73,7 @@ export default function OneVsOneMode() {
       ...current,
       generation,
     }));
+    setSelectedPresetIds({});
   }, [generation]);
 
   const availableMoves = useMemo(
@@ -79,6 +84,11 @@ export default function OneVsOneMode() {
   const availableSpecies = useMemo(
     () => buildSpeciesCatalog(generation),
     [generation],
+  );
+
+  const presets = useMemo(
+    () => getLegacyPokemonPresets(generation, availableSpecies),
+    [availableSpecies, generation],
   );
 
   const attackerResults = useMemo(
@@ -149,6 +159,23 @@ export default function OneVsOneMode() {
     (role === 'attacker' ? setAttackerMoves : setDefenderMoves)(updateMoves);
   };
 
+  const selectPreset = (role: 'attacker' | 'defender', preset: PokemonPreset) => {
+    setExportText('');
+    setSelectedPresetIds((current) => ({ ...current, [role]: preset.id }));
+    setSelectedImportedSetIds((current) => ({ ...current, [role]: undefined }));
+    setDraft((current) => ({
+      ...current,
+      [role]: applyImportedPokemonSet(current[role], preset, availableSpecies),
+    }));
+    const updateMoves = (current: ReturnType<typeof createCombatantMovesState>) => ({
+      ...current,
+      slots: current.slots.map((slot, index) =>
+        setMoveName(slot, preset.moves[index] || ''),
+      ),
+    });
+    (role === 'attacker' ? setAttackerMoves : setDefenderMoves)(updateMoves);
+  };
+
   const updateImportedSet = (role: 'attacker' | 'defender') => {
     const setId = selectedImportedSetIds[role];
     if (!setId) return;
@@ -190,6 +217,13 @@ export default function OneVsOneMode() {
     }));
   };
 
+  const clearSelectedPreset = (role: 'attacker' | 'defender') => {
+    setSelectedPresetIds((current) => ({
+      ...current,
+      [role]: undefined,
+    }));
+  };
+
   const deleteImportedSet = (id: string) => {
     setImportedSets((current) => current.filter((set) => set.id !== id));
     removeImportedPokemonSet(id);
@@ -216,11 +250,6 @@ export default function OneVsOneMode() {
         />
       ) : (
         <>
-          <PartyPicker
-            key={partyVersion}
-            importedSets={importedSets}
-            onSelectSet={(set) => selectImportedSet('attacker', set)}
-          />
           <BattleResultPanel
             title={isResultsSwapped ? 'Defender damage' : 'Attacker damage'}
             attacker={displayedAttacker}
@@ -279,7 +308,6 @@ export default function OneVsOneMode() {
           importedSets={importedSets}
           onDeleteSet={deleteImportedSet}
           onSelectSet={(set) => selectImportedSet('attacker', set)}
-          onPartyChange={() => setPartyVersion((current) => current + 1)}
         />
       </details>
 
@@ -303,6 +331,10 @@ export default function OneVsOneMode() {
           onImportedSetCleared={() => clearSelectedImportedSet('attacker')}
           selectedImportedSetId={selectedImportedSetIds.attacker}
           onUpdateImportedSet={() => updateImportedSet('attacker')}
+          presets={presets}
+          onPreset={(preset) => selectPreset('attacker', preset)}
+          onPresetCleared={() => clearSelectedPreset('attacker')}
+          selectedPresetId={selectedPresetIds.attacker}
           onMovesChange={(moves) =>
             setAttackerMoves((current) => ({
               ...current,
@@ -329,6 +361,10 @@ export default function OneVsOneMode() {
             onImportedSetCleared={() => clearSelectedImportedSet('defender')}
             selectedImportedSetId={selectedImportedSetIds.defender}
             onUpdateImportedSet={() => updateImportedSet('defender')}
+            presets={presets}
+            onPreset={(preset) => selectPreset('defender', preset)}
+            onPresetCleared={() => clearSelectedPreset('defender')}
+            selectedPresetId={selectedPresetIds.defender}
             onMovesChange={(moves) =>
               setDefenderMoves((current) => ({
                 ...current,
@@ -349,6 +385,10 @@ export default function OneVsOneMode() {
             importErrors={importErrors}
             exportText={exportText}
             onExport={exportSet}
+            exportDisabledRoles={[
+              ...(selectedPresetIds.attacker ? (['attacker'] as const) : []),
+              ...(selectedPresetIds.defender ? (['defender'] as const) : []),
+            ]}
           />
         </div>
       </div>

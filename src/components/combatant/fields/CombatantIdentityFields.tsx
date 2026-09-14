@@ -10,6 +10,7 @@ import SearchablePokemonPicker from '../species/SearchablePokemonPicker';
 import SearchableTypePicker from '../shared/SearchableTypePicker';
 import { Generations } from 'calc-runtime/core/data';
 import type { ImportedPokemonSet } from '../../../import/pokemonSet';
+import type { PokemonPreset } from '../../../import/legacySets/legacyPresetCatalog';
 
 type CombatantIdentityFieldsProps = {
   combatant: BattleCombatant;
@@ -20,6 +21,10 @@ type CombatantIdentityFieldsProps = {
   onImportedSetCleared?: () => void;
   selectedImportedSetId?: string;
   onUpdateImportedSet?: () => void;
+  presets?: PokemonPreset[];
+  onPreset?: (preset: PokemonPreset) => void;
+  onPresetCleared?: () => void;
+  selectedPresetId?: string;
   showPokemonPicker?: boolean;
   showShiny?: boolean;
   showGender?: boolean;
@@ -57,6 +62,10 @@ export default function CombatantIdentityFields({
   onImportedSetCleared,
   selectedImportedSetId,
   onUpdateImportedSet,
+  presets = [],
+  onPreset,
+  onPresetCleared,
+  selectedPresetId,
   showPokemonPicker = true,
   showShiny = true,
   showGender = true,
@@ -83,6 +92,18 @@ export default function CombatantIdentityFields({
       : options;
   };
   const natures = Array.from(generation.natures);
+  const speciesByName = new Map(
+    availableSpecies.map((species) => [species.name, species]),
+  );
+  const presetsBySpecies = new Map<string, PokemonPreset[]>();
+  for (const preset of presets) {
+    const speciesPresets = presetsBySpecies.get(preset.species) ?? [];
+    speciesPresets.push(preset);
+    presetsBySpecies.set(preset.species, speciesPresets);
+  }
+  const speciesNames = Array.from(
+    new Set([...speciesByName.keys(), ...presetsBySpecies.keys()]),
+  ).sort((left, right) => left.localeCompare(right));
   const pokemonOptions: SpeciesOption[] = [
     ...importedSets.map((set) => ({
       name: `@imported:${set.id}`,
@@ -91,10 +112,22 @@ export default function CombatantIdentityFields({
       group: 'Imported sets',
       importedSetId: set.id,
     })),
-    ...availableSpecies.map((species) => ({
-      ...species,
-      group: 'Pokémon',
-    })),
+    ...speciesNames.flatMap((speciesName) => {
+      const species = speciesByName.get(speciesName);
+      const speciesOptions = species
+        ? [{ ...species, group: species.name }]
+        : [];
+      const presetOptions = (presetsBySpecies.get(speciesName) ?? []).map(
+        (preset) => ({
+          name: `@preset:${preset.id}`,
+          displayName: preset.buildName,
+          types: species?.types ?? [],
+          group: preset.species,
+          presetId: preset.id,
+        }),
+      );
+      return [...speciesOptions, ...presetOptions];
+    }),
   ];
   const visiblePokemonOptions = showOnlyImportedSets
     ? pokemonOptions.filter((option) => option.importedSetId)
@@ -102,8 +135,11 @@ export default function CombatantIdentityFields({
   const selectedImportedSet = importedSets.find(
     (set) => set.id === selectedImportedSetId,
   );
+  const selectedPreset = presets.find((preset) => preset.id === selectedPresetId);
   const pokemonPickerValue =
-    selectedImportedSet?.species === combatant.species
+    selectedPreset?.species === combatant.species
+      ? `@preset:${selectedPreset.id}`
+      : selectedImportedSet?.species === combatant.species
       ? `@imported:${selectedImportedSet.id}`
       : combatant.species;
 
@@ -121,10 +157,20 @@ export default function CombatantIdentityFields({
                   (set) => selection === `@imported:${set.id}`,
                 );
                 if (importedSet) {
+                  onPresetCleared?.();
                   onImportedSet?.(importedSet);
                   return;
                 }
+                const preset = presets.find(
+                  (entry) => selection === `@preset:${entry.id}`,
+                );
+                if (preset) {
+                  onImportedSetCleared?.();
+                  onPreset?.(preset);
+                  return;
+                }
                 onImportedSetCleared?.();
+                onPresetCleared?.();
                 onChange(setCombatantSpecies(combatant, selection, availableSpecies));
               }}
               ariaLabel="Pokémon"
@@ -134,13 +180,14 @@ export default function CombatantIdentityFields({
           {(importedSets.length > 0 || (selectedImportedSetId && onUpdateImportedSet)) && (
             <div className="imported-set-actions">
               {importedSets.length > 0 && (
-                <label className="combatant-field checkbox-field">
+                <label className="form-check d-flex align-items-center gap-2">
                   <input
+                    className="form-check-input mt-0"
                     type="checkbox"
                     checked={showOnlyImportedSets}
                     onChange={(event) => setShowOnlyImportedSets(event.target.checked)}
                   />
-                  <span>Only show imported sets</span>
+                  <span className="form-check-label">Only show imported sets</span>
                 </label>
               )}
               {selectedImportedSetId && onUpdateImportedSet && (
@@ -159,9 +206,10 @@ export default function CombatantIdentityFields({
       {!pokemonPickerOnly && (
         <>
           {showGender && (
-            <label className="combatant-field">
-              <span>Gender</span>
+            <label className="combatant-field col-12 col-md-6 col-xl-3">
+              <span className="form-label">Gender</span>
               <select
+                className="form-select"
                 value={combatant.gender ?? 'N'}
                 onChange={(event) =>
                   onChange(
@@ -181,9 +229,10 @@ export default function CombatantIdentityFields({
               </select>
             </label>
           )}
-          <label className="combatant-field">
-            <span>Level</span>
+          <label className="combatant-field col-12 col-md-6 col-xl-3">
+            <span className="form-label">Level</span>
             <input
+              className="form-control"
               type="number"
               min={1}
               max={100}
@@ -193,8 +242,8 @@ export default function CombatantIdentityFields({
               }
             />
           </label>
-          <label className="combatant-field">
-            <span>Ability</span>
+          <label className="combatant-field col-12 col-md-6 col-xl-3">
+            <span className="form-label">Ability</span>
             <SearchableTypePicker
               value={combatant.ability ?? ''}
               options={abilities}
@@ -209,8 +258,8 @@ export default function CombatantIdentityFields({
             />
           </label>
           {showItem && (
-            <label className="combatant-field">
-              <span>Item</span>
+            <label className="combatant-field col-12 col-md-6 col-xl-3">
+              <span className="form-label">Item</span>
               <SearchableTypePicker
                 value={combatant.item ?? ''}
                 options={items}
@@ -225,9 +274,10 @@ export default function CombatantIdentityFields({
               />
             </label>
           )}
-          <label className="combatant-field">
-            <span>Nature</span>
+          <label className="combatant-field col-12 col-md-6 col-xl-3">
+            <span className="form-label">Nature</span>
             <select
+              className="form-select"
               value={combatant.nature}
               onChange={(event) =>
                 onChange(setCombatantField(combatant, 'nature', event.target.value))
@@ -241,8 +291,9 @@ export default function CombatantIdentityFields({
             </select>
           </label>
           {showShiny && (
-            <label className="combatant-field checkbox-field">
+            <label className="combatant-checkbox-field form-check col-12 col-md-6 col-xl-3 d-flex align-items-center gap-2">
               <input
+                className="form-check-input mt-0"
                 type="checkbox"
                 checked={combatant.shiny ?? false}
                 onChange={(event) =>
@@ -251,7 +302,7 @@ export default function CombatantIdentityFields({
                   )
                 }
               />
-              <span>Shiny</span>
+              <span className="form-check-label">Shiny</span>
             </label>
           )}
         </>

@@ -48,9 +48,10 @@ export default function CombatantBattleStateFields({
 
   return (
     <>
-      <label className="combatant-field">
-        <span>Current HP{pokemonHp ? ` / ${pokemonHp}` : ''}</span>
+      <label className="combatant-field col-12 col-md-6 col-xl-3">
+        <span className="form-label">Current HP{pokemonHp ? ` / ${pokemonHp}` : ''}</span>
         <input
+          className="form-control"
           type="number"
           min={0}
           max={pokemonHp ?? 9999}
@@ -62,15 +63,11 @@ export default function CombatantBattleStateFields({
             );
           }}
         />
-        <small className="combatant-field-hint">
-          {pokemonHp
-            ? `Full HP: ${pokemonHp}. Enter a lower value to model prior damage.`
-            : 'Select a Pokémon to calculate its full HP.'}
-        </small>
       </label>
-      <label className="combatant-field">
-        <span>Status</span>
+      <label className="combatant-field col-12 col-md-6 col-xl-3">
+        <span className="form-label">Status</span>
         <select
+          className="form-select"
           value={combatant.status ?? ''}
           onChange={(event) =>
             onChange(
@@ -88,9 +85,10 @@ export default function CombatantBattleStateFields({
           ))}
         </select>
       </label>
-      <label className="combatant-field">
-        <span>Toxic counter</span>
+      <label className="combatant-field col-12 col-md-6 col-xl-3">
+        <span className="form-label">Toxic counter</span>
         <input
+          className="form-control"
           type="number"
           min={0}
           max={15}
@@ -102,8 +100,9 @@ export default function CombatantBattleStateFields({
           }
         />
       </label>
-      <label className="combatant-field checkbox-field">
+      <label className="combatant-checkbox-field form-check col-12 col-md-6 col-xl-3 d-flex align-items-center gap-2">
         <input
+          className="form-check-input mt-0"
           type="checkbox"
           checked={combatant.abilityOn}
           onChange={(event) =>
@@ -112,10 +111,11 @@ export default function CombatantBattleStateFields({
             )
           }
         />
-        <span>Ability active</span>
+        <span className="form-check-label">Ability active</span>
       </label>
-      <label className="combatant-field checkbox-field">
+      <label className="combatant-checkbox-field form-check col-12 col-md-6 col-xl-3 d-flex align-items-center gap-2">
         <input
+          className="form-check-input mt-0"
           type="checkbox"
           checked={combatant.isDynamaxed}
           onChange={(event) =>
@@ -124,11 +124,12 @@ export default function CombatantBattleStateFields({
             )
           }
         />
-        <span>Dynamaxed</span>
+        <span className="form-check-label">Dynamaxed</span>
       </label>
-      <label className="combatant-field">
-        <span>Dynamax level</span>
+      <label className="combatant-field col-12 col-md-6 col-xl-3">
+        <span className="form-label">Dynamax level</span>
         <input
+          className="form-control"
           type="number"
           min={0}
           max={10}

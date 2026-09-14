@@ -34,7 +34,6 @@ export default function PartyPicker({
     <section className="party-picker" aria-labelledby="party-picker-title">
       <div className="party-picker-heading">
         <div>
-          <p className="party-picker-kicker">Choose a candidate</p>
           <h2 id="party-picker-title">Attacker party</h2>
         </div>
         <span>Click a Pokemon to load it into the attacker</span>
