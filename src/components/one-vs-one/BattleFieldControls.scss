@@ -79,10 +79,11 @@
 
 .battle-field-controls .checkbox-field {
   display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 0.45rem;
   min-height: 2rem;
-  padding: 0.35rem 0.45rem;
+  padding: 0.35rem 0.45rem 0.35rem 1.5rem;
   border-radius: 0.4rem;
   color: #64748b;
 }

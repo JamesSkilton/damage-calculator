@@ -32,15 +32,6 @@
   font-size: 0.8rem;
 }
 
-.party-picker-kicker {
-  margin-bottom: 0.15rem !important;
-  color: #2f7d4a;
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
 .party-picker-list {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));

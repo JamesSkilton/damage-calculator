@@ -23,20 +23,7 @@
 }
 
 .type-picker-input {
-  width: 100%;
-  padding: 6px 8px;
-  border: 1px solid var(--border-color, #ddd);
-  border-radius: 3px;
-  font-family: inherit;
-  font-size: 0.875rem;
-  background-color: var(--input-bg, #fff);
-  color: var(--text-color, #333);
-}
-
-.type-picker-input:focus {
-  outline: none;
-  border-color: var(--accent-color, #0066cc);
-  box-shadow: 0 0 0 2px var(--accent-color-light, rgba(0, 102, 204, 0.1));
+  padding-right: 2.25rem;
 }
 
 .type-picker-input.type-picker-input-transparent {
@@ -81,6 +68,14 @@
   max-height: 300px;
   overflow-y: auto;
   z-index: 1000;
+}
+
+.move-picker .type-options-dropdown {
+  min-width: 18rem;
+}
+
+.move-picker .type-option {
+  padding: 10px 12px;
 }
 
 .type-options-dropdown.drop-up {

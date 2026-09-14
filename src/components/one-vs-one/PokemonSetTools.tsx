@@ -7,6 +7,7 @@ type PokemonSetToolsProps = {
   importErrors: string[];
   exportText: string;
   onExport: (role: 'attacker' | 'defender') => void;
+  exportDisabledRoles?: readonly ('attacker' | 'defender')[];
 };
 
 export default function PokemonSetTools({
@@ -16,6 +17,7 @@ export default function PokemonSetTools({
   importErrors,
   exportText,
   onExport,
+  exportDisabledRoles = [],
 }: PokemonSetToolsProps) {
   return (
     <section className="pokemon-set-tools" aria-labelledby="pokemon-sets-title">
@@ -38,8 +40,20 @@ export default function PokemonSetTools({
         </button>
         {importErrors.length > 0 && <p role="alert">{importErrors.join(' ')}</p>}
         <div>
-          <button type="button" onClick={() => onExport('attacker')}>Export attacker</button>
-          <button type="button" onClick={() => onExport('defender')}>Export defender</button>
+          <button
+            type="button"
+            onClick={() => onExport('attacker')}
+            disabled={exportDisabledRoles.includes('attacker')}
+          >
+            Export attacker
+          </button>
+          <button
+            type="button"
+            onClick={() => onExport('defender')}
+            disabled={exportDisabledRoles.includes('defender')}
+          >
+            Export defender
+          </button>
         </div>
         {exportText && (
           <textarea

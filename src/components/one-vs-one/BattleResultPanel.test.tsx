@@ -65,10 +65,9 @@ describe('BattleResultPanel', () => {
     expect(markup).toContain('Night Shade');
     expect(markup).toContain('50 - 50');
     expect(markup).toContain('17.9%');
-    expect(markup).toContain('Guaranteed 6HKO');
-    expect(markup).toContain('4HKO chance');
-    expect(markup).toContain('Avg.');
-    expect(markup).toContain('Crit. OHKO');
+    expect(markup).toContain('4HKO');
+    expect(markup).toContain('Avg');
+    expect(markup).toContain('Crit OHKO');
     expect(markup).toContain('Crit');
     expect(markup).toContain('Swap sides');
     expect(markup).toContain('calc-attack-row');

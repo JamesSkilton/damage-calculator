@@ -5,6 +5,7 @@ import type { MoveOption } from './moves/moveOptions';
 import type { MoveDraft } from './moves/moveDraft';
 import type { SpeciesOption } from './species/speciesOptions';
 import type { ImportedPokemonSet } from '../../import/pokemonSet';
+import type { PokemonPreset } from '../../import/legacySets/legacyPresetCatalog';
 import CombatantBattleStateFields from './fields/CombatantBattleStateFields';
 import CombatantIdentityFields from './fields/CombatantIdentityFields';
 import CombatantMoveFields from './fields/CombatantMoveFields';
@@ -30,6 +31,10 @@ type CombatantPanelProps = {
   onImportedSetCleared?: () => void;
   selectedImportedSetId?: string;
   onUpdateImportedSet?: () => void;
+  presets?: PokemonPreset[];
+  onPreset?: (preset: PokemonPreset) => void;
+  onPresetCleared?: () => void;
+  selectedPresetId?: string;
 };
 
 export default function CombatantPanel({
@@ -47,6 +52,10 @@ export default function CombatantPanel({
   onImportedSetCleared,
   selectedImportedSetId,
   onUpdateImportedSet,
+  presets = [],
+  onPreset,
+  onPresetCleared,
+  selectedPresetId,
 }: CombatantPanelProps) {
   const [mode, setMode] = useState<'simple' | 'advanced'>('simple');
   const [isChoosingPokemon, setIsChoosingPokemon] = useState(false);
@@ -58,22 +67,6 @@ export default function CombatantPanel({
       className={`combatant-panel combatant-${role} combatant-mode-${mode}`}
       aria-label={`${title}: ${description}`}
     >
-      <div className="combatant-panel-topline">
-        <div className="combatant-mode-toggle" role="tablist" aria-label={`${title} view`}>
-          {(['simple', 'advanced'] as const).map((nextMode) => (
-            <button
-              key={nextMode}
-              type="button"
-              role="tab"
-              aria-selected={mode === nextMode}
-              className={mode === nextMode ? 'active' : ''}
-              onClick={() => setMode(nextMode)}
-            >
-              {nextMode[0].toUpperCase() + nextMode.slice(1)}
-            </button>
-          ))}
-        </div>
-      </div>
       <header className="combatant-header combatant-identity-header">
         <div
           key={displayName}
@@ -95,14 +88,23 @@ export default function CombatantPanel({
           <span aria-hidden="true">{displayName === title ? '◇' : displayName.slice(0, 1)}</span>
         </div>
         <div className="combatant-identity-copy">
-          <h3>{displayName || 'Select a Pokémon'}</h3>
-          <div className="combatant-type-summary">
-            <TypeBadges types={[...combatant.types]} />
-            <span>Lv. {combatant.level}</span>
+          <div className="combatant-name-row">
+            <h3>{displayName || 'Select a Pokémon'}</h3>
+            <div className="combatant-type-summary">
+              <TypeBadges types={[...combatant.types]} />
+              <span>Lv. {combatant.level}</span>
+            </div>
           </div>
-          <p className="combatant-loadout-summary">
+          <div className="combatant-loadout-summary">
             {combatant.nature} · {combatant.ability || 'No ability'} · {combatant.item || 'No item'}
-          </p>
+            <button
+              type="button"
+              className="change-pokemon-button"
+              onClick={() => setIsChoosingPokemon((current) => !current)}
+            >
+              {isChoosingPokemon ? 'Done' : 'Change Pokémon'}
+            </button>
+          </div>
         </div>
         <div className="combatant-change-controls">
           {isChoosingPokemon && (
@@ -115,31 +117,48 @@ export default function CombatantPanel({
               onImportedSetCleared={onImportedSetCleared}
               selectedImportedSetId={selectedImportedSetId}
               onUpdateImportedSet={onUpdateImportedSet}
+              presets={presets}
+              onPreset={onPreset}
+              onPresetCleared={onPresetCleared}
+              selectedPresetId={selectedPresetId}
               pokemonPickerOnly
               showItem
             />
           )}
-          <button
-            type="button"
-            className="change-pokemon-button"
-            onClick={() => setIsChoosingPokemon((current) => !current)}
-          >
-            {isChoosingPokemon ? 'Done' : 'Change Pokémon'}
-          </button>
+          <div className="combatant-action-row">
+            <div
+              className="combatant-mode-toggle"
+              role="tablist"
+              aria-label={`${title} view`}
+            >
+              {(['simple', 'advanced'] as const).map((nextMode) => (
+                <button
+                  key={nextMode}
+                  type="button"
+                  role="tab"
+                  aria-selected={mode === nextMode}
+                  className={mode === nextMode ? 'active' : ''}
+                  onClick={() => setMode(nextMode)}
+                >
+                  {nextMode[0].toUpperCase() + nextMode.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </header>
 
       {mode === 'simple' ? (
         <>
           <FieldGroup>
-            <CombatantIdentityFields combatant={combatant} onChange={onChange} availableSpecies={availableSpecies} importedSets={importedSets} onImportedSet={onImportedSet} onImportedSetCleared={onImportedSetCleared} selectedImportedSetId={selectedImportedSetId} onUpdateImportedSet={onUpdateImportedSet} showPokemonPicker={false} showShiny={false} showGender={false} showItem />
+            <CombatantIdentityFields combatant={combatant} onChange={onChange} availableSpecies={availableSpecies} importedSets={importedSets} onImportedSet={onImportedSet} onImportedSetCleared={onImportedSetCleared} selectedImportedSetId={selectedImportedSetId} onUpdateImportedSet={onUpdateImportedSet} presets={presets} onPreset={onPreset} onPresetCleared={onPresetCleared} selectedPresetId={selectedPresetId} showPokemonPicker={false} showShiny={false} showGender={false} showItem />
           </FieldGroup>
           <CombatantStatGrids combatant={combatant} onChange={onChange} />
         </>
       ) : (
         <>
           <FieldGroup>
-            <CombatantIdentityFields combatant={combatant} onChange={onChange} availableSpecies={availableSpecies} importedSets={importedSets} onImportedSet={onImportedSet} onImportedSetCleared={onImportedSetCleared} selectedImportedSetId={selectedImportedSetId} onUpdateImportedSet={onUpdateImportedSet} showPokemonPicker={false} />
+            <CombatantIdentityFields combatant={combatant} onChange={onChange} availableSpecies={availableSpecies} importedSets={importedSets} onImportedSet={onImportedSet} onImportedSetCleared={onImportedSetCleared} selectedImportedSetId={selectedImportedSetId} onUpdateImportedSet={onUpdateImportedSet} presets={presets} onPreset={onPreset} onPresetCleared={onPresetCleared} selectedPresetId={selectedPresetId} showPokemonPicker={false} />
           </FieldGroup>
           <FieldGroup><CombatantTypeFields combatant={combatant} onChange={onChange} /></FieldGroup>
           <FieldGroup><CombatantBattleStateFields combatant={combatant} onChange={onChange} /></FieldGroup>

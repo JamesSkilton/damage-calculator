@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   createTeamDraft,
+  applyImportedPokemonSet,
   getEvValidationError,
   setCombatantField,
   setCombatantMove,
@@ -142,6 +143,38 @@ describe('combatantDraft', () => {
       item: 'Light Ball',
       moves: ['Thunderbolt', 'Protect'],
     });
+  });
+
+  it('applies a bundled preset as a complete immutable combatant update', () => {
+    const draft = createTeamDraft(9);
+    const preset = {
+      id: 'legacy-gen9-Ivysaur-NFE Defensive',
+      generation: 9 as const,
+      species: 'Ivysaur',
+      buildName: 'NFE Defensive',
+      level: 100,
+      ability: 'Overgrow',
+      item: 'Eviolite',
+      nature: 'Bold',
+      evs: { hp: 252, atk: 0, def: 252, spa: 0, spd: 4, spe: 0 },
+      ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 },
+      moves: ['Knock Off', 'Sludge Bomb', 'Giga Drain', 'Synthesis'],
+    };
+    const applied = applyImportedPokemonSet(draft.attacker, preset, [
+      { name: 'Ivysaur', types: ['Grass', 'Poison'] },
+    ]);
+
+    expect(applied).toMatchObject({
+      name: 'Ivysaur',
+      species: 'Ivysaur',
+      ability: 'Overgrow',
+      item: 'Eviolite',
+      nature: 'Bold',
+      moves: preset.moves,
+      evs: preset.evs,
+      ivs: preset.ivs,
+    });
+    expect(draft.attacker.species).toBe('Pikachu');
   });
 
   it('prefers drafted moves when serializing the battle payload bridge', () => {

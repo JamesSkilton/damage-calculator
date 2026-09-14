@@ -57,7 +57,9 @@ const sideToggles = [
 ] as const;
 
 const activeClassName = (isActive: boolean) =>
-  isActive ? 'combatant-field checkbox-field is-active' : 'combatant-field checkbox-field';
+  isActive
+    ? 'combatant-field form-check checkbox-field is-active col-12 col-md-4 d-flex align-items-center gap-2'
+    : 'combatant-field form-check checkbox-field col-12 col-md-4 d-flex align-items-center gap-2';
 
 function BattleSideControls({
   label,
@@ -124,6 +126,7 @@ function BattleSideControls({
           className={activeClassName(side[toggle.key])}
         >
           <input
+            className="form-check-input mt-0"
             type="checkbox"
             checked={side[toggle.key]}
             onChange={(event) =>
@@ -160,6 +163,7 @@ function AdvancedSideControls({
       {sideToggles.map((toggle) => (
         <label key={toggle.key} className={activeClassName(side[toggle.key])}>
           <input
+            className="form-check-input mt-0"
             type="checkbox"
             checked={side[toggle.key]}
             onChange={(event) =>
@@ -197,8 +201,8 @@ export default function BattleFieldControls({
       </div>
 
       <div className="battle-field-quick">
-        <FieldGroup title="Weather and terrain">
-          <label className="combatant-field">
+        <FieldGroup>
+          <label className="combatant-field col-12 col-md-6">
             <span>Weather</span>
             <select
               value={field.weather ?? ''}
@@ -216,7 +220,7 @@ export default function BattleFieldControls({
             </select>
           </label>
 
-          <label className="combatant-field">
+          <label className="combatant-field col-12 col-md-6">
             <span>Terrain</span>
             <select
               value={field.terrain ?? ''}
@@ -235,13 +239,14 @@ export default function BattleFieldControls({
           </label>
         </FieldGroup>
 
-        <FieldGroup title="Field effects">
+        <FieldGroup>
           {commonFieldToggles.map((toggle) => (
             <label
               key={toggle.key}
               className={activeClassName(field[toggle.key])}
             >
               <input
+                className="form-check-input mt-0"
                 type="checkbox"
                 checked={field[toggle.key]}
                 onChange={(event) =>
@@ -279,6 +284,7 @@ export default function BattleFieldControls({
                 className={activeClassName(field[toggle.key])}
               >
                 <input
+                  className="form-check-input mt-0"
                   type="checkbox"
                   checked={field[toggle.key]}
                   onChange={(event) =>

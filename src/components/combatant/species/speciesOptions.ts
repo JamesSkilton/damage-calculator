@@ -8,6 +8,7 @@ export interface SpeciesOption {
   displayName?: string;
   group?: string;
   importedSetId?: string;
+  presetId?: string;
 }
 
 /**

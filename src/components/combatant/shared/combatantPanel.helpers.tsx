@@ -14,7 +14,7 @@ export function FieldGroup({
   return (
     <fieldset className="combatant-fieldset">
       {title && <legend>{title}</legend>}
-      <div className="combatant-grid">{children}</div>
+      <div className="row g-3">{children}</div>
     </fieldset>
   );
 }
@@ -39,9 +39,10 @@ export function StatGrid({
       <legend>{title}</legend>
       <div className="combatant-stat-grid">
         {statIds.map((statId: (typeof statIds)[number]) => (
-          <label key={statId} className="combatant-field">
-            <span>{statId.toUpperCase()}</span>
+          <label key={statId} className="combatant-field col">
+            <span className="form-label">{statId.toUpperCase()}</span>
             <input
+              className="form-control"
               type="number"
               min={min}
               max={max}
