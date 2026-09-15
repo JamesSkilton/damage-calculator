@@ -13,6 +13,10 @@ describe('one-vs-one mode', () => {
 
     expect(markup).toContain('Generation');
     expect(markup).toContain('Gen 9');
+    expect(markup).toContain('Preset library');
+    expect(markup).toContain('Standard');
+    expect(markup).toContain('Radical Red');
+    expect(markup).not.toContain('Defender trainer roster');
     expect(markup).toContain('Weather');
     expect(markup).toContain('Terrain');
     expect(markup).toContain('Attacker side');

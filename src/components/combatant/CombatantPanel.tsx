@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 import type { BattleGeneration } from 'domain/index';
 import type { BattleCombatant } from 'domain/index';
 import type { MoveOption } from './moves/moveOptions';
@@ -35,6 +36,7 @@ type CombatantPanelProps = {
   onPreset?: (preset: PokemonPreset) => void;
   onPresetCleared?: () => void;
   selectedPresetId?: string;
+  presetRoster?: ReactNode;
 };
 
 export default function CombatantPanel({
@@ -56,6 +58,7 @@ export default function CombatantPanel({
   onPreset,
   onPresetCleared,
   selectedPresetId,
+  presetRoster,
 }: CombatantPanelProps) {
   const [mode, setMode] = useState<'simple' | 'advanced'>('simple');
   const [isChoosingPokemon, setIsChoosingPokemon] = useState(false);
@@ -165,6 +168,8 @@ export default function CombatantPanel({
           <CombatantStatGrids combatant={combatant} onChange={onChange} />
         </>
       )}
+
+      {presetRoster}
 
       <CombatantMoveFields
         generation={generation}

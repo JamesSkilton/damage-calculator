@@ -12,6 +12,7 @@ type PokemonSpriteProps = {
 function toSpriteSlug(name: string): string {
   return name
     .toLowerCase()
+    .replace(/alola\b/g, 'alolan')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-+|-+$)/g, '');
 }

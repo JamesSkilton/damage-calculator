@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   getLegacyPokemonPresets,
+  getPresetTrainerGroups,
+  getPokemonPresets,
   legacyPresetData,
   normalizeLegacyPreset,
+  presetLibraries,
+  extractPresetTrainerName,
 } from './legacyPresetCatalog';
 
 describe('legacy preset catalog', () => {
@@ -70,5 +74,56 @@ describe('legacy preset catalog', () => {
     expect(presets[0]?.species).toBe('Ivysaur');
     expect(presets.find((preset) => preset.species === 'Ivysaur')?.buildName).toBe('NFE Defensive');
     expect(getLegacyPokemonPresets(0)).toEqual([]);
+  });
+
+  it('registers Radical Red as a separate Gen 9 preset library', () => {
+    expect(presetLibraries.map((library) => library.id)).toEqual([
+      'standard',
+      'radical-red',
+      'radical-red-hardcore',
+    ]);
+
+    const standardPreset = getPokemonPresets('standard', 9, [{ name: 'Starly' }])[0];
+    const radicalRedPreset = getPokemonPresets('radical-red', 9, [{ name: 'Starly' }])[0];
+
+    expect(standardPreset).toBeUndefined();
+    expect(radicalRedPreset).toMatchObject({
+      species: 'Starly',
+      buildName: 'Rival Blue',
+      id: 'radical-red-gen9-Starly-Rival Blue',
+      level: 9,
+    });
+
+    const hardcorePreset = getPokemonPresets('radical-red-hardcore', 9, [
+      { name: 'Snubbull' },
+    ])[0];
+    expect(hardcorePreset).toMatchObject({
+      species: 'Snubbull',
+      buildName: '*Rival Blue',
+      id: 'radical-red-hardcore-gen9-Snubbull-*Rival Blue',
+      trainerName: 'Rival Blue',
+    });
+  });
+
+  it('normalizes Radical Red trainer names and groups a trainer roster', () => {
+    expect(extractPresetTrainerName('Leader Falkner')).toBe('Leader Falkner');
+    expect(extractPresetTrainerName('Rival Blue Set 1')).toBe('Rival Blue');
+    expect(extractPresetTrainerName('*Lass Anne')).toBe('Lass Anne');
+
+    const falkner = getPresetTrainerGroups('radical-red', 9).find(
+      (group) => group.trainerName === 'Leader Falkner',
+    );
+    expect(falkner?.presets.map((preset) => preset.species)).toEqual([
+      'Enamorus',
+      'Flittle',
+      'Gyarados',
+      'Ho-Oh',
+      'Pidgeot-Mega',
+      'Rufflet',
+      'Shaymin-Sky',
+      'Wattrel',
+      'Yanmega',
+    ]);
+    expect(getPresetTrainerGroups('standard', 9)).toEqual([]);
   });
 });
