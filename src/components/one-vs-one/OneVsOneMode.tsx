@@ -22,8 +22,15 @@ import {
   saveImportedPokemonSets,
 } from '../../import/pokemonSetStorage';
 import type { ImportedPokemonSet } from '../../import/pokemonSet';
-import type { PokemonPreset } from '../../import/legacySets/legacyPresetCatalog';
-import { getLegacyPokemonPresets } from '../../import/legacySets/legacyPresetCatalog';
+import type {
+  PokemonPreset,
+  PresetLibraryId,
+} from '../../import/legacySets/legacyPresetCatalog';
+import {
+  getPresetTrainerGroups,
+  getPokemonPresets,
+  presetLibraries,
+} from '../../import/legacySets/legacyPresetCatalog';
 import { buildMoveCatalog } from '../combatant/moves/moveCatalog';
 import { buildSpeciesCatalog } from '../combatant/species/speciesCatalog';
 import BattleFieldControls from './BattleFieldControls';
@@ -31,6 +38,7 @@ import PokemonSetTools from './PokemonSetTools';
 import BattleResultPanel from './BattleResultPanel';
 import BattlePlanner from '../battle-planner/BattlePlanner';
 import Party from '../party/Party';
+import DefenderPresetRoster from './DefenderPresetRoster';
 import { buildBattleCalcBreakdowns } from 'adapters/battleCalc';
 import './OneVsOneMode.scss';
 
@@ -54,6 +62,8 @@ export default function OneVsOneMode() {
     attacker?: string;
     defender?: string;
   }>({});
+  const [presetLibraryId, setPresetLibraryId] = useState<PresetLibraryId>('standard');
+  const [activeTrainerName, setActiveTrainerName] = useState<string>();
   const [importedSets, setImportedSets] = useState<ImportedPokemonSet[]>(() =>
     loadImportedPokemonSets(),
   );
@@ -87,9 +97,28 @@ export default function OneVsOneMode() {
   );
 
   const presets = useMemo(
-    () => getLegacyPokemonPresets(generation, availableSpecies),
-    [availableSpecies, generation],
+    () => getPokemonPresets(presetLibraryId, generation, availableSpecies),
+    [availableSpecies, generation, presetLibraryId],
   );
+
+  const trainerGroups = useMemo(
+    () => getPresetTrainerGroups(presetLibraryId, generation, availableSpecies),
+    [availableSpecies, generation, presetLibraryId],
+  );
+
+  useEffect(() => {
+    setActiveTrainerName((current) =>
+      trainerGroups.some((group) => group.trainerName === current)
+        ? current
+        : trainerGroups[0]?.trainerName,
+    );
+  }, [trainerGroups]);
+
+  const selectPresetLibrary = (libraryId: PresetLibraryId) => {
+    setPresetLibraryId(libraryId);
+    setSelectedPresetIds({});
+    setActiveTrainerName(undefined);
+  };
 
   const attackerResults = useMemo(
     () =>
@@ -163,6 +192,9 @@ export default function OneVsOneMode() {
     setExportText('');
     setSelectedPresetIds((current) => ({ ...current, [role]: preset.id }));
     setSelectedImportedSetIds((current) => ({ ...current, [role]: undefined }));
+    if (role === 'defender' && preset.trainerName) {
+      setActiveTrainerName(preset.trainerName);
+    }
     setDraft((current) => ({
       ...current,
       [role]: applyImportedPokemonSet(current[role], preset, availableSpecies),
@@ -302,6 +334,23 @@ export default function OneVsOneMode() {
         </>
       )}
 
+      <div className="preset-library-control">
+        <label htmlFor="preset-library">Preset library</label>
+        <select
+          id="preset-library"
+          value={presetLibraryId}
+          onChange={(event) =>
+            selectPresetLibrary(event.target.value as PresetLibraryId)
+          }
+        >
+          {presetLibraries.map((library) => (
+            <option key={library.id} value={library.id}>
+              {library.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <details className="party-manager">
         <summary>Manage party and imported Pokemon</summary>
         <Party
@@ -346,12 +395,18 @@ export default function OneVsOneMode() {
             title="Defender panel"
             description="Edit the defending combatant before calculating damage."
             combatant={draft.defender}
-            onChange={(defender) =>
+            onChange={(defender) => {
               setDraft((current) => ({
                 ...current,
                 defender,
-              }))
-            }
+              }));
+              const matchingGroup = trainerGroups.find((group) =>
+                group.presets.some((preset) => preset.species === defender.species),
+              );
+              if (matchingGroup) {
+                setActiveTrainerName(matchingGroup.trainerName);
+              }
+            }}
             generation={generation}
             moves={defenderMoves.slots}
             availableMoves={availableMoves}
@@ -371,6 +426,20 @@ export default function OneVsOneMode() {
                 slots: moves,
               }))
             }
+            presetRoster={(
+              <DefenderPresetRoster
+                groups={trainerGroups}
+                availableSpecies={availableSpecies}
+                activeTrainerName={activeTrainerName}
+                selectedPresetId={selectedPresetIds.defender}
+                onSelect={(presetId) => {
+                  const preset = presets.find((entry) => entry.id === presetId);
+                  if (preset) {
+                    selectPreset('defender', preset);
+                  }
+                }}
+              />
+            )}
             />
 
           <div className="d-flex gap-3 flex-column">

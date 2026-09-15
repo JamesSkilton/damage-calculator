@@ -3,6 +3,146 @@
   gap: 0.75rem;
 }
 
+.preset-library-control {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+
+.preset-library-control label {
+  color: #334155;
+  font-weight: 700;
+}
+
+.preset-library-control select {
+  min-width: 11rem;
+}
+
+.defender-preset-roster {
+  display: grid;
+  gap: 0.5rem;
+  padding-top: 0.25rem;
+}
+
+.defender-preset-roster-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.defender-preset-roster-header h3,
+.defender-preset-roster-kicker {
+  margin: 0;
+}
+
+.defender-preset-roster-kicker {
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.defender-preset-roster-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  gap: 0.35rem;
+}
+
+.defender-preset-roster-list button {
+  display: grid;
+  min-width: 0;
+  gap: 0.25rem;
+  padding: 0.45rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  background: #f8fafc;
+  color: #172554;
+  text-align: left;
+}
+
+.defender-preset-roster-card-header {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.defender-preset-roster-card-header > img {
+  width: 2.5rem;
+  height: 2.5rem;
+  object-fit: contain;
+}
+
+.defender-preset-roster-card-content {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 0.15rem;
+}
+
+.defender-preset-roster-card-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.defender-preset-roster-card-title > strong {
+  white-space: nowrap;
+}
+
+.defender-preset-roster-card-title > span {
+  display: inline-flex;
+}
+
+.defender-preset-roster-card-header > span {
+  display: grid;
+}
+
+.defender-preset-roster-card-header small,
+.defender-preset-roster-loadout,
+.defender-preset-roster-build {
+  color: #475569;
+}
+
+.defender-preset-roster-build {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.defender-preset-roster-loadout {
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.defender-preset-roster-moves {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.defender-preset-roster-moves span {
+  padding: 0.15rem 0.35rem;
+  border-radius: 0.25rem;
+  background: #e2e8f0;
+  color: #334155;
+  font-size: 0.7rem;
+}
+
+.defender-preset-roster-list button:hover,
+.defender-preset-roster-list button.is-selected {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.defender-preset-roster-list button span,
+.defender-preset-roster-list button small {
+  color: #475569;
+}
+
 .party-manager {
   border: 1px solid #d7dce2;
   border-radius: 0.65rem;
@@ -64,6 +204,11 @@
 }
 
 @media (max-width: 820px) {
+  .defender-preset-roster-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .one-vs-one-panels {
     grid-template-columns: 1fr;
   }
