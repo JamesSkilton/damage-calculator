@@ -256,6 +256,16 @@ export default function OneVsOneMode() {
     }));
   };
 
+  const navigateFight = (direction: -1 | 1) => {
+    const currentIndex = trainerGroups.findIndex(
+      (group) => group.trainerName === activeTrainerName,
+    );
+    const nextGroup = trainerGroups[currentIndex + direction];
+    const nextPreset = nextGroup?.presets[0];
+    if (!nextPreset) return;
+    selectPreset('defender', nextPreset);
+  };
+
   const deleteImportedSet = (id: string) => {
     setImportedSets((current) => current.filter((set) => set.id !== id));
     removeImportedPokemonSet(id);
@@ -438,6 +448,8 @@ export default function OneVsOneMode() {
                     selectPreset('defender', preset);
                   }
                 }}
+                onPreviousFight={() => navigateFight(-1)}
+                onNextFight={() => navigateFight(1)}
               />
             )}
             />

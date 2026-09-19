@@ -9,6 +9,8 @@ type DefenderPresetRosterProps = {
   activeTrainerName?: string;
   selectedPresetId?: string;
   onSelect: (presetId: string) => void;
+  onPreviousFight?: () => void;
+  onNextFight?: () => void;
 };
 
 export default function DefenderPresetRoster({
@@ -17,6 +19,8 @@ export default function DefenderPresetRoster({
   activeTrainerName,
   selectedPresetId,
   onSelect,
+  onPreviousFight,
+  onNextFight,
 }: DefenderPresetRosterProps) {
   if (groups.length === 0) {
     return null;
@@ -25,6 +29,8 @@ export default function DefenderPresetRoster({
   const activeGroup = groups.find(
     (group) => group.trainerName === activeTrainerName,
   ) ?? groups[0];
+  const fightIndex = activeGroup?.presets[0]?.index;
+  const activeGroupIndex = groups.indexOf(activeGroup);
   const speciesByName = new Map(
     availableSpecies.map((species) => [species.name, species]),
   );
@@ -32,7 +38,29 @@ export default function DefenderPresetRoster({
   return (
     <section className="defender-preset-roster" aria-label="Defender trainer roster">
       <div className="defender-preset-roster-header">
-        <p className="defender-preset-roster-kicker">Defender roster</p>
+        <div>
+          <p className="defender-preset-roster-kicker">Defender roster</p>
+          <strong>{activeGroup.trainerName}</strong>
+        </div>
+        {fightIndex !== undefined && (
+          <div className="defender-preset-roster-navigation" aria-label="Fight navigation">
+            <button
+              type="button"
+              onClick={onPreviousFight}
+              disabled={activeGroupIndex <= 0}
+            >
+              Previous fight
+            </button>
+            <span>Fight {fightIndex}</span>
+            <button
+              type="button"
+              onClick={onNextFight}
+              disabled={activeGroupIndex >= groups.length - 1}
+            >
+              Next fight
+            </button>
+          </div>
+        )}
       </div>
       <div className="defender-preset-roster-list">
         {activeGroup.presets.map((preset) => (

@@ -16,8 +16,10 @@ import { SETDEX_SS } from './data/gen8';
 import { SETDEX_SV } from './data/gen9';
 import { SETDEX_SV as SETDEX_RADICAL_RED } from '../romhacks/data/radicalRed.normal';
 import { SETDEX_SV as SETDEX_RADICAL_RED_HARDCORE } from '../romhacks/data/radicalRed.hardcore';
+import { TrainerSets as SETDEX_RUN_AND_BUN } from '../romhacks/data/runAndBun';
 
 export interface LegacyPresetBuild {
+  index?: number;
   level?: number;
   gender?: string;
   ability?: string;
@@ -34,7 +36,7 @@ export interface LegacyPresetSource {
   sets: Record<string, Record<string, LegacyPresetBuild>>;
 }
 
-export type PresetLibraryId = 'standard' | 'radical-red' | 'radical-red-hardcore';
+export type PresetLibraryId = 'standard' | 'radical-red' | 'radical-red-hardcore' | 'run-and-bun';
 
 export interface PresetLibrary {
   id: PresetLibraryId;
@@ -70,11 +72,17 @@ export const presetLibraries: PresetLibrary[] = [
     label: 'Radical Red Hardcore',
     sources: [{ generation: 9, sets: SETDEX_RADICAL_RED_HARDCORE }],
   },
+  {
+    id: 'run-and-bun',
+    label: 'Run & Bun',
+    sources: [{ generation: 9, sets: SETDEX_RUN_AND_BUN }],
+  },
 ];
 
 export interface PokemonPreset extends ImportedPokemonSet {
   buildName: string;
   trainerName?: string;
+  index?: number;
 }
 
 export interface PresetTrainerGroup {
@@ -165,6 +173,7 @@ function normalizePreset(
     generation,
     species,
     buildName,
+    index: Number.isFinite(build.index) ? build.index : undefined,
     ...(libraryId !== 'standard'
       ? { trainerName: extractPresetTrainerName(buildName) }
       : {}),
@@ -233,6 +242,14 @@ export function getPresetTrainerGroups(
 
   return Array.from(groups, ([trainerName, presets]) => ({
     trainerName,
-    presets,
-  })).sort((left, right) => left.trainerName.localeCompare(right.trainerName));
+    presets: [...presets].sort((left, right) =>
+      (left.index ?? Number.POSITIVE_INFINITY) - (right.index ?? Number.POSITIVE_INFINITY) ||
+      left.species.localeCompare(right.species) ||
+      left.buildName.localeCompare(right.buildName),
+    ),
+  })).sort((left, right) =>
+    (left.presets[0]?.index ?? Number.POSITIVE_INFINITY) -
+      (right.presets[0]?.index ?? Number.POSITIVE_INFINITY) ||
+    left.trainerName.localeCompare(right.trainerName),
+  );
 }
