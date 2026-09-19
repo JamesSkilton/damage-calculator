@@ -45,6 +45,34 @@
   text-transform: uppercase;
 }
 
+.defender-preset-roster-navigation {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.defender-preset-roster-navigation button {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.35rem;
+  background: #fff;
+  color: #172554;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.defender-preset-roster-navigation button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.defender-preset-roster-navigation span {
+  color: #475569;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .defender-preset-roster-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));

@@ -76,11 +76,12 @@ describe('legacy preset catalog', () => {
     expect(getLegacyPokemonPresets(0)).toEqual([]);
   });
 
-  it('registers Radical Red as a separate Gen 9 preset library', () => {
+  it('registers separate Gen 9 preset libraries', () => {
     expect(presetLibraries.map((library) => library.id)).toEqual([
       'standard',
       'radical-red',
       'radical-red-hardcore',
+      'run-and-bun',
     ]);
 
     const standardPreset = getPokemonPresets('standard', 9, [{ name: 'Starly' }])[0];
@@ -102,6 +103,18 @@ describe('legacy preset catalog', () => {
       buildName: '*Rival Blue',
       id: 'radical-red-hardcore-gen9-Snubbull-*Rival Blue',
       trainerName: 'Rival Blue',
+    });
+
+    const runAndBunPreset = getPokemonPresets('run-and-bun', 9, [
+      { name: 'Abomasnow' },
+    ])[0];
+    expect(runAndBunPreset).toMatchObject({
+      species: 'Abomasnow',
+      buildName: 'Bug Catcher Davis',
+      id: 'run-and-bun-gen9-Abomasnow-Bug Catcher Davis',
+      level: 95,
+      trainerName: 'Bug Catcher Davis',
+      index: 1493,
     });
   });
 
