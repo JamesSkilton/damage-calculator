@@ -23,7 +23,6 @@ export default function DefenderPresetRoster({
   onNextFight,
 }: DefenderPresetRosterProps) {
   if (groups.length === 0) {
-    
     return null;
   }
 
