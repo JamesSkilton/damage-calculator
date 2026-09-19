@@ -1,14 +1,18 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
 import type {
   BattleCombatant,
   BattleField,
   BattlePlanAction,
   BattlePlanActor,
+  BattlePlanMove,
+  BattlePlanRosterEntry,
 } from 'domain/index';
 import { buildBattlePlanResults } from 'adapters/battlePlan';
 import type { MoveOption } from '../combatant/moves/moveOptions';
 import { createMoveDraft, type MoveDraft } from '../combatant/moves/moveDraft';
 import SearchableMovePicker from '../combatant/moves/SearchableMovePicker';
+import SearchableTypePicker from '../combatant/shared/SearchableTypePicker';
 import HpRangeBar from '../shared/HpRangeBar';
 import PokemonSprite from '../shared/PokemonSprite';
 import './BattlePlanner.scss';
@@ -21,6 +25,12 @@ type BattlePlannerProps = {
   availableMoves: MoveOption[];
   attackerMoves: readonly MoveDraft[];
   defenderMoves: readonly MoveDraft[];
+  attackerRoster: readonly BattlePlanRosterEntry[];
+  defenderRoster: readonly BattlePlanRosterEntry[];
+  attackerRosterId: string;
+  defenderRosterId: string;
+  actions: BattlePlanAction[];
+  onActionsChange: Dispatch<SetStateAction<BattlePlanAction[]>>;
   onBack: () => void;
 };
 
@@ -28,12 +38,35 @@ function createAction(actor: BattlePlanActor): BattlePlanAction {
   return {
     id: `${actor}-${Date.now()}-${Math.random()}`,
     actor,
+    type: 'move',
     move: createMoveDraft(),
   };
 }
 
 function formatHpRange(range: { min: number; max: number }): string {
   return range.min === range.max ? `${range.min}` : `${range.min}-${range.max}`;
+}
+
+type SwitchPokemonOption = {
+  name: string;
+  displayName: string;
+  group: string;
+  types: string[];
+};
+
+function filterSwitchPokemonOptions(
+  options: SwitchPokemonOption[],
+  searchTerm: string,
+): SwitchPokemonOption[] {
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  if (!normalizedSearch) {
+    return options;
+  }
+
+  return options.filter((option) =>
+    [option.displayName, option.group]
+      .some((value) => value.toLowerCase().includes(normalizedSearch)),
+  );
 }
 
 function PlannerHpRange({
@@ -100,11 +133,14 @@ export default function BattlePlanner({
   availableMoves,
   attackerMoves,
   defenderMoves,
+  attackerRoster,
+  defenderRoster,
+  attackerRosterId,
+  defenderRosterId,
+  actions,
+  onActionsChange,
   onBack,
 }: BattlePlannerProps) {
-  const [actions, setActions] = useState<BattlePlanAction[]>(() => [
-    createAction('attacker'),
-  ]);
   const results = useMemo(
     () =>
       buildBattlePlanResults({
@@ -113,36 +149,52 @@ export default function BattlePlanner({
         defender,
         field,
         actions,
+        attackerRoster,
+        defenderRoster,
+        attackerRosterId,
+        defenderRosterId,
       }),
-    [actions, attacker, defender, field, generation],
+    [actions, attacker, defender, field, generation, attackerRoster, defenderRoster, attackerRosterId, defenderRosterId],
   );
 
-  const updateAction = (
-    id: string,
-    updates: Partial<Pick<BattlePlanAction, 'actor'>> & {
-      move?: Partial<BattlePlanAction['move']>;
-    },
-  ) => {
-    setActions((current) =>
+  const updateAction = (id: string, updates: { actor: BattlePlanActor; type: 'move'; move: BattlePlanMove } | { actor: BattlePlanActor; type: 'switch'; targetPokemonId: string }) => {
+    onActionsChange((current) =>
       current.map((action) =>
         action.id === id
-          ? {
-              ...action,
-              ...updates,
-              move: { ...action.move, ...updates.move },
-            }
+          ? { ...updates, id: action.id }
           : action,
       ),
     );
   };
 
+  const updateMove = (id: string, updates: Partial<BattlePlanMove>) => {
+    onActionsChange((current) => current.map((action) =>
+      action.id === id && action.type === 'move'
+        ? { ...action, move: { ...action.move, ...updates } }
+        : action,
+    ));
+  };
+
   const reorderAction = (id: string, direction: -1 | 1) =>
-    setActions((current) => moveAction(current, id, direction));
+    onActionsChange((current) => moveAction(current, id, direction));
 
-  const resetPlan = () => setActions([createAction('attacker')]);
+  const resetPlan = () => onActionsChange([createAction('attacker')]);
 
-  const getActorMoveOptions = (actor: BattlePlanActor): MoveOption[] => {
-    const moves = actor === 'attacker' ? attackerMoves : defenderMoves;
+  const getActorRoster = (actor: BattlePlanActor) =>
+    actor === 'attacker' ? attackerRoster : defenderRoster;
+
+  const getActiveRosterEntry = (actor: BattlePlanActor, index: number) => {
+    const initialId = actor === 'attacker' ? attackerRosterId : defenderRosterId;
+    const previous = [...results.slice(0, index)].reverse().find(
+      (result) => result.action.actor === actor && result.activePokemonId,
+    );
+    return getActorRoster(actor).find(
+      (entry) => entry.id === (previous?.activePokemonId ?? initialId),
+    ) ?? getActorRoster(actor)[0];
+  };
+
+  const getActorMoveOptions = (actor: BattlePlanActor, index: number): MoveOption[] => {
+    const moves = getActiveRosterEntry(actor, index)?.moves ?? (actor === 'attacker' ? attackerMoves : defenderMoves);
     const selectedNames = new Set(
       moves.map((move) => move.name.trim().toLowerCase()).filter(Boolean),
     );
@@ -150,6 +202,26 @@ export default function BattlePlanner({
     return availableMoves.filter((move) =>
       selectedNames.has(move.name.toLowerCase()),
     );
+  };
+
+  const getSwitchOptions = (actor: BattlePlanActor, index: number): SwitchPokemonOption[] => {
+    const activeId = getActiveRosterEntry(actor, index)?.id;
+    return getActorRoster(actor)
+      .filter((entry) => entry.id !== activeId)
+      .map((entry) => ({
+        name: entry.id,
+        displayName: entry.label,
+        group: actor === 'attacker'
+          ? entry.source === 'party' ? 'Party' : 'Box'
+          : entry.source,
+        types: [...entry.combatant.types],
+      }))
+      .sort((left, right) => {
+        const groupOrder = { Party: 0, Box: 1 };
+        return (groupOrder[left.group as keyof typeof groupOrder] ?? 2) -
+          (groupOrder[right.group as keyof typeof groupOrder] ?? 2) ||
+          left.displayName.localeCompare(right.displayName);
+      });
   };
 
   return (
@@ -171,7 +243,7 @@ export default function BattlePlanner({
             type="button"
             className="battle-planner-add"
             onClick={() =>
-              setActions((current) => [
+              onActionsChange((current) => [
                 ...current,
                 createAction(
                   current.at(-1)?.actor === 'attacker' ? 'defender' : 'attacker',
@@ -190,9 +262,14 @@ export default function BattlePlanner({
       <ol className="battle-plan-list">
         {actions.map((action, index) => {
           const result = results[index];
-          const actor = action.actor === 'attacker' ? attacker : defender;
-          const target = action.actor === 'attacker' ? defender : attacker;
-          const actorName = action.actor === 'attacker' ? attacker.name : defender.name;
+          const actorEntry = getActiveRosterEntry(action.actor, index);
+          const actor = actorEntry?.combatant ?? (action.actor === 'attacker' ? attacker : defender);
+          const targetEntry = getActiveRosterEntry(action.actor === 'attacker' ? 'defender' : 'attacker', index);
+          const target = targetEntry?.combatant ?? (action.actor === 'attacker' ? defender : attacker);
+          const resultActor = action.type === 'switch' && result?.activePokemonId
+            ? getActorRoster(action.actor).find((entry) => entry.id === result.activePokemonId)?.combatant ?? actor
+            : actor;
+          const actorName = actorEntry?.label ?? actor.name;
           return (
             <li
               key={action.id}
@@ -209,83 +286,88 @@ export default function BattlePlanner({
                   <span>Actor</span>
                   <select
                     value={action.actor}
-                    onChange={(event) =>
-                      updateAction(action.id, {
-                        actor: event.target.value as BattlePlanActor,
-                      })
-                    }
+                    onChange={(event) => {
+                      const actor = event.target.value as BattlePlanActor;
+                      if (action.type === 'move') {
+                        updateAction(action.id, { actor, type: 'move', move: action.move });
+                      } else {
+                        updateAction(action.id, { actor, type: 'switch', targetPokemonId: action.targetPokemonId });
+                      }
+                    }}
                   >
-                    <option value="attacker">{attacker.name || 'Attacker'}</option>
-                    <option value="defender">{defender.name || 'Defender'}</option>
+                    <option value="attacker">Attacker: {getActiveRosterEntry('attacker', index)?.label || attacker.name}</option>
+                    <option value="defender">Defender: {getActiveRosterEntry('defender', index)?.label || defender.name}</option>
                   </select>
                 </label>
-                <label className="battle-plan-move">
-                  <span>Move</span>
-                  <SearchableMovePicker
-                    value={action.move.name}
-                    options={getActorMoveOptions(action.actor)}
-                    onSelect={(name) => updateAction(action.id, { move: { name } })}
-                    ariaLabel={`Plan step ${index + 1} move`}
-                  />
+                <label>
+                  <span>Action</span>
+                  <select
+                    value={action.type}
+                    onChange={(event) => {
+                      if (event.target.value === 'switch') {
+                        const activeId = getActiveRosterEntry(action.actor, index)?.id;
+                        const targetId = getActorRoster(action.actor).find((entry) => entry.id !== activeId)?.id ?? activeId ?? '';
+                        updateAction(action.id, { actor: action.actor, type: 'switch', targetPokemonId: targetId });
+                      } else {
+                        updateAction(action.id, { actor: action.actor, type: 'move', move: createMoveDraft() });
+                      }
+                    }}
+                  >
+                    <option value="move">Move</option>
+                    <option value="switch">Switch</option>
+                  </select>
                 </label>
-                <label className="battle-plan-check">
-                  <input
-                    type="checkbox"
-                    checked={action.move.isCrit}
-                    onChange={(event) =>
-                      updateAction(action.id, {
-                        move: { isCrit: event.target.checked },
-                      })
-                    }
-                  />
-                  Crit
-                </label>
-                <label className="battle-plan-number">
-                  <span>Hits</span>
-                  <input
-                    type="number"
-                    min="1"
-                    max="8"
-                    value={action.move.hits}
-                    onChange={(event) =>
-                      updateAction(action.id, {
-                        move: { hits: Number(event.target.value) || 1 },
-                      })
-                    }
-                  />
-                </label>
-                <label className="battle-plan-check">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(action.move.useZ)}
-                    disabled={generation < 7}
-                    onChange={(event) =>
-                      updateAction(action.id, {
-                        move: {
-                          useZ: event.target.checked,
-                          useMax: event.target.checked ? false : action.move.useMax,
-                        },
-                      })
-                    }
-                  />
-                  Z
-                </label>
-                <label className="battle-plan-check">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(action.move.useMax)}
-                    disabled={generation < 8}
-                    onChange={(event) =>
-                      updateAction(action.id, {
-                        move: {
-                          useMax: event.target.checked,
-                          useZ: event.target.checked ? false : action.move.useZ,
-                        },
-                      })
-                    }
-                  />
-                  Max
-                </label>
+                {action.type === 'switch' ? (
+                  <label className="battle-plan-switch-target">
+                    <span>Switch to</span>
+                    <SearchableTypePicker
+                      value={action.targetPokemonId}
+                      options={getSwitchOptions(action.actor, index)}
+                      onSelect={(targetPokemonId) =>
+                        updateAction(action.id, {
+                          actor: action.actor,
+                          type: 'switch',
+                          targetPokemonId,
+                        })
+                      }
+                      ariaLabel={`Plan step ${index + 1} switch target`}
+                      placeholder="— Select Pokémon —"
+                      filterOptions={filterSwitchPokemonOptions}
+                      getTypes={(option) => option.types}
+                      getDisplayName={(option) => option.displayName}
+                      getGroup={(option) => option.group}
+                      emptyMessage="No switch targets found"
+                    />
+                  </label>
+                ) : (
+                  <>
+                    <label className="battle-plan-move">
+                      <span>Move</span>
+                      <SearchableMovePicker
+                        value={action.move.name}
+                        options={getActorMoveOptions(action.actor, index)}
+                        onSelect={(name) => updateMove(action.id, { name })}
+                        ariaLabel={`Plan step ${index + 1} move`}
+                      />
+                    </label>
+                    <label className="battle-plan-check">
+                      <input type="checkbox" checked={action.move.isCrit} onChange={(event) => updateMove(action.id, { isCrit: event.target.checked })} />
+                      Crit
+                    </label>
+                    <label className="battle-plan-number">
+                      <span>Hits</span>
+                      <input type="number" min="1" max="8" value={action.move.hits} onChange={(event) => updateMove(action.id, { hits: Number(event.target.value) || 1 })} />
+                    </label>
+                    <label className="battle-plan-check">
+                      <input type="checkbox" checked={Boolean(action.move.useZ)} disabled={generation < 7} onChange={(event) => updateMove(action.id, { useZ: event.target.checked, useMax: event.target.checked ? false : action.move.useMax })} />
+                      Z
+                    </label>
+                    <label className="battle-plan-check">
+                      <input type="checkbox" checked={Boolean(action.move.useMax)} disabled={generation < 8} onChange={(event) => updateMove(action.id, { useMax: event.target.checked, useZ: event.target.checked ? false : action.move.useZ })} />
+                      Max
+                    </label>
+                  </>
+                )}
                 <div className="battle-plan-row-tools">
                   <div className="battle-plan-order" aria-label={`Reorder plan step ${index + 1}`}>
                     <button
@@ -308,7 +390,7 @@ export default function BattlePlanner({
                   <button
                     type="button"
                     className="battle-plan-remove"
-                    onClick={() => setActions((current) => current.filter((item) => item.id !== action.id))}
+                    onClick={() => onActionsChange((current) => current.filter((item) => item.id !== action.id))}
                     aria-label={`Remove plan step ${index + 1}`}
                   >
                     ×
@@ -316,7 +398,7 @@ export default function BattlePlanner({
                 </div>
               </div>
               <div className="battle-plan-result">
-                <strong>{result?.error ? 'Waiting for a move' : result?.isKo ? 'KO' : `${result?.damage.min ?? 0}-${result?.damage.max ?? 0} damage`}</strong>
+                <strong>{result?.error ? result.error : action.type === 'switch' ? `Switched to ${result?.activePokemonLabel ?? 'Pokemon'} (0 damage)` : result?.isKo ? 'KO' : `${result?.damage.min ?? 0}-${result?.damage.max ?? 0} damage`}</strong>
                 {result && !result.error && (
                   <>
                     <span>
@@ -327,8 +409,8 @@ export default function BattlePlanner({
                     <PlannerHpRange
                       range={result.targetHp}
                       maxHp={result.targetMaxHp}
-                      label={action.actor === 'attacker' ? 'Defender' : 'Attacker'}
-                      sprite={target}
+                      label={action.type === 'switch' ? result.activePokemonLabel ?? 'Pokemon' : action.actor === 'attacker' ? 'Defender' : 'Attacker'}
+                      sprite={action.type === 'switch' ? resultActor : target}
                     />
                   </>
                 )}

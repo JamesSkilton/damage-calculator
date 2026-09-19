@@ -14,10 +14,28 @@ export interface BattlePlanMove {
   timesUsedWithMetronome?: number;
 }
 
-export interface BattlePlanAction {
+export interface BattlePlanMoveAction {
   id: string;
   actor: BattlePlanActor;
+  type: 'move';
   move: BattlePlanMove;
+}
+
+export interface BattlePlanSwitchAction {
+  id: string;
+  actor: BattlePlanActor;
+  type: 'switch';
+  targetPokemonId: string;
+}
+
+export type BattlePlanAction = BattlePlanMoveAction | BattlePlanSwitchAction;
+
+export interface BattlePlanRosterEntry {
+  id: string;
+  label: string;
+  source: string;
+  combatant: BattleCombatant;
+  moves: readonly BattlePlanMove[];
 }
 
 export interface BattlePlanHpRange {
@@ -34,6 +52,8 @@ export interface BattlePlanStepResult {
   targetHp: BattlePlanHpRange;
   targetMaxHp: number;
   isKo: boolean;
+  activePokemonId?: string;
+  activePokemonLabel?: string;
   error?: string;
 }
 
@@ -43,4 +63,8 @@ export interface BattlePlanInput {
   defender: BattleCombatant;
   field: BattleField;
   actions: readonly BattlePlanAction[];
+  attackerRoster?: readonly BattlePlanRosterEntry[];
+  defenderRoster?: readonly BattlePlanRosterEntry[];
+  attackerRosterId?: string;
+  defenderRosterId?: string;
 }

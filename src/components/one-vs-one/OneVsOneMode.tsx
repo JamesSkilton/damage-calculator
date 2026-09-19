@@ -12,12 +12,13 @@ import {
   applyCombatantMovesGeneration,
   setCombatantMoveSlot,
 } from '../combatant/moves/combatantMovesState';
-import { setMoveName, setMoveCrit } from '../combatant/moves/moveDraft';
+import { createMoveDraft, setMoveName, setMoveCrit } from '../combatant/moves/moveDraft';
 import { applyImportedPokemonSet } from '../combatant/shared/combatantDraft';
 import { parsePokemonSets } from '../../import/pokemonSetParser';
 import { serializePokemonSet } from '../../import/pokemonSetSerializer';
 import {
   loadImportedPokemonSets,
+  loadPartyPokemonSetIds,
   removeImportedPokemonSet,
   saveImportedPokemonSets,
 } from '../../import/pokemonSetStorage';
@@ -37,10 +38,20 @@ import BattleFieldControls from './BattleFieldControls';
 import PokemonSetTools from './PokemonSetTools';
 import BattleResultPanel from './BattleResultPanel';
 import BattlePlanner from '../battle-planner/BattlePlanner';
+import type { BattlePlanAction, BattlePlanRosterEntry } from 'domain/battlePlan';
 import Party from '../party/Party';
 import DefenderPresetRoster from './DefenderPresetRoster';
 import { buildBattleCalcBreakdowns } from 'adapters/battleCalc';
 import './OneVsOneMode.scss';
+
+function createPlannerAction(): BattlePlanAction {
+  return {
+    id: `attacker-${Date.now()}-${Math.random()}`,
+    actor: 'attacker',
+    type: 'move',
+    move: createMoveDraft(),
+  };
+}
 
 export default function OneVsOneMode() {
   const { generation } = useOutletContext<AppShellContext>();
@@ -54,6 +65,9 @@ export default function OneVsOneMode() {
   );
   const [isResultsSwapped, setIsResultsSwapped] = useState(false);
   const [isPlannerOpen, setIsPlannerOpen] = useState(false);
+  const [plannerActions, setPlannerActions] = useState<BattlePlanAction[]>(() => [
+    createPlannerAction(),
+  ]);
   const [selectedImportedSetIds, setSelectedImportedSetIds] = useState<{
     attacker?: string;
     defender?: string;
@@ -105,6 +119,61 @@ export default function OneVsOneMode() {
     () => getPresetTrainerGroups(presetLibraryId, generation, availableSpecies),
     [availableSpecies, generation, presetLibraryId],
   );
+
+  const plannerRosters = useMemo(() => {
+    const partyIds = new Set(loadPartyPokemonSetIds());
+    const attackerInitialId = selectedImportedSetIds.attacker ?? 'current-attacker';
+    const attackerRoster: BattlePlanRosterEntry[] = [
+      {
+        id: attackerInitialId,
+        label: draft.attacker.name || draft.attacker.species,
+        source: selectedImportedSetIds.attacker
+          ? partyIds.has(selectedImportedSetIds.attacker) ? 'party' : 'box'
+          : 'current',
+        combatant: draft.attacker,
+        moves: attackerMoves.slots,
+      },
+      ...importedSets
+        .filter((set) => set.id !== attackerInitialId)
+        .map((set) => ({
+          id: set.id,
+          label: set.nickname || set.species,
+          source: partyIds.has(set.id) ? 'party' : 'box',
+          combatant: applyImportedPokemonSet(draft.attacker, set, availableSpecies),
+          moves: set.moves.map((name) => createMoveDraft(name)),
+        })),
+    ];
+
+    const activeGroup = trainerGroups.find(
+      (group) => group.trainerName === activeTrainerName,
+    );
+    const defenderInitialId = selectedPresetIds.defender ?? 'current-defender';
+    const defenderRoster: BattlePlanRosterEntry[] = [
+      {
+        id: defenderInitialId,
+        label: draft.defender.name || draft.defender.species,
+        source: selectedPresetIds.defender ? activeTrainerName ?? 'trainer' : 'current',
+        combatant: draft.defender,
+        moves: defenderMoves.slots,
+      },
+      ...(activeGroup?.presets ?? [])
+        .filter((preset) => preset.id !== defenderInitialId)
+        .map((preset) => ({
+          id: preset.id,
+          label: `${preset.species} · ${preset.buildName}`,
+          source: activeGroup?.trainerName ?? 'trainer',
+          combatant: applyImportedPokemonSet(draft.defender, preset, availableSpecies),
+          moves: preset.moves.map((name) => createMoveDraft(name)),
+        })),
+    ];
+
+    return {
+      attackerRoster,
+      defenderRoster,
+      attackerInitialId,
+      defenderInitialId,
+    };
+  }, [activeTrainerName, attackerMoves.slots, availableSpecies, defenderMoves.slots, draft.attacker, draft.defender, importedSets, selectedImportedSetIds.attacker, selectedPresetIds.defender, trainerGroups]);
 
   useEffect(() => {
     setActiveTrainerName((current) =>
@@ -288,6 +357,12 @@ export default function OneVsOneMode() {
           availableMoves={availableMoves}
           attackerMoves={attackerMoves.slots}
           defenderMoves={defenderMoves.slots}
+          attackerRoster={plannerRosters.attackerRoster}
+          defenderRoster={plannerRosters.defenderRoster}
+          attackerRosterId={plannerRosters.attackerInitialId}
+          defenderRosterId={plannerRosters.defenderInitialId}
+          actions={plannerActions}
+          onActionsChange={setPlannerActions}
           onBack={() => setIsPlannerOpen(false)}
         />
       ) : (
