@@ -139,4 +139,19 @@ describe('legacy preset catalog', () => {
     ]);
     expect(getPresetTrainerGroups('standard', 9)).toEqual([]);
   });
+
+  it('groups the Run & Bun Magma Hideout #2 roster', () => {
+    const group = getPresetTrainerGroups('run-and-bun', 9).find(
+      (entry) => entry.trainerName === 'Team Magma Grunt Magma Hideout #2',
+    );
+
+    expect(group?.presets.length).toBeGreaterThan(1);
+    expect(group?.presets.map((preset) => preset.species)).toEqual([
+      'Aggron',
+      'Seviper',
+      'Electivire',
+      'Marowak-Alola',
+      'Houndoom',
+    ]);
+  });
 });

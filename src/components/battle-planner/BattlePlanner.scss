@@ -1,70 +1,20 @@
+.battle-plan-row,
+.battle-plan-action,
+.battle-plan-result-copy {
+  min-width: 0;
+}
+
 .battle-planner {
-  display: grid;
-  gap: 1rem;
-  padding: 1.25rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 1rem;
-  background: #fff;
-}
-
-.battle-planner-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  align-items: start;
-}
-
-.battle-planner-header h2,
-.battle-planner-header p {
-  margin: 0;
-}
-
-.battle-planner-header h2 {
-  color: #172554;
-  font-size: 1.35rem;
-}
-
-.battle-planner-header p:last-child {
-  margin-top: 0.35rem;
-  color: #64748b;
-  font-size: 0.9rem;
-}
-
-.battle-planner-kicker {
-  color: #2f7d4a;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.battle-planner-add {
-  border: 1px solid #2f7d4a;
-  border-radius: 0.45rem;
-  padding: 0.55rem 0.75rem;
-  background: #f0fdf4;
-  color: #166534;
-  cursor: pointer;
-  white-space: nowrap;
+  container-name: battle-planner;
+  container-type: inline-size;
 }
 
 .battle-plan-list {
-  display: grid;
-  gap: 0.6rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  grid-template-columns: minmax(0, 1fr);
 }
 
-.battle-plan-row {
-  display: grid;
-  grid-template-columns: 2rem 3.5rem minmax(0, 1fr) minmax(15rem, 0.65fr);
-  gap: 0.75rem;
-  align-items: center;
-  padding: 0.75rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.65rem;
-  background: #f8fafc;
+.battle-planner-kicker {
+  letter-spacing: 0.08em;
 }
 
 .battle-plan-sprite {
@@ -73,188 +23,125 @@
   object-fit: contain;
 }
 
-.battle-plan-actor-sprite {
-  align-self: center;
-}
-
-.battle-plan-step {
-  display: grid;
-  width: 1.75rem;
-  height: 1.75rem;
-  place-items: center;
-  border-radius: 50%;
-  background: #172554;
-  color: #fff;
-  font-weight: 700;
-}
-
-.battle-plan-action {
-  display: grid;
-  grid-template-columns: minmax(8rem, 0.7fr) minmax(12rem, 1.5fr) auto auto auto auto auto;
-  gap: 0.6rem;
-  align-items: end;
-}
-
 .battle-plan-action label {
-  display: grid;
-  gap: 0.3rem;
-  color: #475569;
-  font-size: 0.75rem;
-  font-weight: 600;
+  min-width: 0;
 }
 
-.battle-plan-action select {
-  min-height: 2.35rem;
-  padding: 0.5rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 0.45rem;
-  background: #fff;
+.battle-plan-move-previews {
+  min-width: 0;
 }
 
-.battle-plan-check {
-  display: flex !important;
-  grid-template-columns: auto auto;
-  align-items: center;
-  gap: 0.35rem !important;
-  min-height: 2.35rem;
-  white-space: nowrap;
+.battle-plan-move-preview {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 150px;
+}
+
+.battle-plan-move-preview:not(.btn-success):is(:hover, :focus-visible) {
+  border-color: #343a40;
+  background-color: #343a40;
+  color: #fff;
+}
+
+.battle-plan-move-preview:not(.btn-success):is(:hover, :focus-visible) * {
+  color: #fff !important;
 }
 
 .battle-plan-remove {
-  width: 2.35rem;
+  width: 2rem;
   height: 2.35rem;
-  border: 1px solid #fecaca;
-  border-radius: 0.45rem;
-  background: #fff1f2;
-  color: #be123c;
-  font-size: 1.2rem;
-  cursor: pointer;
 }
 
 .battle-plan-result {
   display: grid;
-  gap: 0.25rem;
-  color: #334155;
+  grid-template-columns: minmax(0, 1fr) 4rem;
+  gap: 0.25rem 0.5rem;
+  min-height: 100%;
+  align-content: center;
+  padding: 0.65rem 0.75rem;
+  width: min(22rem, 100%);
+  border-left: 2px solid #cbd5e1;
 }
 
-.battle-plan-result strong {
-  color: #172554;
-}
-
-.battle-plan-result span {
-  font-size: 0.78rem;
+.battle-plan-result-sprite {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  width: 4rem;
+  height: 4rem;
+  object-fit: contain;
 }
 
 .battle-plan-hp {
-  position: relative;
-  display: grid;
-  gap: 0.3rem;
-  margin-top: 0.25rem;
-}
-
-.battle-plan-hp-sprite {
-  position: absolute;
-  top: -1.4rem;
-  right: -0.25rem;
-  z-index: 1;
-  width: 4.5rem;
-  height: 4.5rem;
-  object-fit: contain;
-  pointer-events: none;
-}
-
-.battle-plan-hp-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding-right: 3.75rem;
-  color: #64748b;
-  font-size: 0.7rem;
-}
-
-.battle-plan-hp-header strong {
-  color: #334155;
-  font-weight: 600;
-}
-
-@media (max-width: 900px) {
-  .battle-plan-row {
-    grid-template-columns: 2rem 3.5rem minmax(0, 1fr);
-  }
-
-  .battle-plan-result {
-    grid-column: 3;
-  }
-}
-
-@media (max-width: 620px) {
-  .battle-planner-header,
-  .battle-plan-action {
-    display: grid;
-    grid-template-columns: 1fr;
-  }
-
+  grid-column: 1 / -1;
 }
 
 .battle-plan-number input {
   width: 4rem;
-  min-height: 2.35rem;
-  padding: 0.5rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 0.45rem;
-  background: #fff;
-}
-
-.battle-plan-order {
-  display: flex;
-  gap: 0.25rem;
-}
-
-.battle-plan-row-tools {
-  display: flex;
-  flex-wrap: nowrap;
-  align-items: end;
-  gap: 0.35rem;
-  white-space: nowrap;
 }
 
 .battle-plan-order button {
   width: 2rem;
   height: 2.35rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 0.45rem;
-  background: #fff;
-  color: #334155;
-  cursor: pointer;
 }
 
-.battle-plan-order button:disabled {
-  cursor: default;
-  opacity: 0.4;
+@media (max-width: 900px) {
+  .battle-plan-row {
+    flex-wrap: wrap;
+  }
+
+  .battle-plan-result {
+    grid-template-columns: minmax(0, 1fr) 3.5rem;
+    flex-basis: 100%;
+    width: 100%;
+    min-height: 0;
+    border-top: 1px solid #cbd5e1;
+    border-left: 0;
+  }
 }
 
-.battle-planner-reset {
-  border: 1px solid #cbd5e1;
-  border-radius: 0.45rem;
-  padding: 0.55rem 0.75rem;
-  background: #fff;
-  color: #475569;
-  cursor: pointer;
-  white-space: nowrap;
+@container battle-planner (min-width: 2333px) {
+  .battle-plan-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
-.battle-plan-row.is-ko {
-  border-color: #86efac;
-  background: #f0fdf4;
+@media (min-width: 1200px) {
+  .battle-plan-row {
+    flex-wrap: wrap;
+  }
+
+  .battle-plan-result {
+    flex-basis: 100%;
+    width: 100%;
+    min-height: 0;
+    border-top: 1px solid #cbd5e1;
+    border-left: 0;
+  }
 }
 
-.battle-plan-row.has-error {
-  border-color: #fda4af;
-  background: #fff1f2;
-}
+@media (max-width: 620px) {
+  .battle-planner-header {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
 
-.battle-plan-remove {
-  border-color: #fecaca;
-  background: #fff1f2;
-  color: #be123c;
+  .battle-planner-header-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .battle-plan-sprite {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  .battle-plan-action {
+    flex-wrap: wrap;
+  }
+
+  .battle-plan-result-sprite {
+    width: 3.5rem;
+    height: 3.5rem;
+  }
 }

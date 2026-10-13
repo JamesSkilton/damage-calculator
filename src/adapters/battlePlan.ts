@@ -2,6 +2,7 @@ import type {
   BattlePlanInput,
   BattlePlanStepResult,
   BattlePlanHpRange,
+  BattlePlanRosterEntry,
 } from 'domain/battlePlan';
 import { buildBattleCalcBreakdowns } from './battleCalc';
 
@@ -15,19 +16,106 @@ export function buildBattlePlanResults({
   defender,
   field,
   actions,
+  attackerRoster = [],
+  defenderRoster = [],
+  attackerRosterId,
+  defenderRosterId,
 }: BattlePlanInput): BattlePlanStepResult[] {
-  let attackerHp = createHpRange(attacker.currentHp, attacker.currentHp);
-  let defenderHp = createHpRange(defender.currentHp, defender.currentHp);
-  let attackerMaxHp = 0;
-  let defenderMaxHp = 0;
+  const rosters: Record<'attacker' | 'defender', BattlePlanRosterEntry[]> = {
+    attacker: attackerRoster.length > 0 ? [...attackerRoster] : [{
+      id: 'initial-attacker',
+      label: attacker.name || attacker.species,
+      source: 'current',
+      combatant: attacker,
+      moves: [],
+    }],
+    defender: defenderRoster.length > 0 ? [...defenderRoster] : [{
+      id: 'initial-defender',
+      label: defender.name || defender.species,
+      source: 'current',
+      combatant: defender,
+      moves: [],
+    }],
+  };
+  const activeIds = {
+    attacker: attackerRosterId ?? rosters.attacker[0].id,
+    defender: defenderRosterId ?? rosters.defender[0].id,
+  };
+  const hpById = new Map<string, BattlePlanHpRange>();
+  const maxHpById = new Map<string, number>();
+  for (const entry of [...rosters.attacker, ...rosters.defender]) {
+    hpById.set(entry.id, createHpRange(entry.combatant.currentHp, entry.combatant.currentHp));
+  }
+  const getActiveEntry = (actor: 'attacker' | 'defender') =>
+    rosters[actor].find((entry) => entry.id === activeIds[actor]);
+  const getHp = (entry: BattlePlanRosterEntry) =>
+    hpById.get(entry.id) ?? createHpRange(entry.combatant.currentHp, entry.combatant.currentHp);
+
+  let attackerHp = getHp(getActiveEntry('attacker')!);
+  let defenderHp = getHp(getActiveEntry('defender')!);
   let cumulativeDamage = createHpRange(0, 0);
 
   return actions.map((action) => {
     const isAttackerAction = action.actor === 'attacker';
-    const actingCombatant = isAttackerAction ? attacker : defender;
-    const targetCombatant = isAttackerAction ? defender : attacker;
-    const targetHp = isAttackerAction ? defenderHp : attackerHp;
-    const actingHp = isAttackerAction ? attackerHp : defenderHp;
+    const actor = action.actor;
+    const activeEntry = getActiveEntry(actor);
+    const targetActor = isAttackerAction ? 'defender' : 'attacker';
+    const targetEntry = getActiveEntry(targetActor);
+
+    if (!activeEntry || !targetEntry) {
+      return {
+        action,
+        damage: createHpRange(0, 0),
+        cumulativeDamage,
+        attackerHp,
+        defenderHp,
+        targetHp: createHpRange(0, 0),
+        targetMaxHp: 0,
+        isKo: false,
+        error: 'Unable to resolve active Pokemon',
+      };
+    }
+
+    if (action.type === 'switch') {
+      const nextEntry = rosters[actor].find((entry) => entry.id === action.targetPokemonId);
+      if (!nextEntry) {
+        return {
+          action,
+          damage: createHpRange(0, 0),
+          cumulativeDamage,
+          attackerHp,
+          defenderHp,
+          targetHp: getHp(targetEntry),
+          targetMaxHp: maxHpById.get(targetEntry.id) ?? 0,
+          isKo: false,
+          activePokemonId: activeEntry.id,
+          activePokemonLabel: activeEntry.label,
+          error: `Unknown switch target: ${action.targetPokemonId}`,
+        };
+      }
+      hpById.set(activeEntry.id, getHp(activeEntry));
+      activeIds[actor] = nextEntry.id;
+      attackerHp = getHp(getActiveEntry('attacker')!);
+      defenderHp = getHp(getActiveEntry('defender')!);
+      const switchedHp = getHp(nextEntry);
+      return {
+        action,
+        damage: createHpRange(0, 0),
+        cumulativeDamage,
+        attackerHp,
+        defenderHp,
+        targetHp: switchedHp,
+        targetMaxHp: maxHpById.get(nextEntry.id) ?? 0,
+        isKo: false,
+        activePokemonId: nextEntry.id,
+        activePokemonLabel: nextEntry.label,
+      };
+    }
+
+    const actingCombatant = activeEntry.combatant;
+    const targetCombatant = targetEntry.combatant;
+    const targetHp = getHp(targetEntry);
+    const actingHp = getHp(activeEntry);
     const result = buildBattleCalcBreakdowns({
       generation,
       attacker: {
@@ -57,12 +145,6 @@ export function buildBattlePlanResults({
     }
 
     const { details } = result;
-    if (isAttackerAction) {
-      defenderMaxHp = details.defenderMaxHp;
-    } else {
-      attackerMaxHp = details.defenderMaxHp;
-    }
-
     const resolvedTargetHp =
       targetHp.max === 0
         ? createHpRange(details.defenderCurrentHp, details.defenderCurrentHp)
@@ -79,8 +161,12 @@ export function buildBattlePlanResults({
 
     if (isAttackerAction) {
       defenderHp = nextTargetHp;
+      hpById.set(targetEntry.id, nextTargetHp);
+      maxHpById.set(targetEntry.id, details.defenderMaxHp);
     } else {
       attackerHp = nextTargetHp;
+      hpById.set(targetEntry.id, nextTargetHp);
+      maxHpById.set(targetEntry.id, details.defenderMaxHp);
     }
     cumulativeDamage = isAttackerAction
       ? createHpRange(
@@ -88,9 +174,6 @@ export function buildBattlePlanResults({
           cumulativeDamage.max + damage.max,
         )
       : cumulativeDamage;
-
-    if (attackerMaxHp === 0) attackerMaxHp = details.defenderMaxHp;
-    if (defenderMaxHp === 0) defenderMaxHp = details.defenderMaxHp;
 
     return {
       action,
@@ -101,6 +184,8 @@ export function buildBattlePlanResults({
       targetHp: nextTargetHp,
       targetMaxHp: details.defenderMaxHp,
       isKo: nextTargetHp.max === 0,
+      activePokemonId: activeEntry.id,
+      activePokemonLabel: activeEntry.label,
     };
   });
 }
