@@ -25,12 +25,10 @@ import {
 import type { ImportedPokemonSet } from '../../import/pokemonSet';
 import type {
   PokemonPreset,
-  PresetLibraryId,
 } from '../../import/legacySets/legacyPresetCatalog';
 import {
   getPresetTrainerGroups,
   getPokemonPresets,
-  presetLibraries,
 } from '../../import/legacySets/legacyPresetCatalog';
 import { buildMoveCatalog } from '../combatant/moves/moveCatalog';
 import { buildSpeciesCatalog } from '../combatant/species/speciesCatalog';
@@ -54,7 +52,7 @@ function createPlannerAction(): BattlePlanAction {
 }
 
 export default function OneVsOneMode() {
-  const { generation } = useOutletContext<AppShellContext>();
+  const { generation, presetLibraryId } = useOutletContext<AppShellContext>();
   const [draft, setDraft] = useState(() => createTeamDraft(generation));
   const [field, setField] = useState(() => createBattleFieldDraft(generation));
   const [attackerMoves, setAttackerMoves] = useState(() =>
@@ -76,7 +74,6 @@ export default function OneVsOneMode() {
     attacker?: string;
     defender?: string;
   }>({});
-  const [presetLibraryId, setPresetLibraryId] = useState<PresetLibraryId>('standard');
   const [activeTrainerName, setActiveTrainerName] = useState<string>();
   const [importedSets, setImportedSets] = useState<ImportedPokemonSet[]>(() =>
     loadImportedPokemonSets(),
@@ -183,11 +180,10 @@ export default function OneVsOneMode() {
     );
   }, [trainerGroups]);
 
-  const selectPresetLibrary = (libraryId: PresetLibraryId) => {
-    setPresetLibraryId(libraryId);
+  useEffect(() => {
     setSelectedPresetIds({});
     setActiveTrainerName(undefined);
-  };
+  }, [presetLibraryId]);
 
   const attackerResults = useMemo(
     () =>
@@ -418,23 +414,6 @@ export default function OneVsOneMode() {
           />
         </>
       )}
-
-      <div className="preset-library-control">
-        <label htmlFor="preset-library">Preset library</label>
-        <select
-          id="preset-library"
-          value={presetLibraryId}
-          onChange={(event) =>
-            selectPresetLibrary(event.target.value as PresetLibraryId)
-          }
-        >
-          {presetLibraries.map((library) => (
-            <option key={library.id} value={library.id}>
-              {library.label}
-            </option>
-          ))}
-        </select>
-      </div>
 
       <details className="party-manager">
         <summary>Manage party and imported Pokemon</summary>

@@ -2,6 +2,10 @@
 
 You are working on a project that uses **Squad**, an AI team framework. When picking up issues autonomously, follow these guidelines.
 
+## Frontend Class Naming
+
+Use Bootstrap classes as the first choice for frontend styling. First try to meet layout, spacing, typography, color, sizing, and responsive needs with existing Bootstrap utility and component classes. Add a descriptive, narrowly scoped custom class and stylesheet rules only when a genuine requirement cannot be met with Bootstrap (for example, component-specific interaction or visual behavior). Do not add custom classes or CSS just out of preference when Bootstrap already covers the need.
+
 ## Coordinator Canary Check
 
 **IMPORTANT — run this check on EVERY session start, before doing any work:**
