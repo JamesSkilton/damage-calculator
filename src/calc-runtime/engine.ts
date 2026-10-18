@@ -50,6 +50,7 @@ function createPokemon(
     teraType: pokemon.isTerastallized === false ? undefined : pokemon.teratype,
     toxicCounter: pokemon.toxicCounter,
     moves: pokemon.moves as CoreData.MoveName[],
+    overrides: pokemon.baseStats ? { baseStats: { ...pokemon.baseStats } } : undefined,
   });
 }
 

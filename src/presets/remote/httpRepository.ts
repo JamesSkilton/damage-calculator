@@ -9,6 +9,7 @@ import {
   type RotatedCodes,
   type UserPreset,
 } from './types';
+import { validateBaseStatEntries, type SpeciesBaseStats } from '../baseStats';
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -48,6 +49,15 @@ function normalizePresets(value: unknown): UserPreset[] {
     throw new PresetLibraryError('invalid-response', 'Unexpected preset list response.');
   }
   return value.map(normalizePreset);
+}
+
+function normalizeBaseStats(value: unknown): SpeciesBaseStats[] {
+  if (value === undefined) return [];
+  const { entries, messages } = validateBaseStatEntries(value);
+  if (messages.length > 0) {
+    throw new PresetLibraryError('invalid-response', 'Unexpected base stats response.');
+  }
+  return entries;
 }
 
 export function createHttpPresetLibraryRepository(
@@ -100,6 +110,7 @@ export function createHttpPresetLibraryRepository(
       return {
         library: assertLibrary(body.library),
         presets: normalizePresets(body.presets),
+        baseStats: normalizeBaseStats(body.baseStats),
         role: body.role === 'owner' || body.role === 'reader' ? body.role : undefined,
       };
     },
@@ -144,6 +155,14 @@ export function createHttpPresetLibraryRepository(
         body: JSON.stringify({ revision, order }),
       });
       return { library: assertLibrary(body.library), presets: normalizePresets(body.presets) };
+    },
+
+    async saveBaseStats(ownerCode, baseStats, revision) {
+      const body = await request(`/${code(ownerCode)}/base-stats`, {
+        method: 'PUT',
+        body: JSON.stringify({ revision, baseStats }),
+      });
+      return { library: assertLibrary(body.library), baseStats: normalizeBaseStats(body.baseStats) };
     },
 
     async rotateCodes(ownerCode): Promise<RotatedCodes> {

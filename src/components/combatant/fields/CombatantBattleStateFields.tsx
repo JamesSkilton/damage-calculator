@@ -25,7 +25,7 @@ export default function CombatantBattleStateFields({
     ? Stats.calcStat(
         generation,
         'hp',
-        species.baseStats.hp,
+        combatant.baseStats?.hp ?? species.baseStats.hp,
         combatant.ivs.hp,
         combatant.evs.hp,
         combatant.level,
