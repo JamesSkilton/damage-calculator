@@ -54,6 +54,10 @@ const MIGRATIONS: string[] = [
     ALTER TABLE user_presets ADD source_library_id NVARCHAR(100) NULL;
   CREATE INDEX IX_user_presets_trainer_name ON user_presets(library_id, trainer_name);
   `,
+  `
+  IF COL_LENGTH('preset_libraries', 'base_stats_json') IS NULL
+    ALTER TABLE preset_libraries ADD base_stats_json NVARCHAR(MAX) NULL;
+  `,
 ];
 
 export async function query<T = Record<string, unknown>>(

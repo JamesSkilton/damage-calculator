@@ -1,4 +1,5 @@
 import type { ImportedPokemonSet } from '../../import/pokemonSet';
+import type { SpeciesBaseStats } from '../baseStats';
 
 export interface PresetLibrary {
   id: string;
@@ -21,6 +22,8 @@ export interface UserPreset extends ImportedPokemonSet {
 export interface PresetLibrarySnapshot {
   library: PresetLibrary;
   presets: UserPreset[];
+  /** Per-library species base stat overrides; absent on caches written before this existed. */
+  baseStats?: SpeciesBaseStats[];
   role?: 'owner' | 'reader';
 }
 
@@ -67,6 +70,11 @@ export interface PresetLibraryRepository {
     order: readonly { id: string; index: number }[],
     revision: number,
   ): Promise<{ library: PresetLibrary; presets: UserPreset[] }>;
+  saveBaseStats(
+    ownerCode: string,
+    baseStats: readonly SpeciesBaseStats[],
+    revision: number,
+  ): Promise<{ library: PresetLibrary; baseStats: SpeciesBaseStats[] }>;
   rotateCodes(ownerCode: string): Promise<RotatedCodes>;
 }
 

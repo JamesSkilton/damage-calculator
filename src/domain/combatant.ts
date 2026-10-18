@@ -36,4 +36,6 @@ export interface BattleCombatant {
   dynamaxLevel?: number;
   moves: readonly string[];
   teratype?: BattleTypeName;
+  /** Replaces the species' default base stats (e.g. from a preset library override). */
+  baseStats?: BattleStats;
 }

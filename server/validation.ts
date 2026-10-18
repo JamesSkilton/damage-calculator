@@ -2,6 +2,7 @@ import type { BattleGeneration } from 'domain/index';
 import { MAX_PRESET_INDEX, parseUpload, type UploadPreset } from '../src/import/presetUpload';
 
 export { MAX_PRESET_INDEX };
+export { validateBaseStatEntries } from '../src/presets/baseStats';
 
 export const MAX_BATCH_PRESETS = 500;
 export const MAX_LIBRARY_PRESETS = 2000;

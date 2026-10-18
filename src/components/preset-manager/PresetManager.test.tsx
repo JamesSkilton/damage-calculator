@@ -39,6 +39,7 @@ const library = {
     presets,
   },
   presets,
+  baseStats: [],
   canEdit: true,
   busy: false,
   refresh: vi.fn(),
@@ -82,6 +83,7 @@ describe('preset manager views', () => {
         generation={9}
         localSets={[]}
         legacyPresets={[]}
+        availableSpecies={[]}
         onMigrated={vi.fn()}
         onBack={vi.fn()}
         onAddTrainer={vi.fn()}
@@ -96,5 +98,6 @@ describe('preset manager views', () => {
     expect(markup).toContain('Modest');
     expect(markup).toContain('Blizzard');
     expect(markup).toContain('Add trainer');
+    expect(markup).toContain('Base stats (0 override(s) in Gen 9)');
   });
 });

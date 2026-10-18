@@ -7,6 +7,7 @@ import {
   type UserPreset,
 } from './types';
 import { activateKnownPresetLibrary, loadPresetLibraryCache, savePresetLibraryCache } from './presetLibraryCache';
+import type { SpeciesBaseStats } from '../baseStats';
 
 export type LibraryStatus = 'idle' | 'loading' | 'ready' | 'offline' | 'error';
 
@@ -21,6 +22,7 @@ export interface UserPresetLibraryState {
   status: LibraryStatus;
   snapshot?: PresetLibrarySnapshot;
   presets: UserPreset[];
+  baseStats: SpeciesBaseStats[];
   readCode?: string;
   ownerCode?: string;
   canEdit: boolean;
@@ -34,10 +36,12 @@ export interface UserPresetLibraryState {
   updatePreset: (id: string, changes: Partial<PresetInput>) => Promise<boolean>;
   deletePreset: (id: string) => Promise<boolean>;
   reorderPresets: (order: readonly { id: string; index: number }[]) => Promise<boolean>;
+  saveBaseStats: (baseStats: readonly SpeciesBaseStats[]) => Promise<boolean>;
   rotateCodes: () => Promise<boolean>;
 }
 
 const EMPTY: UserPreset[] = [];
+const EMPTY_BASE_STATS: SpeciesBaseStats[] = [];
 
 function newIdempotencyKey(): string {
   return typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -65,15 +69,20 @@ export function useUserPresetLibrary(
   snapshotRef.current = snapshot;
 
   const apply = useCallback(
-    (next: PresetLibrarySnapshot, codes: { access: string; owner?: string }) => {
+    (incoming: PresetLibrarySnapshot, codes: { access: string; owner?: string }) => {
       const current = snapshotRef.current;
       if (
         current &&
-        current.library.id === next.library.id &&
-        current.library.revision > next.library.revision
+        current.library.id === incoming.library.id &&
+        current.library.revision > incoming.library.revision
       ) {
         return;
       }
+      // Preset mutations don't resend base stats, so carry them over for the same library.
+      const next =
+        incoming.baseStats === undefined && current?.library.id === incoming.library.id
+          ? { ...incoming, baseStats: current.baseStats }
+          : incoming;
       snapshotRef.current = next;
       setSnapshot(next);
       setAccessCode(codes.access);
@@ -160,6 +169,7 @@ export function useUserPresetLibrary(
     status,
     snapshot,
     presets: snapshot?.presets ?? EMPTY,
+    baseStats: snapshot?.baseStats ?? EMPTY_BASE_STATS,
     readCode,
     ownerCode,
     canEdit: Boolean(ownerCode),
@@ -260,6 +270,20 @@ export function useUserPresetLibrary(
           library: result.library,
           presets: ctx.snap.presets.map((preset) => updated.get(preset.id) ?? preset),
         },
+        { access: accessCode ?? ctx.owner, owner: ctx.owner },
+      );
+      return true;
+    },
+
+    saveBaseStats: async (baseStats) => {
+      const ctx = requireOwner();
+      if (!ctx || !repository) return false;
+      const result = await guarded(() =>
+        repository.saveBaseStats(ctx.owner, baseStats, ctx.snap.library.revision),
+      );
+      if (!result) return false;
+      apply(
+        { library: result.library, presets: ctx.snap.presets, baseStats: result.baseStats },
         { access: accessCode ?? ctx.owner, owner: ctx.owner },
       );
       return true;

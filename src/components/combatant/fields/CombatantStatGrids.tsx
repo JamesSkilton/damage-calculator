@@ -31,12 +31,13 @@ export default function CombatantStatGrids({
   const species = Array.from(generation.species).find(
     (option) => option.name === combatant.species,
   );
+  const baseStats = combatant.baseStats ?? species?.baseStats;
   const calculatedStats = statIds.map((statId) => {
     const rawValue = species
       ? Stats.calcStat(
           generation,
           statId,
-          species.baseStats[statId],
+          baseStats![statId],
           combatant.ivs[statId],
           combatant.evs[statId],
           combatant.level,
@@ -57,7 +58,6 @@ export default function CombatantStatGrids({
     };
   });
   const totalEvs = statIds.reduce((sum, statId) => sum + combatant.evs[statId], 0);
-  const baseStats = species?.baseStats;
 
   const applyPreset = (preset: keyof typeof EV_PRESETS) => {
     const values = EV_PRESETS[preset];

@@ -9,6 +9,7 @@ import {
   MAX_NAME_LENGTH,
   MAX_PRESET_INDEX,
   validatePreset,
+  validateBaseStatEntries,
   type StoredPreset,
 } from './validation';
 
@@ -25,6 +26,7 @@ interface LibraryRow {
   created_at: string;
   updated_at: string;
   preset_count: number;
+  base_stats_json: string | null;
 }
 
 interface PresetRow {
@@ -54,7 +56,7 @@ const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const iso = (column: string) => `CONVERT(VARCHAR(23), ${column}, 126) + 'Z'`;
 
 const LIBRARY_SELECT = `
-  SELECT l.id, l.name, l.revision,
+  SELECT l.id, l.name, l.revision, l.base_stats_json,
          ${iso('l.created_at')} AS created_at,
          ${iso('l.updated_at')} AS updated_at,
          (SELECT COUNT(*) FROM user_presets p WHERE p.library_id = l.id) AS preset_count
@@ -88,6 +90,9 @@ export function createApp(db: Db, options: AppOptions = {}) {
     revision: row.revision,
     presetCount: row.preset_count,
   });
+
+  const toBaseStats = (row: LibraryRow) =>
+    row.base_stats_json ? (JSON.parse(row.base_stats_json) as unknown[]) : [];
 
   const toPreset = (row: PresetRow) => ({
     ...(JSON.parse(row.payload_json) as StoredPreset),
@@ -183,6 +188,7 @@ export function createApp(db: Db, options: AppOptions = {}) {
         role: found.isOwner ? 'owner' : 'reader',
         library: toLibrary(found.row),
         presets: rows.map(toPreset),
+        baseStats: toBaseStats(found.row),
       });
     }),
   );
@@ -427,6 +433,29 @@ export function createApp(db: Db, options: AppOptions = {}) {
         await bump(tx, library.id);
         return { library: toLibrary(await getLibrary(tx, library.id)) };
       });
+      res.json(result);
+    }),
+  );
+
+  // Replaces the library's whole base stat override list in one revision bump.
+  router.put(
+    '/:ownerCode/base-stats',
+    asyncHandler(async (req, res) => {
+      const library = await ownerLibrary(req.params.ownerCode as string);
+      const revision = readRevision(req.body?.revision);
+      const { entries, messages } = validateBaseStatEntries(req.body?.baseStats);
+      if (messages.length > 0) throw new HttpError(422, messages.join(' '));
+
+      const result = await withTransaction(db, async (tx) => {
+        await lockAndCheck(tx, library.id, revision);
+        await query(tx, 'UPDATE preset_libraries SET base_stats_json = @json WHERE id = @id', {
+          id: library.id,
+          json: JSON.stringify(entries),
+        });
+        await bump(tx, library.id);
+        return { library: toLibrary(await getLibrary(tx, library.id)), baseStats: entries };
+      });
+
       res.json(result);
     }),
   );

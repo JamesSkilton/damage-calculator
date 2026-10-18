@@ -6,7 +6,7 @@ export function corsMiddleware(allowedOrigins: readonly string[]) {
     if (origin && (allowedOrigins.includes('*') || allowedOrigins.includes(origin))) {
       res.setHeader('Access-Control-Allow-Origin', allowedOrigins.includes('*') ? '*' : origin);
       res.setHeader('Vary', 'Origin');
-      res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS');
+      res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Idempotency-Key');
       res.setHeader('Access-Control-Max-Age', '600');
     }

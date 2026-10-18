@@ -149,6 +149,7 @@ export default function PresetManager({
           generation={generation}
           localSets={localSets}
           legacyPresets={legacyPresets}
+          availableSpecies={availableSpecies}
           onMigrated={onMigrated}
           onBack={() => goTo({ kind: 'catalog' })}
           onAddTrainer={() => openTrainer(undefined)}

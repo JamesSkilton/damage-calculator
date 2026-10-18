@@ -18,6 +18,7 @@ import { parsePokemonSets } from '../../import/pokemonSetParser';
 import { runtimeConfig } from '../../config/runtimeConfig';
 import { createHttpPresetLibraryRepository } from '../../presets/remote/httpRepository';
 import { useUserPresetLibrary } from '../../presets/remote/useUserPresetLibrary';
+import { applyLibraryBaseStats } from '../../presets/baseStats';
 import { groupPresetsByTrainer } from '../preset-manager/presetManagerUtils';
 import { Link } from 'react-router-dom';
 import { serializePokemonSet } from '../../import/pokemonSetSerializer';
@@ -64,7 +65,7 @@ export default function OneVsOneMode() {
     selectedUserLibraryCode,
   } =
     useOutletContext<AppShellContext>();
-  const [draft, setDraft] = useState(() => createTeamDraft(generation));
+  const [rawDraft, setDraft] = useState(() => createTeamDraft(generation));
   const [field, setField] = useState(() => createBattleFieldDraft(generation));
   const [attackerMoves, setAttackerMoves] = useState(() =>
     createCombatantMovesState(),
@@ -101,6 +102,16 @@ export default function OneVsOneMode() {
   );
   const userLibrary = useUserPresetLibrary(presetRepository);
   const { openLibrary } = userLibrary;
+  const libraryBaseStats = isUserLibrarySelected ? userLibrary.baseStats : undefined;
+  // Library base stat overrides are derived per render so they follow the species and library in use.
+  const draft = useMemo(
+    () => ({
+      ...rawDraft,
+      attacker: applyLibraryBaseStats(rawDraft.attacker, libraryBaseStats),
+      defender: applyLibraryBaseStats(rawDraft.defender, libraryBaseStats),
+    }),
+    [libraryBaseStats, rawDraft],
+  );
   useEffect(() => {
     if (isUserLibrarySelected && selectedUserLibraryCode) {
       void openLibrary(selectedUserLibraryCode);
@@ -183,7 +194,10 @@ export default function OneVsOneMode() {
           id: set.id,
           label: set.nickname || set.species,
           source: partyIds.has(set.id) ? 'party' : 'box',
-          combatant: applyImportedPokemonSet(draft.attacker, set, availableSpecies),
+          combatant: applyLibraryBaseStats(
+            applyImportedPokemonSet(draft.attacker, set, availableSpecies),
+            libraryBaseStats,
+          ),
           moves: set.moves.map((name) => createMoveDraft(name)),
         })),
     ];
@@ -206,7 +220,10 @@ export default function OneVsOneMode() {
           id: preset.id,
           label: `${preset.species} · ${preset.buildName}`,
           source: activeGroup?.trainerName ?? 'trainer',
-          combatant: applyImportedPokemonSet(draft.defender, preset, availableSpecies),
+          combatant: applyLibraryBaseStats(
+            applyImportedPokemonSet(draft.defender, preset, availableSpecies),
+            libraryBaseStats,
+          ),
           moves: preset.moves.map((name) => createMoveDraft(name)),
         })),
     ];
@@ -217,7 +234,7 @@ export default function OneVsOneMode() {
       attackerInitialId,
       defenderInitialId,
     };
-  }, [activeTrainerGroups, activeTrainerName, attackerMoves.slots, availableSpecies, defenderMoves.slots, draft.attacker, draft.defender, importedSets, selectedImportedSetIds.attacker, selectedPresetIds.defender]);
+  }, [activeTrainerGroups, activeTrainerName, attackerMoves.slots, availableSpecies, defenderMoves.slots, draft.attacker, draft.defender, importedSets, libraryBaseStats, selectedImportedSetIds.attacker, selectedPresetIds.defender]);
 
   useEffect(() => {
     setActiveTrainerName((current) =>

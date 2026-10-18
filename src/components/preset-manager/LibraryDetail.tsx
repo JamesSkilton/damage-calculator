@@ -4,6 +4,8 @@ import type { ImportedPokemonSet } from '../../import/pokemonSet';
 import type { PokemonPreset } from '../../import/legacySets/legacyPresetCatalog';
 import type { UserPresetLibraryState } from '../../presets/remote/useUserPresetLibrary';
 import LibraryTools from './LibraryTools';
+import BaseStatsEditor from './BaseStatsEditor';
+import type { SpeciesOption } from '../combatant/species/speciesOptions';
 import PresetSummaryTable from './PresetSummaryTable';
 import { NO_TRAINER_LABEL, groupPresetsByTrainer, planTrainerMove, summarizeLibrary } from './presetManagerUtils';
 
@@ -12,6 +14,7 @@ type LibraryDetailProps = {
   generation: BattleGeneration;
   localSets: readonly ImportedPokemonSet[];
   legacyPresets: readonly PokemonPreset[];
+  availableSpecies: SpeciesOption[];
   onMigrated: (migratedIds: readonly string[]) => void;
   onBack: () => void;
   onAddTrainer: () => void;
@@ -24,6 +27,7 @@ export default function LibraryDetail({
   generation,
   localSets,
   legacyPresets,
+  availableSpecies,
   onMigrated,
   onBack,
   onAddTrainer,
@@ -229,6 +233,18 @@ export default function LibraryDetail({
               Rotate codes
             </button>
           )}
+        </div>
+      </details>
+
+      <details className="border rounded p-3">
+        <summary className="fw-semibold">Base stats ({library.baseStats.filter((entry) => entry.generation === generation).length} override(s) in Gen {generation})</summary>
+        <div className="mt-3">
+          <BaseStatsEditor
+            library={library}
+            generation={generation}
+            availableSpecies={availableSpecies}
+            onMessage={onMessage}
+          />
         </div>
       </details>
 
