@@ -8,17 +8,19 @@ describe('CORS middleware', () => {
   let server: Server | undefined;
 
   afterEach(async () => {
-    if (server) await new Promise<void>((resolve) => server!.close(() => resolve()));
+    const running = server;
     server = undefined;
+    if (running) await new Promise<void>((resolve) => running.close(() => resolve()));
   });
 
   it('allows the preset library base-stats PUT preflight from configured origins', async () => {
     const app = express();
     app.use(corsMiddleware(['http://app.test']));
-    await new Promise<void>((resolve) => {
-      server = app.listen(0, resolve);
+    const listening = await new Promise<Server>((resolve) => {
+      const instance = app.listen(0, () => resolve(instance));
     });
-    const address = server.address() as AddressInfo;
+    server = listening;
+    const address = listening.address() as AddressInfo;
     const response = await fetch(`http://127.0.0.1:${address.port}/api/preset-libraries/code/base-stats`, {
       method: 'OPTIONS',
       headers: {
