@@ -11,4 +11,6 @@
 
 # Node / Vite
 node_modules/
+.env.local
+server/data/
 dist/

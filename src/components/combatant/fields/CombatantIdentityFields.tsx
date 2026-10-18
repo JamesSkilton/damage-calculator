@@ -101,22 +101,35 @@ export default function CombatantIdentityFields({
     speciesPresets.push(preset);
     presetsBySpecies.set(preset.species, speciesPresets);
   }
+  const toImportedOption = (set: (typeof importedSets)[number]) => ({
+    name: `@imported:${set.id}`,
+    displayName: set.remote
+      ? set.trainerName || set.nickname || set.species
+      : `${set.nickname ? `${set.nickname} (${set.species})` : set.species} [Imported]`,
+    types: availableSpecies.find((species) => species.name === set.species)?.types ?? [],
+    group: set.remote ? set.species : 'Imported sets',
+    importedSetId: set.id,
+  });
+  const remoteSetsBySpecies = new Map<string, typeof importedSets>();
+  for (const set of importedSets) {
+    if (!set.remote) continue;
+    remoteSetsBySpecies.set(set.species, [...(remoteSetsBySpecies.get(set.species) ?? []), set]);
+  }
   const speciesNames = Array.from(
-    new Set([...speciesByName.keys(), ...presetsBySpecies.keys()]),
+    new Set([
+      ...speciesByName.keys(),
+      ...presetsBySpecies.keys(),
+      ...remoteSetsBySpecies.keys(),
+    ]),
   ).sort((left, right) => left.localeCompare(right));
   const pokemonOptions: SpeciesOption[] = [
-    ...importedSets.map((set) => ({
-      name: `@imported:${set.id}`,
-      displayName: `${set.nickname ? `${set.nickname} (${set.species})` : set.species} [Imported]`,
-      types: availableSpecies.find((species) => species.name === set.species)?.types ?? [],
-      group: 'Imported sets',
-      importedSetId: set.id,
-    })),
+    ...importedSets.filter((set) => !set.remote).map(toImportedOption),
     ...speciesNames.flatMap((speciesName) => {
       const species = speciesByName.get(speciesName);
       const speciesOptions = species
         ? [{ ...species, group: species.name }]
         : [];
+      const userOptions = (remoteSetsBySpecies.get(speciesName) ?? []).map(toImportedOption);
       const presetOptions = (presetsBySpecies.get(speciesName) ?? []).map(
         (preset) => ({
           name: `@preset:${preset.id}`,
@@ -126,7 +139,7 @@ export default function CombatantIdentityFields({
           presetId: preset.id,
         }),
       );
-      return [...speciesOptions, ...presetOptions];
+      return [...speciesOptions, ...userOptions, ...presetOptions];
     }),
   ];
   const visiblePokemonOptions = showOnlyImportedSets

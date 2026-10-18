@@ -36,6 +36,7 @@ export type RuntimeConfig = {
   isDevelopment: boolean;
   isProduction: boolean;
   baseUrl: string;
+  presetApiUrl?: string;
 };
 
 export const runtimeConfig: RuntimeConfig = {
@@ -45,4 +46,5 @@ export const runtimeConfig: RuntimeConfig = {
   isDevelopment: import.meta.env.DEV,
   isProduction: import.meta.env.PROD,
   baseUrl: import.meta.env.BASE_URL,
+  presetApiUrl: import.meta.env.VITE_PRESET_API_URL?.trim() || undefined,
 };

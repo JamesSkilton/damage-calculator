@@ -1,7 +1,12 @@
 import type { BattleCombatant } from 'domain/index';
 import { formatStatLine } from './pokemonSetParser';
 
-export function serializePokemonSet(combatant: BattleCombatant): string {
+export type SerializableSet = Pick<
+  BattleCombatant,
+  'name' | 'species' | 'gender' | 'item' | 'ability' | 'level' | 'teratype' | 'evs' | 'ivs' | 'nature' | 'moves'
+>;
+
+export function serializePokemonSet(combatant: SerializableSet): string {
   const baseName = combatant.name && combatant.name !== combatant.species
     ? `${combatant.name} (${combatant.species})`
     : combatant.species;

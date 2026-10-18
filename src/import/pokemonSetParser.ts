@@ -33,14 +33,17 @@ function parseHeader(line: string): { nickname?: string; species: string; item?:
 
   const left = match[1].trim();
   const item = match[2]?.trim() || undefined;
-  const nicknameMatch = left.match(/^(.*?)\s*\(([^()]+)\)$/);
-  const candidate = nicknameMatch?.[2].trim() || left;
-  const gender = candidate === 'M' || candidate === 'F' ? candidate : undefined;
-  const species = gender ? (nicknameMatch?.[1].trim() || '') : candidate;
+  const genderMatch = left.match(/\s+\(([MF])\)$/);
+  const withoutGender = genderMatch
+    ? left.slice(0, genderMatch.index).trim()
+    : left;
+  const nicknameMatch = withoutGender.match(/^(.*?)\s*\(([^()]+)\)$/);
+  const gender = genderMatch?.[1] as 'M' | 'F' | undefined;
+  const species = nicknameMatch?.[2].trim() || withoutGender;
   if (!species) return undefined;
 
   return {
-    nickname: !gender && nicknameMatch && species ? nicknameMatch[1].trim() || undefined : undefined,
+    nickname: nicknameMatch?.[1].trim() || undefined,
     species,
     item,
     gender,

@@ -9,6 +9,13 @@ export interface ImportedPokemonSet {
   id: string;
   generation: BattleGeneration;
   species: string;
+  buildName?: string;
+  trainerName?: string;
+  // Fight order within a library; trainers are ordered by their first Pokémon's index.
+  index?: number;
+  sourcePresetId?: string;
+  sourceLibraryId?: string;
+  remote?: boolean;
   nickname?: string;
   level: number;
   gender?: BattleGender;
