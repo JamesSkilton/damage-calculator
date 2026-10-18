@@ -4,6 +4,7 @@ import ModeScreen from 'components/ModeScreen';
 import { runtimeConfig } from 'config/runtimeConfig';
 import { calculatorModes } from 'modes/calculatorModes';
 import './App.scss';
+import PresetsPage from 'components/PresetsPage';
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
             element={<ModeScreen mode={mode} />}
           />
         ))}
+        <Route path="presets" element={<PresetsPage />} />
         <Route
           path="*"
           element={

@@ -32,4 +32,18 @@ Timid Nature
       'Set 2: unknown species "Missingno".',
     ]);
   });
+
+  it('parses a nickname and gender together', () => {
+    const result = parsePokemonSets(`Attacker (Pikachu) (M)
+Ability: Static
+- Thunderbolt`);
+
+    expect(result.errors).toEqual([]);
+    expect(result.sets[0]).toMatchObject({
+      species: 'Pikachu',
+      nickname: 'Attacker',
+      gender: 'M',
+      ability: 'Static',
+    });
+  });
 });
