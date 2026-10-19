@@ -46,6 +46,11 @@ import type { BattlePlanAction, BattlePlanRosterEntry } from 'domain/battlePlan'
 import Party from '../party/Party';
 import DefenderPresetRoster from './DefenderPresetRoster';
 import { buildBattleCalcBreakdowns } from 'adapters/battleCalc';
+import { evaluateBoxMatchup, type BoxMatchup } from 'adapters/boxMatchup';
+import {
+  loadMatchupSettings,
+  saveMatchupSettings,
+} from '../../import/matchupSettingsStorage';
 import './OneVsOneMode.scss';
 
 function createPlannerAction(): BattlePlanAction {
@@ -235,6 +240,54 @@ export default function OneVsOneMode() {
       defenderInitialId,
     };
   }, [activeTrainerGroups, activeTrainerName, attackerMoves.slots, availableSpecies, defenderMoves.slots, draft.attacker, draft.defender, importedSets, libraryBaseStats, selectedImportedSetIds.attacker, selectedPresetIds.defender]);
+
+  const [matchupSettings, setMatchupSettings] = useState(() =>
+    loadMatchupSettings(),
+  );
+  const matchupDefender = useMemo(() => {
+    const roster = plannerRosters.defenderRoster;
+    const switchedTo = isPlannerOpen
+      ? plannerActions.reduce<string | undefined>(
+          (active, action) =>
+            action.actor === 'defender' && action.type === 'switch'
+              ? action.targetPokemonId
+              : active,
+          undefined,
+        )
+      : undefined;
+    const entry =
+      roster.find((candidate) => candidate.id === switchedTo) ?? roster[0];
+    return {
+      label: entry.label,
+      combatant: entry.combatant,
+      moves: entry.moves,
+    };
+  }, [isPlannerOpen, plannerActions, plannerRosters.defenderRoster]);
+
+  const boxMatchups = useMemo(() => {
+    const target = {
+      generation,
+      defender: matchupDefender.combatant,
+      defenderMoves: matchupDefender.moves,
+      field,
+    };
+    const results = new Map<string, BoxMatchup>();
+    for (const set of importedSets) {
+      const matchup = evaluateBoxMatchup(
+        target,
+        {
+          combatant: applyLibraryBaseStats(
+            applyImportedPokemonSet(draft.attacker, set, availableSpecies),
+            libraryBaseStats,
+          ),
+          moves: set.moves.map((name) => createMoveDraft(name)),
+        },
+        matchupSettings,
+      );
+      if (matchup) results.set(set.id, matchup);
+    }
+    return results;
+  }, [availableSpecies, draft.attacker, field, generation, importedSets, libraryBaseStats, matchupDefender, matchupSettings]);
 
   useEffect(() => {
     setActiveTrainerName((current) =>
@@ -509,6 +562,13 @@ export default function OneVsOneMode() {
           importedSets={importedSets}
           onDeleteSet={deleteImportedSet}
           onSelectSet={(set) => selectImportedSet('attacker', set)}
+          matchups={boxMatchups}
+          matchupTargetLabel={matchupDefender.label}
+          matchupSettings={matchupSettings}
+          onMatchupSettingsChange={(settings) => {
+            setMatchupSettings(settings);
+            saveMatchupSettings(settings);
+          }}
         />
       </details>
 

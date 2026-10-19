@@ -9,6 +9,13 @@ import {
   savePartyPokemonSetIds,
 } from '../../import/pokemonSetStorage';
 import './Party.scss';
+import {
+  describeMatchupBadges,
+  type BoxMatchup,
+  type MatchupSettings,
+  type MatchupTier,
+  type SpeedRelation,
+} from 'adapters/boxMatchup';
 
 const PARTY_LIMIT = 6;
 
@@ -17,7 +24,40 @@ type PartyProps = {
   onDeleteSet: (id: string) => void;
   onSelectSet: (set: ImportedPokemonSet) => void;
   onPartyChange?: () => void;
+  matchups?: ReadonlyMap<string, BoxMatchup>;
+  matchupTargetLabel?: string;
+  matchupSettings?: MatchupSettings;
+  onMatchupSettingsChange?: (settings: MatchupSettings) => void;
 };
+
+const TIER_BACKGROUND: Record<MatchupTier, string> = {
+  excellent: 'bg-success-subtle',
+  good: 'bg-info-subtle',
+  neutral: '',
+  poor: 'bg-danger-subtle',
+  unknown: '',
+};
+
+const SPEED_LABEL: Record<SpeedRelation, string> = {
+  faster: 'Outspeeds',
+  tie: 'Does not outspeed',
+  slower: 'Does not outspeed',
+};
+
+function matchupTitle(matchup: BoxMatchup, target?: string): string {
+  const parts = [
+    `${SPEED_LABEL[matchup.speed]} ${target ?? 'target'} (${matchup.candidateSpeed} vs ${matchup.targetSpeed})`,
+  ];
+  if (matchup.bestMove && matchup.hitsToKo !== undefined) {
+    parts.push(`Best move: ${matchup.bestMove} (${matchup.hitsToKo}HKO)`);
+  }
+  if (matchup.threatMove && matchup.survivesHits !== undefined) {
+    parts.push(
+      `Strongest incoming: ${matchup.threatMove} (survives ${matchup.survivesHits})`,
+    );
+  }
+  return parts.join('\n');
+}
 
 function displayName(set: ImportedPokemonSet): string {
   return set.nickname || set.species;
@@ -28,6 +68,10 @@ export default function Party({
   onDeleteSet,
   onSelectSet,
   onPartyChange,
+  matchups,
+  matchupTargetLabel,
+  matchupSettings,
+  onMatchupSettingsChange,
 }: PartyProps) {
   const [partyIds, setPartyIds] = useState<string[]>(() =>
     loadPartyPokemonSetIds(),
@@ -160,6 +204,42 @@ export default function Party({
           <h3 id="party-box-title">Pokemon box</h3>
           <span>{importedSets.length} imported</span>
         </div>
+        {matchups && matchupSettings && onMatchupSettingsChange && (
+          <details className="small">
+            <summary>
+              Matchups vs {matchupTargetLabel ?? 'current defender'}
+            </summary>
+            <p className="mb-1">
+              A green border means it outspeeds; no green border means it
+              doesn’t. Fill: green is excellent, blue is good, red is poor.
+            </p>
+            <div className="d-flex flex-wrap gap-2">
+              {(
+                [
+                  ['surviveHits', 'Good if survives hits'],
+                  ['comboSurviveHits', 'Excellent: survives hits'],
+                  ['comboKoHits', 'Excellent: KOs in hits'],
+                ] as const
+              ).map(([key, label]) => (
+                <label key={key} className="d-flex align-items-center gap-1">
+                  <span>{label}</span>
+                  <input
+                    type="number"
+                    className="form-control form-control-sm"
+                    style={{ width: '4rem' }}
+                    min={1}
+                    max={10}
+                    value={matchupSettings[key]}
+                    onChange={(event) => {
+                      const value = Math.min(10, Math.max(1, Math.floor(Number(event.target.value)) || 1));
+                      onMatchupSettingsChange({ ...matchupSettings, [key]: value });
+                    }}
+                  />
+                </label>
+              ))}
+            </div>
+          </details>
+        )}
         {importedSets.length === 0 ? (
           <p className="party-empty">Import Pokemon sets from the One vs One calculator to see them here.</p>
         ) : (
@@ -177,10 +257,20 @@ export default function Party({
             {importedSets.map((set) => {
               const isSelected = partyIds.includes(set.id);
               const types = typesBySpecies.get(set.species) ?? [];
+              const matchup = matchups?.get(set.id);
+              const badges =
+                matchup && matchupSettings
+                  ? describeMatchupBadges(matchup, matchupSettings)
+                  : [];
               return (
                 <article
                   key={set.id}
-                  className={`party-card${isSelected ? ' selected' : ''}`}
+                  className={`party-card${isSelected ? ' selected' : ''}${
+                    matchup
+                      ? `${matchup.speed === 'faster' ? ' border-success border-2' : ''} ${TIER_BACKGROUND[matchup.tier]}`
+                      : ''
+                  }`}
+                  title={matchup ? matchupTitle(matchup, matchupTargetLabel) : undefined}
                   draggable
                   role="button"
                   tabIndex={0}
@@ -219,6 +309,18 @@ export default function Party({
                           <TypeBadges types={types} />
                         </span>
                       </div>
+                      {badges.length > 0 && (
+                        <div className="d-flex flex-wrap justify-content-center gap-1 mt-1">
+                          {badges.map((badge, index) => (
+                            <span
+                              key={`${set.id}-${badge}-${index}`}
+                              className="badge text-bg-secondary"
+                            >
+                              {badge}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </article>
