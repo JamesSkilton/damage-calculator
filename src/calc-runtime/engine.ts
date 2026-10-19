@@ -6,6 +6,7 @@ import {Move as CoreMove} from './core/move';
 import {Pokemon as CorePokemon} from './core/pokemon';
 import type {Result as CoreResult} from './core/result';
 import {toID} from './core/util';
+import {getFinalSpeed} from './core/mechanics/util';
 import type {CalcRuntimeInput} from './contracts';
 import {CalcRuntimeError} from './errors';
 import type * as CoreData from './core/data/interface';
@@ -111,4 +112,27 @@ export function calculateBattleRuntime({
   const field = createField(fieldInput);
 
   return calculateCore(generation, attacker, defender, move, field);
+}
+
+/** Final in-battle speed for one combatant, including boosts, items, abilities, status and tailwind. */
+export function calculateBattleSpeed({
+  generation: generationNumber,
+  combatant,
+  field: fieldInput,
+  side,
+}: {
+  generation: BattleCombatant['generation'];
+  combatant: BattleCombatant;
+  field: BattleField;
+  side: 'attacker' | 'defender';
+}): number {
+  const generation = getGeneration(generationNumber);
+  const pokemon = createPokemon(generation, combatant);
+  const field = createField(fieldInput);
+  return getFinalSpeed(
+    generation,
+    pokemon,
+    field,
+    side === 'attacker' ? field.attackerSide : field.defenderSide,
+  );
 }
