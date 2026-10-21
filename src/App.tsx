@@ -5,6 +5,8 @@ import { runtimeConfig } from 'config/runtimeConfig';
 import { calculatorModes } from 'modes/calculatorModes';
 import './App.scss';
 import PresetsPage from 'components/PresetsPage';
+import NuzlockePage from 'components/NuzlockePage';
+import NuzlockeGamesPage from 'components/NuzlockeGamesPage';
 
 function App() {
   return (
@@ -24,6 +26,8 @@ function App() {
           />
         ))}
         <Route path="presets" element={<PresetsPage />} />
+        <Route path="nuzlocke" element={<NuzlockePage />} />
+        <Route path="nuzlocke/games" element={<NuzlockeGamesPage />} />
         <Route
           path="*"
           element={

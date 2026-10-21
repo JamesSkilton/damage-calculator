@@ -2,6 +2,11 @@ import type { ImportedPokemonSet } from './pokemonSet';
 
 export const IMPORTED_POKEMON_SETS_KEY = 'pokemans.imported-pokemon-sets.v1';
 export const PARTY_POKEMON_SET_IDS_KEY = 'pokemans.party-pokemon-set-ids.v1';
+export const BOX_CHANGED_EVENT = 'pokemans.box-changed';
+
+function notifyBoxChanged(): void {
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(BOX_CHANGED_EVENT));
+}
 
 export function loadImportedPokemonSets(storage?: Storage): ImportedPokemonSet[] {
   if (!storage && typeof sessionStorage === 'undefined') return [];
@@ -20,6 +25,7 @@ export function saveImportedPokemonSets(
 ): void {
   if (!storage && typeof sessionStorage === 'undefined') return;
   (storage ?? sessionStorage).setItem(IMPORTED_POKEMON_SETS_KEY, JSON.stringify(sets));
+  notifyBoxChanged();
 }
 
 export function loadPartyPokemonSetIds(storage?: Storage): string[] {
@@ -41,6 +47,7 @@ export function savePartyPokemonSetIds(
 ): void {
   if (!storage && typeof sessionStorage === 'undefined') return;
   (storage ?? sessionStorage).setItem(PARTY_POKEMON_SET_IDS_KEY, JSON.stringify(ids));
+  notifyBoxChanged();
 }
 
 export function removeImportedPokemonSet(

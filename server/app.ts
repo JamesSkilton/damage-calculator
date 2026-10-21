@@ -3,6 +3,7 @@ import express, { type NextFunction, type Request, type Response } from 'express
 import { isUniqueViolation, query, withTransaction, type Db, type Queryable } from './db';
 import { generateCode, hashCode } from './codes';
 import { corsMiddleware, rateLimit } from './middleware';
+import { createNuzlockeRouter } from './nuzlocke';
 import {
   MAX_BATCH_PRESETS,
   MAX_LIBRARY_PRESETS,
@@ -479,6 +480,7 @@ export function createApp(db: Db, options: AppOptions = {}) {
   );
 
   app.use('/api/preset-libraries', router);
+  app.use('/api/nuzlockes', createNuzlockeRouter(db));
 
   app.use((error: unknown, _req: Request, res: Response, next: NextFunction) => {
     void next;

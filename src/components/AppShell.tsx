@@ -1,6 +1,12 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { runtimeConfig } from 'config/runtimeConfig';
+import { createNuzlockeClient } from '../nuzlocke/httpClient';
+import {
+  getActiveTarget,
+  restoreActiveRunBox,
+  startBoxSync,
+} from '../nuzlocke/activeRun';
 import { calculatorModes } from 'modes/calculatorModes';
 import type { BattleGeneration } from 'domain/index';
 import { battleGenerations } from './combatant/shared/combatantPanel.constants';
@@ -41,6 +47,30 @@ export default function AppShell() {
   const [selectedUserLibraryId, setSelectedUserLibraryId] = useState<
     string | undefined
   >(() => loadPresetLibraryCache()?.snapshot.library.id);
+  const nuzlockeClient = useMemo(
+    () =>
+      runtimeConfig.presetApiUrl
+        ? createNuzlockeClient(runtimeConfig.presetApiUrl)
+        : undefined,
+    [],
+  );
+  const [boxReady, setBoxReady] = useState(
+    () => !nuzlockeClient || !getActiveTarget(),
+  );
+
+  // Loads the active Nuzlocke run's box before screens read it, then keeps it saved.
+  useEffect(() => {
+    if (!nuzlockeClient) return;
+    let cancelled = false;
+    void restoreActiveRunBox(nuzlockeClient).finally(() => {
+      if (!cancelled) setBoxReady(true);
+    });
+    const stopSync = startBoxSync(nuzlockeClient);
+    return () => {
+      cancelled = true;
+      stopSync();
+    };
+  }, [nuzlockeClient]);
 
   useEffect(() => {
     const refreshUserLibraries = () => {
@@ -49,9 +79,15 @@ export default function AppShell() {
       setSelectedUserLibraryCode(active?.accessCode);
       setSelectedUserLibraryId(active?.snapshot.library.id);
     };
-    window.addEventListener('pokemans.preset-library-changed', refreshUserLibraries);
+    window.addEventListener(
+      'pokemans.preset-library-changed',
+      refreshUserLibraries,
+    );
     return () =>
-      window.removeEventListener('pokemans.preset-library-changed', refreshUserLibraries);
+      window.removeEventListener(
+        'pokemans.preset-library-changed',
+        refreshUserLibraries,
+      );
   }, []);
 
   return (
@@ -86,10 +122,16 @@ export default function AppShell() {
           <label className="shell-generation-field">
             <span>Preset library</span>
             <select
-              value={isUserLibrarySelected ? `user-library:${selectedUserLibraryId}` : presetLibraryId}
+              value={
+                isUserLibrarySelected
+                  ? `user-library:${selectedUserLibraryId}`
+                  : presetLibraryId
+              }
               onChange={(event) => {
                 if (event.target.value.startsWith('user-library:')) {
-                  const libraryId = event.target.value.slice('user-library:'.length);
+                  const libraryId = event.target.value.slice(
+                    'user-library:'.length,
+                  );
                   const entry = activateKnownPresetLibrary(libraryId);
                   setSelectedUserLibraryCode(entry?.accessCode);
                   setSelectedUserLibraryId(entry?.snapshot.library.id);
@@ -133,28 +175,51 @@ export default function AppShell() {
             </ul>
           </nav>
           <NavLink
-          to="/presets"
-          className={({ isActive }) =>
-            `mode-link${isActive ? ' active' : ''}`
-          }
+            to="/presets"
+            className={({ isActive }) =>
+              `mode-link${isActive ? ' active' : ''}`
+            }
           >
-          Preset manager
+            Preset manager
+          </NavLink>
+          <NavLink
+            to="/nuzlocke"
+            className={({ isActive }) =>
+              `mode-link${isActive ? ' active' : ''}`
+            }
+            end
+          >
+            Playthroughs
+          </NavLink>
+          <NavLink
+            to="/nuzlocke/games"
+            className={({ isActive }) =>
+              `mode-link${isActive ? ' active' : ''}`
+            }
+          >
+            Nuzlocke games
           </NavLink>
         </div>
       </header>
 
       <main id="main-content" className="shell-main">
-        <Outlet
-          context={{
-            pathname: location.pathname,
-            generation,
-            onGenerationChange: setGeneration,
-            presetLibraryId,
-            onPresetLibraryChange: setPresetLibraryId,
-            isUserLibrarySelected,
-            selectedUserLibraryCode,
-          } satisfies AppShellContext}
-        />
+        {boxReady ? (
+          <Outlet
+            context={
+              {
+                pathname: location.pathname,
+                generation,
+                onGenerationChange: setGeneration,
+                presetLibraryId,
+                onPresetLibraryChange: setPresetLibraryId,
+                isUserLibrarySelected,
+                selectedUserLibraryCode,
+              } satisfies AppShellContext
+            }
+          />
+        ) : (
+          <p className="text-body-secondary">Loading your Nuzlocke box…</p>
+        )}
       </main>
     </div>
   );
