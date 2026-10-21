@@ -182,4 +182,57 @@ describe.skipIf(!master)('preset library API', () => {
     expect(response.status).toBe(204);
     expect(response.headers.get('access-control-allow-origin')).toBe('http://app.test');
   });
+
+  describe('nuzlocke runs', () => {
+    const nuzlocke = (method: string, path: string, body?: unknown) =>
+      call(method, `/../nuzlockes${path}`, body);
+
+    it('creates a run from a game, saves encounters and box, and cascades with the library', async () => {
+      const { readCode, ownerCode } = await createLibrary();
+      const game = await nuzlocke('POST', `/${ownerCode}/games`, {
+        name: 'Emerald',
+        generation: 3,
+        routes: [{ name: 'Route 101', encounters: ['Zigzagoon'] }, { name: 'Route 102' }],
+      });
+      expect(game.status).toBe(201);
+      expect((await nuzlocke('POST', `/${ownerCode}/games`, { name: 'emerald', generation: 3 })).status).toBe(409);
+
+      const created = await nuzlocke('POST', `/${ownerCode}/runs`, { title: 'Run 1', gameId: game.body.game.id });
+      expect(created.status).toBe(201);
+      const run = created.body.run;
+      expect(run.encounters.map((entry: { route: string }) => entry.route)).toEqual(['Route 101', 'Route 102']);
+      expect(run.encounters[0].options).toEqual(['Zigzagoon']);
+
+      const encounters = [{ ...run.encounters[0], species: 'Zigzagoon', status: 'caught' }, run.encounters[1]];
+      const saved = await nuzlocke('PATCH', `/${ownerCode}/runs/${run.id}`, { revision: 1, encounters });
+      expect(saved.status).toBe(200);
+      const box = [{ id: 'set-1', species: 'Zigzagoon' }];
+      const boxed = await nuzlocke('PATCH', `/${ownerCode}/runs/${run.id}`, { revision: 2, box, partyIds: ['set-1'] });
+      expect(boxed.body.run).toMatchObject({ revision: 3, partyIds: ['set-1'] });
+      expect(boxed.body.run.encounters[0].species).toBe('Zigzagoon');
+      expect((await nuzlocke('PATCH', `/${ownerCode}/runs/${run.id}`, { revision: 2, box })).status).toBe(409);
+
+      const asReader = await nuzlocke('GET', `/${readCode}/runs/${run.id}`);
+      expect(asReader.body.run.box).toEqual(box);
+      expect((await nuzlocke('PATCH', `/${readCode}/runs/${run.id}`, { revision: 3, box })).status).toBe(403);
+
+      const overview = await nuzlocke('GET', `/${readCode}`);
+      expect(overview.body.runs[0]).toMatchObject({ title: 'Run 1', caught: 1, dead: 0, encounterCount: 2 });
+
+      expect((await nuzlocke('DELETE', `/${ownerCode}/games/${game.body.game.id}`)).status).toBe(204);
+      expect((await nuzlocke('GET', `/${ownerCode}/runs/${run.id}`)).body.run.gameName).toBe('Emerald');
+      expect((await nuzlocke('DELETE', `/${ownerCode}/runs/${run.id}`)).status).toBe(204);
+    });
+
+    it('rejects invalid encounters', async () => {
+      const { ownerCode } = await createLibrary();
+      const created = await nuzlocke('POST', `/${ownerCode}/runs`, { title: 'Run', gameName: 'Red', generation: 1 });
+      const run = created.body.run;
+      const response = await nuzlocke('PATCH', `/${ownerCode}/runs/${run.id}`, {
+        revision: 1,
+        encounters: [{ route: 'Route 1', status: 'caught' }],
+      });
+      expect(response.status).toBe(422);
+    });
+  });
 });

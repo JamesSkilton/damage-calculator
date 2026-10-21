@@ -58,6 +58,34 @@ const MIGRATIONS: string[] = [
   IF COL_LENGTH('preset_libraries', 'base_stats_json') IS NULL
     ALTER TABLE preset_libraries ADD base_stats_json NVARCHAR(MAX) NULL;
   `,
+  `
+  CREATE TABLE nuzlocke_games (
+    id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY,
+    library_id UNIQUEIDENTIFIER NOT NULL
+      CONSTRAINT FK_nuzlocke_games_library REFERENCES preset_libraries(id) ON DELETE CASCADE,
+    name NVARCHAR(80) COLLATE Latin1_General_100_CI_AS NOT NULL,
+    generation TINYINT NOT NULL,
+    routes_json NVARCHAR(MAX) NOT NULL,
+    created_at DATETIME2(3) NOT NULL,
+    updated_at DATETIME2(3) NOT NULL,
+    CONSTRAINT UQ_nuzlocke_games_name UNIQUE (library_id, name)
+  );
+
+  CREATE TABLE nuzlocke_runs (
+    id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY,
+    library_id UNIQUEIDENTIFIER NOT NULL
+      CONSTRAINT FK_nuzlocke_runs_library REFERENCES preset_libraries(id) ON DELETE CASCADE,
+    game_id UNIQUEIDENTIFIER NULL,
+    game_name NVARCHAR(80) NOT NULL,
+    title NVARCHAR(80) NOT NULL,
+    generation TINYINT NOT NULL,
+    data_json NVARCHAR(MAX) NOT NULL,
+    revision INT NOT NULL DEFAULT 1,
+    created_at DATETIME2(3) NOT NULL,
+    updated_at DATETIME2(3) NOT NULL
+  );
+  CREATE INDEX IX_nuzlocke_runs_library ON nuzlocke_runs(library_id);
+  `,
 ];
 
 export async function query<T = Record<string, unknown>>(
