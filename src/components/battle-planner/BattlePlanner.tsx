@@ -10,6 +10,10 @@ import type {
 } from 'domain/index';
 import { buildBattlePlanResults } from 'adapters/battlePlan';
 import { buildBattleCalcBreakdowns, type BattleCalcBreakdown } from 'adapters/battleCalc';
+import { calculateBattleSpeed } from 'calc-runtime';
+import { chooseAiSwitchIn, predictAiMoves } from 'adapters/runAndBunAi';
+import type { RankedSwitchIn } from 'ai/runAndBunAi';
+import { useActiveAiProfile } from '../../nuzlocke/useActiveAiProfile';
 import type { MoveOption } from '../combatant/moves/moveOptions';
 import { createMoveDraft, type MoveDraft } from '../combatant/moves/moveDraft';
 import SearchableTypePicker from '../combatant/shared/SearchableTypePicker';
@@ -139,6 +143,7 @@ export default function BattlePlanner({
   onActionsChange,
   onBack,
 }: BattlePlannerProps) {
+  const aiProfile = useActiveAiProfile();
   const results = useMemo(
     () =>
       buildBattlePlanResults({
@@ -176,7 +181,7 @@ export default function BattlePlanner({
   const reorderAction = (id: string, direction: -1 | 1) =>
     onActionsChange((current) => moveAction(current, id, direction));
 
-  const resetPlan = () => onActionsChange([createAction('attacker')]);
+  const resetPlan = () => onActionsChange([]);
 
   const getActorRoster = (actor: BattlePlanActor) =>
     actor === 'attacker' ? attackerRoster : defenderRoster;
@@ -189,6 +194,28 @@ export default function BattlePlanner({
     return getActorRoster(actor).find(
       (entry) => entry.id === (previous?.activePokemonId ?? initialId),
     ) ?? getActorRoster(actor)[0];
+  };
+
+  // The first step of a turn goes to the faster active Pokémon; the second goes to the other one.
+  const getNextActor = (): BattlePlanActor => {
+    const last = actions.at(-1);
+    if (last && actions.length % 2 === 1) {
+      return last.actor === 'attacker' ? 'defender' : 'attacker';
+    }
+
+    const index = actions.length;
+    const speedOf = (side: BattlePlanActor) =>
+      calculateBattleSpeed({
+        generation,
+        combatant: getActiveRosterEntry(side, index)?.combatant ?? (side === 'attacker' ? attacker : defender),
+        field,
+        side,
+      });
+    try {
+      return speedOf('defender') > speedOf('attacker') ? 'defender' : 'attacker';
+    } catch {
+      return last?.actor === 'attacker' ? 'defender' : 'attacker';
+    }
   };
 
   const getActorMoveOptions = (actor: BattlePlanActor, index: number): MoveOption[] => {
@@ -230,6 +257,91 @@ export default function BattlePlanner({
     });
   };
 
+  // New defender steps start on the AI's post-KO switch-in, or else its most likely move.
+  const createPlannedAction = (actor: BattlePlanActor, index = actions.length): BattlePlanAction => {
+    if (actor === 'defender') {
+      const [next] = getAiSwitchOrder(index);
+      if (next) {
+        return {
+          id: `defender-${Date.now()}-${Math.random()}`,
+          actor,
+          type: 'switch',
+          targetPokemonId: next.id,
+        };
+      }
+    }
+
+    const action = createAction(actor);
+    if (actor !== 'defender' || action.type !== 'move') {
+      return action;
+    }
+
+    const [top] = getAiPredictions(index);
+    return top ? { ...action, move: { ...action.move, name: top.name } } : action;
+  };
+
+  // Defender Pokémon that a guaranteed KO has already knocked out before this step.
+  const getFaintedIds = (index: number): Set<string> => {
+    const fainted = new Set<string>();
+    for (let step = 0; step < index; step++) {
+      const result = results[step];
+      if (!result?.isKo || result.error) continue;
+      const victim = result.action.actor === 'attacker' ? 'defender' : 'attacker';
+      const entry = getActiveRosterEntry(victim, step);
+      if (entry) fainted.add(entry.id);
+    }
+    return fainted;
+  };
+
+  // Roster ids the AI would bring in, best first, when its active Pokémon has fainted.
+  const getAiSwitchOrder = (index: number): RankedSwitchIn[] => {
+    if (aiProfile !== 'run-and-bun') return [];
+    const active = getActiveRosterEntry('defender', index);
+    const fainted = getFaintedIds(index);
+    if (!active || !fainted.has(active.id)) return [];
+
+    const playerEntry = getActiveRosterEntry('attacker', index);
+    const player = playerEntry?.combatant ?? attacker;
+    const candidates = defenderRoster.filter(
+      (entry) => entry.id !== active.id && !fainted.has(entry.id),
+    );
+    if (candidates.length === 0) return [];
+
+    return chooseAiSwitchIn({
+      generation,
+      player,
+      playerHp: results[index - 1]?.attackerHp.max ?? player.currentHp,
+      playerMoves: (playerEntry?.moves ?? attackerMoves).map((move) => move.name),
+      field,
+      candidates: candidates.map((entry) => ({
+        id: entry.id,
+        combatant: entry.combatant,
+        moves: entry.moves.map((move) => move.name),
+      })),
+    });
+  };
+
+  const getAiPredictions = (index: number) => {
+    if (aiProfile !== 'run-and-bun') return [];
+    const aiEntry = getActiveRosterEntry('defender', index);
+    const playerEntry = getActiveRosterEntry('attacker', index);
+    const previous = results[index - 1];
+    const ai = aiEntry?.combatant ?? defender;
+    const player = playerEntry?.combatant ?? attacker;
+    const lastDefenderAction = [...actions].reverse().find((item) => item.actor === 'defender');
+    return predictAiMoves({
+      generation,
+      ai,
+      player,
+      field,
+      aiHp: previous?.defenderHp.max ?? ai.currentHp,
+      playerHp: previous?.attackerHp.max ?? player.currentHp,
+      aiMoves: (aiEntry?.moves ?? defenderMoves).map((move) => move.name),
+      playerMoves: (playerEntry?.moves ?? attackerMoves).map((move) => move.name),
+      firstTurnOut: lastDefenderAction?.type !== 'move',
+    });
+  };
+
   const getSwitchOptions = (actor: BattlePlanActor, index: number): SwitchPokemonOption[] => {
     const activeId = getActiveRosterEntry(actor, index)?.id;
     return getActorRoster(actor)
@@ -255,6 +367,17 @@ export default function BattlePlanner({
       <div className="battle-planner-header d-flex justify-content-between gap-3 align-items-start">
         <div>
           <p className="battle-planner-kicker small fw-bold text-uppercase text-success mb-0">Battle planner</p>
+          {aiProfile === 'run-and-bun' && (
+            <span className="badge text-bg-success mt-1">
+              Opponent AI: Pokémon Run &amp; Bun (1.07)
+            </span>
+          )}
+          {!aiProfile && (
+            <p className="small text-body-secondary mb-0 mt-1">
+              Opponent AI: none. Enable one on the active run in the Nuzlocke
+              tracker to see move predictions here.
+            </p>
+          )}
         </div>
         <div className="battle-planner-header-actions d-flex gap-2">
           <button type="button" className="btn btn-sm btn-outline-secondary text-nowrap" onClick={onBack}>
@@ -263,14 +386,9 @@ export default function BattlePlanner({
           <button
             type="button"
             className="btn btn-sm btn-success text-nowrap"
-            onClick={() =>
-              onActionsChange((current) => [
-                ...current,
-                createAction(
-                  current.at(-1)?.actor === 'attacker' ? 'defender' : 'attacker',
-                ),
-              ])
-            }
+            onClick={() => {
+              onActionsChange((current) => [...current, createPlannedAction(getNextActor())]);
+            }}
           >
             + Add action
           </button>
@@ -292,6 +410,18 @@ export default function BattlePlanner({
             : actor;
           const actorName = actorEntry?.label ?? actor.name;
           const movePreviews = action.type === 'move' ? getMovePreviews(action, index) : [];
+          const aiPredictions = action.actor === 'defender' && action.type === 'move'
+            ? getAiPredictions(index)
+            : [];
+          const topAiPrediction = aiPredictions[0];
+          const selectedAiPrediction = action.type === 'move'
+            ? aiPredictions.find((prediction) => prediction.name === action.move.name)
+            : undefined;
+          const aiSwitchOrder = action.actor === 'defender' && action.type === 'switch'
+            ? getAiSwitchOrder(index)
+            : [];
+          const aiSwitchTop = aiSwitchOrder[0];
+          const aiSwitchChoice = defenderRoster.find((entry) => entry.id === aiSwitchTop?.id);
           return (
             <li
               key={action.id}
@@ -311,7 +441,8 @@ export default function BattlePlanner({
                     onChange={(event) => {
                       const actor = event.target.value as BattlePlanActor;
                       if (action.type === 'move') {
-                        updateAction(action.id, { actor, type: 'move', move: action.move });
+                        const planned = !action.move.name && actor === 'defender' ? createPlannedAction(actor, index) : undefined;
+                        updateAction(action.id, { actor, type: 'move', move: planned?.type === 'move' ? planned.move : action.move });
                       } else {
                         updateAction(action.id, { actor, type: 'switch', targetPokemonId: action.targetPokemonId });
                       }
@@ -345,6 +476,13 @@ export default function BattlePlanner({
                 {action.type === 'switch' ? (
                   <label className="col d-grid small fw-semibold text-secondary">
                     <span>Switch to</span>
+                    {aiSwitchChoice && (
+                      <span className="small fw-normal text-success mt-1" role="status">
+                        Run &amp; Bun AI would send in {aiSwitchChoice.label}
+                        {aiSwitchTop ? ` because ${aiSwitchTop.reason}` : ''}
+                        {action.targetPokemonId === aiSwitchChoice.id ? '. Pre-selected.' : '.'}
+                      </span>
+                    )}
                     <SearchableTypePicker
                       value={action.targetPokemonId}
                       options={getSwitchOptions(action.actor, index)}
@@ -368,6 +506,17 @@ export default function BattlePlanner({
                   <>
                     <div className="col d-grid small fw-semibold text-secondary" role="group" aria-label="Move">
                       <span>Move</span>
+                      {topAiPrediction && (
+                        <span className="small fw-normal text-success mt-1" role="status">
+                          Run &amp; Bun AI suggests {topAiPrediction.name}
+                          {' '}({Math.round(topAiPrediction.chance * 100)}%).
+                          {action.move.name === topAiPrediction.name
+                            ? ' Pre-selected.'
+                            : selectedAiPrediction
+                              ? ` ${action.move.name} has a ${Math.round(selectedAiPrediction.chance * 100)}% chance.`
+                              : ''}
+                        </span>
+                      )}
                       {movePreviews.length > 0 && (
                         <div className="battle-plan-move-previews d-flex flex-nowrap w-100 gap-1 mt-1" aria-label="Move damage previews">
                           {movePreviews.map(({ option, breakdown }) => {

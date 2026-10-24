@@ -13,12 +13,15 @@ import {
   deactivateRun,
   flushBoxSync,
   loadActiveRun,
+  notifyActiveRunChanged,
   syncEncountersToBox,
 } from '../nuzlocke/activeRun';
-import type {
-  NuzlockeOverview,
-  NuzlockeRun,
-  RunEncounter,
+import {
+  AI_PROFILES,
+  AI_PROFILE_LABELS,
+  type NuzlockeOverview,
+  type NuzlockeRun,
+  type RunEncounter,
 } from '../nuzlocke/types';
 
 function describe(error: unknown): string {
@@ -175,6 +178,20 @@ export default function NuzlockePage() {
     });
   };
 
+  const saveAiProfile = (value: string) => {
+    if (!run) return;
+    const aiProfile = AI_PROFILES.find((profile) => profile === value) ?? null;
+    void guarded(async () => {
+      const saved = await client.patchRun(ownerCode, run.id, { aiProfile });
+      setRun((current) =>
+        current?.id === saved.id
+          ? { ...current, aiProfile: saved.aiProfile, revision: saved.revision }
+          : current,
+      );
+      notifyActiveRunChanged();
+    });
+  };
+
   const games = overview?.games ?? [];
 
   return (
@@ -322,6 +339,28 @@ export default function NuzlockePage() {
             >
               Stop tracking
             </button>
+          </div>
+          <div className="d-flex align-items-center gap-2">
+            <label className="form-label mb-0" htmlFor="run-ai-profile">
+              Opponent AI
+            </label>
+            <select
+              id="run-ai-profile"
+              className="form-select form-select-sm w-auto"
+              disabled={busy}
+              value={run.aiProfile ?? ''}
+              onChange={(event) => saveAiProfile(event.target.value)}
+            >
+              <option value="">None</option>
+              {AI_PROFILES.map((profile) => (
+                <option key={profile} value={profile}>
+                  {AI_PROFILE_LABELS[profile]}
+                </option>
+              ))}
+            </select>
+            <small className="text-body-secondary">
+              Pre-fills the defender&apos;s move in the battle planner.
+            </small>
           </div>
           <RunEncounterTable
             encounters={run.encounters}

@@ -305,7 +305,11 @@ export function applyImportedPokemonSet(
   importedSet: ImportedPokemonSet,
   availableSpecies: readonly { name: string; types: readonly string[] }[],
 ): BattleCombatant {
-  const selected = setCombatantSpecies(combatant, importedSet.species, availableSpecies);
+  const selected = setCombatantSpecies(
+    combatant,
+    importedSet.species,
+    availableSpecies,
+  );
   return {
     ...selected,
     name: importedSet.nickname || importedSet.species,
@@ -374,7 +378,8 @@ export function toLegacyPokemonInput(
     currentHp: combatant.currentHp,
     status: combatant.status ?? '',
     toxicCounter: combatant.toxicCounter,
-    teraType: combatant.isTerastallized === false ? undefined : combatant.teratype,
+    teraType:
+      combatant.isTerastallized === false ? undefined : combatant.teratype,
     moves,
   };
 }

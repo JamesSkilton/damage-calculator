@@ -53,15 +53,6 @@ import {
 } from '../../import/matchupSettingsStorage';
 import './OneVsOneMode.scss';
 
-function createPlannerAction(): BattlePlanAction {
-  return {
-    id: `attacker-${Date.now()}-${Math.random()}`,
-    actor: 'attacker',
-    type: 'move',
-    move: createMoveDraft(),
-  };
-}
-
 export default function OneVsOneMode() {
   const {
     generation,
@@ -80,9 +71,7 @@ export default function OneVsOneMode() {
   );
   const [isResultsSwapped, setIsResultsSwapped] = useState(false);
   const [isPlannerOpen, setIsPlannerOpen] = useState(false);
-  const [plannerActions, setPlannerActions] = useState<BattlePlanAction[]>(() => [
-    createPlannerAction(),
-  ]);
+  const [plannerActions, setPlannerActions] =   useState<BattlePlanAction[]>([]);
   const [selectedImportedSetIds, setSelectedImportedSetIds] = useState<{
     attacker?: string;
     defender?: string;
@@ -443,6 +432,37 @@ export default function OneVsOneMode() {
       return updated;
     });
   };
+
+  // Pokémon added from a playthrough save automatically; other sets use the update button.
+  useEffect(() => {
+    const attackerId = selectedImportedSetIds.attacker;
+    if (!attackerId?.startsWith('nuzlocke-')) return;
+    const combatant = draft.attacker;
+    const moves = attackerMoves.slots.map((slot) => slot.name.trim()).filter(Boolean);
+    const fields = {
+      species: combatant.species,
+      level: combatant.level,
+      gender: combatant.gender,
+      ability: combatant.ability,
+      item: combatant.item,
+      nature: combatant.nature,
+      teraType: combatant.teratype,
+      evs: combatant.evs,
+      ivs: combatant.ivs,
+      moves,
+    };
+    const existing = importedSets.find((set) => set.id === attackerId);
+    if (!existing) return;
+    const unchanged = (Object.keys(fields) as (keyof typeof fields)[]).every(
+      (key) => JSON.stringify(existing[key]) === JSON.stringify(fields[key]),
+    );
+    if (unchanged) return;
+    const updated = importedSets.map((set) =>
+      set.id === attackerId ? { ...set, ...fields } : set,
+    );
+    setImportedSets(updated);
+    saveImportedPokemonSets(updated);
+  }, [attackerMoves.slots, draft.attacker, importedSets, selectedImportedSetIds.attacker]);
 
   const clearSelectedImportedSet = (role: 'attacker' | 'defender') => {
     setSelectedImportedSetIds((current) => ({
