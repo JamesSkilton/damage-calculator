@@ -7,6 +7,9 @@ export interface SpeciesOption {
   types: string[];
   displayName?: string;
   group?: string;
+  subGroup?: string;
+  disabled?: boolean;
+  className?: string;
   importedSetId?: string;
   presetId?: string;
 }

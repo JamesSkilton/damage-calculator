@@ -144,13 +144,18 @@ export default function GameManager({
               rows={10}
               defaultValue={editing ? routesToText(editing.routes) : ''}
               placeholder={
-                'Route 1: Pidgey, Rattata\nViridian Forest: Caterpie, Weedle, Pikachu\nPewter City'
+                'Route 101: Zigzagoon 45%, Wurmple 45%, Poochyena 10%\nRoute 119 [Grass]: Zigzagoon 45%, Oddish 55%\nRoute 119 [Surfing]: Tentacool 60%, Wingull 40%\nRoute 119 [Fishing]: Magikarp 70%, Barboach 30%\nMeteor Falls > 1F1 [Grass]: Zubat 50%, Lunatone 10%\nMeteor Falls > 1F1 [Surfing]: Golbat 100%\nMeteor Falls > 1F2 [Grass]: Golbat 30%, Solrock 10%\nRustboro City'
               }
             />
             <div className="form-text">
               One route per line, in the order you reach them. After a colon,
               list the species that can appear (comma separated); leave it off
-              to allow any species.
+              to allow any species. Add a percentage to a species (Pidgey 40%)
+              to show its encounter chance. For linked areas that count as one
+              encounter, repeat the route name with an area, e.g. Meteor Falls
+              &gt; 1F1: Zubat 50%, Lunatone 10%. Put a method in square brackets
+              (Route 119 [Grass]: …, [Surfing], [Fishing]) to give each method
+              its own percentages that add up together.
             </div>
           </div>
           <div className="d-flex gap-2">

@@ -107,6 +107,14 @@
   border-top: 0;
 }
 
+.type-option-subgroup {
+  padding: 4px 12px 3px 20px;
+  color: #475569;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: #f1f5f9;
+}
+
 .type-option:hover,
 .type-option.highlighted {
   background-color: var(--option-hover-bg, #f0f4ff);

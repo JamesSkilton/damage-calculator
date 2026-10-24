@@ -12,12 +12,14 @@ import {
   encountersForGame,
   summarizeEncounters,
   validateBox,
+  validateAiProfile,
   validateEncounters,
   validateGeneration,
   validatePartyIds,
   validateRoutes,
   validateTitle,
   type NuzlockeGame,
+  type AiProfile,
   type NuzlockeOverview,
   type NuzlockeRun,
   type NuzlockeRunSummary,
@@ -57,6 +59,7 @@ interface RunData {
   encounters: RunEncounter[];
   box: RunBoxSet[];
   partyIds: string[];
+  aiProfile?: AiProfile;
 }
 
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -95,6 +98,7 @@ const toRun = (row: RunRow): NuzlockeRun => {
     encounters: data.encounters,
     box: data.box,
     partyIds: data.partyIds,
+    aiProfile: data.aiProfile,
     revision: row.revision,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -411,6 +415,11 @@ export function createNuzlockeRouter(db: Db) {
           ? undefined
           : validatePartyIds(body.partyIds);
       if (party && !party.partyIds) return problems(party.messages);
+      const ai =
+        body.aiProfile === undefined
+          ? undefined
+          : validateAiProfile(body.aiProfile);
+      if (ai && ai.aiProfile === undefined) return problems(ai.messages);
 
       const run = await withTransaction(db, async (tx) => {
         const existing = await query<RunRow>(
@@ -428,6 +437,8 @@ export function createNuzlockeRouter(db: Db) {
           encounters: encounters?.encounters ?? data.encounters,
           box: box?.box ?? data.box,
           partyIds: party?.partyIds ?? data.partyIds,
+          aiProfile:
+            ai === undefined ? data.aiProfile : (ai.aiProfile ?? undefined),
         };
         await query(
           tx,

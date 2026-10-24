@@ -1,4 +1,11 @@
-import { Fragment, useState, useRef, useEffect, useLayoutEffect, useId } from 'react';
+import {
+  Fragment,
+  useState,
+  useRef,
+  useEffect,
+  useLayoutEffect,
+  useId,
+} from 'react';
 import TypeBadges from './TypeBadges';
 import './SearchableTypePicker.css';
 
@@ -14,10 +21,14 @@ type SearchableTypePickerProps<T extends { name: string }> = {
   getTypes: (option: T) => string[];
   getDisplayName?: (option: T) => string;
   getGroup?: (option: T) => string | undefined;
+  /** Optional second heading level nested inside a group. */
+  getSubGroup?: (option: T) => string | undefined;
   /** Optional extra metadata rendered after the type badges (e.g. move base power). */
   renderExtra?: (option: T) => React.ReactNode;
   /** Optional extra class name applied to an option's <li> (e.g. "status-move"). */
   getOptionClassName?: (option: T) => string;
+  /** Disabled options stay visible but cannot be selected. */
+  isOptionDisabled?: (option: T) => boolean;
   emptyMessage?: string;
 };
 
@@ -37,8 +48,10 @@ export default function SearchableTypePicker<T extends { name: string }>({
   getTypes,
   getDisplayName = (option) => option.name,
   getGroup,
+  getSubGroup,
   renderExtra,
   getOptionClassName,
+  isOptionDisabled,
   emptyMessage = 'No options found',
 }: SearchableTypePickerProps<T>) {
   const [isOpen, setIsOpen] = useState(false);
@@ -171,14 +184,16 @@ export default function SearchableTypePicker<T extends { name: string }>({
         setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : -1));
         break;
 
-      case 'Enter':
+      case 'Enter': {
         e.preventDefault();
-        if (highlightedIndex >= 0 && filteredOptions[highlightedIndex]) {
-          selectOption(filteredOptions[highlightedIndex].name);
-        } else if (filteredOptions.length > 0) {
-          selectOption(filteredOptions[0].name);
-        }
+        const highlighted = filteredOptions[highlightedIndex];
+        const choice =
+          highlighted && !isOptionDisabled?.(highlighted)
+            ? highlighted
+            : filteredOptions.find((option) => !isOptionDisabled?.(option));
+        if (choice) selectOption(choice.name);
         break;
+      }
 
       case 'Escape':
         e.preventDefault();
@@ -224,7 +239,9 @@ export default function SearchableTypePicker<T extends { name: string }>({
         {showSelectedChip && selectedOption && (
           <div className="type-picker-selected-chip" aria-hidden="true">
             <div className="type-option-content">
-              <span className="type-option-name">{getDisplayName(selectedOption)}</span>
+              <span className="type-option-name">
+                {getDisplayName(selectedOption)}
+              </span>
               <div className="type-option-metadata">
                 <TypeBadges types={getTypes(selectedOption)} />
                 {renderExtra?.(selectedOption)}
@@ -277,10 +294,23 @@ export default function SearchableTypePicker<T extends { name: string }>({
             filteredOptions.map((option, index) => {
               const previousOption = filteredOptions[index - 1];
               const group = getGroup?.(option);
-              const showGroup = group && (!previousOption || getGroup?.(previousOption) !== group);
+              const showGroup =
+                group &&
+                (!previousOption || getGroup?.(previousOption) !== group);
+              const subGroup = getSubGroup?.(option);
+              const showSubGroup =
+                subGroup &&
+                (showGroup ||
+                  !previousOption ||
+                  getSubGroup?.(previousOption) !== subGroup);
               return (
-                <Fragment key={option.name}>
+                <Fragment
+                  key={`${group ?? ''}:${subGroup ?? ''}:${option.name}`}
+                >
                   {showGroup && <li className="type-option-group">{group}</li>}
+                  {showSubGroup && (
+                    <li className="type-option-subgroup">{subGroup}</li>
+                  )}
                   <li
                     data-option-index={index}
                     className={`type-option ${
@@ -288,11 +318,17 @@ export default function SearchableTypePicker<T extends { name: string }>({
                     } ${getOptionClassName?.(option) ?? ''}`}
                     role="option"
                     aria-selected={value === option.name}
+                    aria-disabled={isOptionDisabled?.(option) || undefined}
                     onMouseEnter={() => handleOptionMouseEnter(index)}
-                    onClick={() => handleOptionClick(option.name)}
+                    onClick={() => {
+                      if (!isOptionDisabled?.(option))
+                        handleOptionClick(option.name);
+                    }}
                   >
                     <div className="type-option-content">
-                      <span className="type-option-name">{getDisplayName(option)}</span>
+                      <span className="type-option-name">
+                        {getDisplayName(option)}
+                      </span>
                       <div className="type-option-metadata">
                         <TypeBadges types={getTypes(option)} />
                         {renderExtra?.(option)}

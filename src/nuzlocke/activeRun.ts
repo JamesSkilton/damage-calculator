@@ -131,7 +131,10 @@ export function syncEncountersToBox(
   const wanted = new Map(
     encounters
       .filter((encounter) => encounter.status === 'caught' && encounter.species)
-      .map((encounter) => [`${ENCOUNTER_SET_PREFIX}${encounter.id}`, encounter]),
+      .map((encounter) => [
+        `${ENCOUNTER_SET_PREFIX}${encounter.id}`,
+        encounter,
+      ]),
   );
   const seen = new Set<string>();
   const next: RunBoxSet[] = [];

@@ -120,12 +120,8 @@ describe('combatantDraft', () => {
 
     expect(getEvValidationError(invested, 'spe', 259)).toContain('0–252');
     expect(getEvValidationError(invested, 'spe', 252)).toBeUndefined();
-    expect(
-      setCombatantStat(invested, 'evs', 'spe', 252).evs.spe,
-    ).toBe(252);
-    expect(
-      setCombatantStat(invested, 'evs', 'spe', 252).evs.spa,
-    ).toBe(252);
+    expect(setCombatantStat(invested, 'evs', 'spe', 252).evs.spe).toBe(252);
+    expect(setCombatantStat(invested, 'evs', 'spe', 252).evs.spa).toBe(252);
   });
 
   it('maps combatant drafts to legacy-compatible inputs', () => {

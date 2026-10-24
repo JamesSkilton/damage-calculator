@@ -4,10 +4,18 @@ import type { SpeciesOption } from '../combatant/species/speciesOptions';
 import {
   ENCOUNTER_STATUSES,
   createId,
+  formatRate,
+  spawnTables,
   summarizeEncounters,
+  type EncounterRates,
   type EncounterStatus,
   type RunEncounter,
 } from '../../nuzlocke/types';
+import {
+  adjustRates,
+  claimedFamilies,
+  familyOf,
+} from '../../nuzlocke/dupesClause';
 
 const STATUS_LABELS: Record<EncounterStatus, string> = {
   pending: 'Not visited',
@@ -33,15 +41,69 @@ export default function RunEncounterTable({
   const counts = useMemo(() => summarizeEncounters(encounters), [encounters]);
 
   const optionsFor = (encounter: RunEncounter): SpeciesOption[] => {
-    const names = encounter.options;
-    if (!names?.length) return speciesOptions;
-    return names.map(
-      (name) =>
-        speciesOptions.find((option) => option.name === name) ?? {
-          name,
-          types: [],
-        },
-    );
+    // Dupes clause: a species is blocked if its evolution line is already caught or dead.
+    const claimed = claimedFamilies(encounters, encounter.id);
+    const toOption = (
+      name: string,
+      rates: Record<string, number>,
+      groups: { group?: string; subGroup?: string } = {},
+    ): SpeciesOption => {
+      const base = speciesOptions.find((option) => option.name === name) ?? {
+        name,
+        types: [],
+      };
+      if (claimed.has(familyOf(name)))
+        return {
+          ...base,
+          displayName: `${name} (duplicate)`,
+          disabled: true,
+          className: 'text-body-secondary text-decoration-line-through',
+          ...groups,
+        };
+      return {
+        ...base,
+        ...(rates[name]
+          ? { displayName: `${name} (${formatRate(rates[name])})` }
+          : {}),
+        ...groups,
+      };
+    };
+    // Blocked species sink to the bottom; the rest sort by their adjusted chance.
+    const sorted = (names: readonly string[], rawRates: EncounterRates) => {
+      const rates = adjustRates(names, rawRates, claimed);
+      const rank = (name: string) =>
+        claimed.has(familyOf(name)) ? -1 : (rates[name] ?? 0);
+      return {
+        rates,
+        names: [...names].sort((a, b) => rank(b) - rank(a)),
+      };
+    };
+
+    // One table per area/method; several tables are listed under their own headings.
+    const tables = spawnTables(encounter);
+    if (tables.length === 0)
+      return speciesOptions.map((option) =>
+        claimed.has(familyOf(option.name))
+          ? {
+              ...option,
+              displayName: `${option.name} (duplicate)`,
+              disabled: true,
+              className: 'text-body-secondary text-decoration-line-through',
+            }
+          : option,
+      );
+    return tables.flatMap((table) => {
+      const { rates, names } = sorted(table.species, table.rates);
+      // Area heading with the method nested under it; method-only routes just get methods.
+      const groups =
+        tables.length > 1
+          ? {
+              group: table.area ?? table.method,
+              ...(table.area && table.method ? { subGroup: table.method } : {}),
+            }
+          : {};
+      return names.map((name) => toOption(name, rates, groups));
+    });
   };
 
   const update = (id: string, changes: Partial<RunEncounter>) =>
@@ -90,6 +152,7 @@ export default function RunEncounterTable({
               <tr key={encounter.id}>
                 <th scope="row" className="fw-normal">
                   {encounter.route}
+                 
                 </th>
                 <td>
                   <SearchablePokemonPicker
