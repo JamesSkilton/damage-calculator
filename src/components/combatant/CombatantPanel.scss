@@ -379,6 +379,43 @@
   font-size: 0.85rem;
 }
 
+.ev-row-nature-up,
+.ev-row-nature-down {
+  border-radius: 0.35rem;
+  padding: 0.2rem 0.3rem;
+}
+
+.ev-row-nature-up {
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.ev-row-nature-down {
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.ev-stat-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-weight: 600;
+}
+
+.ev-nature-indicator {
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.ev-nature-indicator-up {
+  color: #15803d;
+}
+
+.ev-nature-indicator-down {
+  color: #c2410c;
+}
+
 .ev-row input[type='range'] {
   width: 100%;
   accent-color: #4d9a72;

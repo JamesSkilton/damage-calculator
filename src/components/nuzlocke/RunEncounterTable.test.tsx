@@ -7,7 +7,8 @@ import { parseRoutesText } from '../../nuzlocke/gameText';
 import { encountersForGame } from '../../nuzlocke/types';
 
 afterEach(cleanup);
-if (!Element.prototype.scrollIntoView) Element.prototype.scrollIntoView = () => {};
+if (!Element.prototype.scrollIntoView)
+  Element.prototype.scrollIntoView = () => {};
 
 const text = `Route 106 [Surfing]: Sealeo 30%, Starmie 70%
 Route 106 [Fishing]: Spheal 50%, Staryu 50%
@@ -25,16 +26,18 @@ function open(routeName: string) {
       onChange={vi.fn()}
     />,
   );
-  fireEvent.focus(screen.getByRole('textbox', { name: `Pokémon for ${routeName}` }));
-  return screen.getByRole('listbox', { name: `Pokémon for ${routeName} options` });
+  fireEvent.focus(
+    screen.getByRole('textbox', { name: `Pokémon for ${routeName}` }),
+  );
+  return screen.getByRole('listbox', {
+    name: `Pokémon for ${routeName} options`,
+  });
 }
 
 describe('run dropdown headings', () => {
   it('shows method headings for a method-only route', () => {
     const list = open('Route 106');
-    expect(
-      Array.from(list.children).map((li) => li.textContent),
-    ).toEqual([
+    expect(Array.from(list.children).map((li) => li.textContent)).toEqual([
       'Surfing',
       'Starmie (70%)',
       'Sealeo (30%)',
