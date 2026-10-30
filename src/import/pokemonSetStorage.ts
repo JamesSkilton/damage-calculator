@@ -1,4 +1,5 @@
 import type { ImportedPokemonSet } from './pokemonSet';
+import { familyOf } from '../nuzlocke/dupesClause';
 
 export const IMPORTED_POKEMON_SETS_KEY = 'pokemans.imported-pokemon-sets.v1';
 export const PARTY_POKEMON_SET_IDS_KEY = 'pokemans.party-pokemon-set-ids.v1';
@@ -26,6 +27,28 @@ export function saveImportedPokemonSets(
   if (!storage && typeof sessionStorage === 'undefined') return;
   (storage ?? sessionStorage).setItem(IMPORTED_POKEMON_SETS_KEY, JSON.stringify(sets));
   notifyBoxChanged();
+}
+
+function importIdentity(set: Pick<ImportedPokemonSet, 'species' | 'nickname'>): string {
+  return `${familyOf(set.species)}\u0000${set.nickname ?? ''}`;
+}
+
+export function mergeImportedPokemonSets(
+  existing: readonly ImportedPokemonSet[],
+  incoming: readonly ImportedPokemonSet[],
+): ImportedPokemonSet[] {
+  const next = [...existing];
+  for (const set of incoming) {
+    const index = next.findIndex(
+      (candidate) => importIdentity(candidate) === importIdentity(set),
+    );
+    if (index < 0) {
+      next.push(set);
+      continue;
+    }
+    next[index] = { ...set, id: next[index].id };
+  }
+  return next;
 }
 
 export function loadPartyPokemonSetIds(storage?: Storage): string[] {
