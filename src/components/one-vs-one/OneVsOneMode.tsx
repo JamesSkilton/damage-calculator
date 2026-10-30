@@ -25,6 +25,7 @@ import { serializePokemonSet } from '../../import/pokemonSetSerializer';
 import {
   loadImportedPokemonSets,
   loadPartyPokemonSetIds,
+  mergeImportedPokemonSets,
   removeImportedPokemonSet,
   saveImportedPokemonSets,
 } from '../../import/pokemonSetStorage';
@@ -337,7 +338,7 @@ export default function OneVsOneMode() {
       id: `${set.id}-${Date.now()}-${index}`,
     }));
     setImportedSets((current) => {
-      const next = [...current, ...imported];
+      const next = mergeImportedPokemonSets(current, imported);
       saveImportedPokemonSets(next);
       return next;
     });

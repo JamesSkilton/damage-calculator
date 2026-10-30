@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   loadImportedPokemonSets,
   loadPartyPokemonSetIds,
+  mergeImportedPokemonSets,
   removeImportedPokemonSet,
   saveImportedPokemonSets,
   savePartyPokemonSetIds,
@@ -25,6 +26,31 @@ describe('pokemon set storage', () => {
 
     expect(loadImportedPokemonSets(storage)).toEqual([{ id: 'bulbasaur-0' }]);
     expect(loadPartyPokemonSetIds(storage)).toEqual(['bulbasaur-0']);
+  });
+
+  it('updates an existing imported set while preserving its id', () => {
+    const existing = [
+      { id: 'pidgey-0', species: 'Pidgey', nickname: 'Sparky', level: 10 },
+    ] as never[];
+    const incoming = [
+      {
+        id: 'pidgeotto-1',
+        species: 'Pidgeotto',
+        nickname: 'Sparky',
+        level: 25,
+      },
+      { id: 'eevee-0', species: 'Eevee', level: 12 },
+    ] as never[];
+
+    expect(mergeImportedPokemonSets(existing, incoming)).toEqual([
+      {
+        id: 'pidgey-0',
+        species: 'Pidgeotto',
+        nickname: 'Sparky',
+        level: 25,
+      },
+      { id: 'eevee-0', species: 'Eevee', level: 12 },
+    ]);
   });
 });
 

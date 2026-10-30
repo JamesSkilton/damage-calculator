@@ -7,6 +7,7 @@ import {
   saveImportedPokemonSets,
   savePartyPokemonSetIds,
 } from '../import/pokemonSetStorage';
+import { emptyStats } from '../import/pokemonSet';
 import type { RunEncounter } from './types';
 
 const encounter = (
@@ -41,6 +42,57 @@ describe('syncEncountersToBox', () => {
     expect(loadImportedPokemonSets()).toMatchObject([
       { id: 'nuzlocke-a', species: 'Rattata', moves: ['Tackle'] },
       { id: 'other', species: 'Mew' },
+    ]);
+  });
+
+  it('adopts an imported set for a matching caught encounter', () => {
+    saveImportedPokemonSets([
+      {
+        id: 'imported-pidgey',
+        generation: 3,
+        species: 'Pidgeotto',
+        level: 12,
+        nature: 'Jolly',
+        evs: emptyStats(0),
+        ivs: emptyStats(31),
+        moves: ['Tackle'],
+      },
+    ]);
+    savePartyPokemonSetIds(['imported-pidgey']);
+
+    syncEncountersToBox([encounter('a', 'caught', 'Pidgey')], 3);
+
+    expect(loadImportedPokemonSets()).toMatchObject([
+      {
+        id: 'nuzlocke-a',
+        species: 'Pidgey',
+        level: 12,
+        nature: 'Jolly',
+        moves: ['Tackle'],
+      },
+    ]);
+    expect(loadImportedPokemonSets()).toHaveLength(1);
+    expect(loadPartyPokemonSetIds()).toEqual(['nuzlocke-a']);
+  });
+
+  it('adopts an imported regional form for a matching encounter family', () => {
+    saveImportedPokemonSets([
+      {
+        id: 'imported-meowth',
+        generation: 8,
+        species: 'Meowth-Galar',
+        level: 20,
+        nature: 'Serious',
+        evs: emptyStats(0),
+        ivs: emptyStats(31),
+        moves: [],
+      },
+    ]);
+
+    syncEncountersToBox([encounter('galar', 'caught', 'Meowth')], 8);
+
+    expect(loadImportedPokemonSets()).toMatchObject([
+      { id: 'nuzlocke-galar', species: 'Meowth' },
     ]);
   });
 });

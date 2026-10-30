@@ -9,6 +9,7 @@ import {
   savePartyPokemonSetIds,
 } from '../import/pokemonSetStorage';
 import { emptyStats, type ImportedPokemonSet } from '../import/pokemonSet';
+import { familyOf } from './dupesClause';
 
 export { BOX_CHANGED_EVENT };
 export const ACTIVE_RUN_CHANGED_EVENT = 'pokemans.active-run-changed';
@@ -137,10 +138,28 @@ export function syncEncountersToBox(
       ]),
   );
   const seen = new Set<string>();
+  const partyIdRemap = new Map<string, string>();
   const next: RunBoxSet[] = [];
   for (const set of box) {
     if (!set.id.startsWith(ENCOUNTER_SET_PREFIX)) {
-      next.push(set);
+      const matchingEncounter = [...wanted.entries()].find(
+        ([id, encounter]) =>
+          !seen.has(id) &&
+          familyOf(encounter.species!) === familyOf(set.species),
+      );
+      if (!matchingEncounter) {
+        next.push(set);
+        continue;
+      }
+      const [id, encounter] = matchingEncounter;
+      seen.add(id);
+      partyIdRemap.set(set.id, id);
+      next.push({
+        ...set,
+        id,
+        species: encounter.species!,
+        nickname: encounter.nickname ?? set.nickname,
+      });
       continue;
     }
     const encounter = wanted.get(set.id);
@@ -167,11 +186,14 @@ export function syncEncountersToBox(
     });
   }
   const nextIds = new Set(next.map((set) => set.id));
-  const nextParty = partyIds.filter((id) => nextIds.has(id));
+  const nextParty = partyIds
+    .map((id) => partyIdRemap.get(id) ?? id)
+    .filter((id) => nextIds.has(id));
   if (JSON.stringify(next) !== JSON.stringify(box)) {
     saveImportedPokemonSets(next as unknown as ImportedPokemonSet[]);
   }
-  if (nextParty.length !== partyIds.length) savePartyPokemonSetIds(nextParty);
+  if (JSON.stringify(nextParty) !== JSON.stringify(partyIds))
+    savePartyPokemonSetIds(nextParty);
 }
 
 export function notifyActiveRunChanged(): void {
