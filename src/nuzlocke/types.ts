@@ -506,55 +506,6 @@ export function spawnTables(encounter: RunEncounter): SpawnTable[] {
   return narrowed.length > 0 ? narrowed : all;
 }
 
-// Runs keep their own copy of the game's routes. This refreshes the spawn data (species,
-// percentages, areas, methods) from the game while keeping what was caught, matched by route name.
-export function syncEncountersWithGame(
-  encounters: readonly RunEncounter[],
-  game: Pick<NuzlockeGame, 'routes'>,
-): RunEncounter[] {
-  const byRoute = new Map(
-    encounters.map((encounter) => [encounter.route.toLowerCase(), encounter]),
-  );
-  const used = new Set<string>();
-  const synced = encountersForGame(game).map((fresh) => {
-    const key = fresh.route.toLowerCase();
-    const existing = byRoute.get(key);
-    if (!existing) return fresh;
-    used.add(existing.id);
-    const merged: RunEncounter = {
-      id: existing.id,
-      route: fresh.route,
-      status: existing.status,
-      ...(existing.species ? { species: existing.species } : {}),
-      ...(existing.nickname ? { nickname: existing.nickname } : {}),
-      ...(fresh.options ? { options: fresh.options } : {}),
-      ...(fresh.rates ? { rates: fresh.rates } : {}),
-      ...(fresh.areas ? { areas: fresh.areas } : {}),
-      ...(fresh.methods ? { methods: fresh.methods } : {}),
-    };
-    const tables = spawnTables({ ...merged, method: undefined });
-    const area =
-      existing.area && tables.some((table) => table.area === existing.area)
-        ? existing.area
-        : undefined;
-    const method =
-      existing.method &&
-      tables.some(
-        (table) =>
-          table.method === existing.method && (!area || table.area === area),
-      )
-        ? existing.method
-        : undefined;
-    return {
-      ...merged,
-      ...(area ? { area } : {}),
-      ...(method ? { method } : {}),
-    };
-  });
-  // Routes added by hand that the game doesn't know about stay at the end.
-  return [...synced, ...encounters.filter((entry) => !used.has(entry.id))];
-}
-
 export function formatRate(rate: number): string {
   return `${Number(rate.toFixed(2))}%`;
 }

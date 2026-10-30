@@ -152,7 +152,6 @@ export default function RunEncounterTable({
               <tr key={encounter.id}>
                 <th scope="row" className="fw-normal">
                   {encounter.route}
-                 
                 </th>
                 <td>
                   <SearchablePokemonPicker

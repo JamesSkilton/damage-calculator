@@ -31,6 +31,9 @@ export default function CombatantStatGrids({
   const species = Array.from(generation.species).find(
     (option) => option.name === combatant.species,
   );
+  const nature = Array.from(generation.natures).find(
+    (option) => option.name === combatant.nature,
+  );
   const baseStats = combatant.baseStats ?? species?.baseStats;
   const calculatedStats = statIds.map((statId) => {
     const rawValue = species
@@ -104,8 +107,37 @@ export default function CombatantStatGrids({
           <span>Stat</span><span>Base</span><span>IV</span><span>EV</span><span>Investment</span><span>Boost</span><span>Final</span>
         </div>
         {statIds.map((statId) => (
-          <div key={statId} className="ev-row">
-            <span>{STAT_LABELS[statId]}</span>
+          <div
+            key={statId}
+            className={`ev-row ${
+              nature?.plus === statId
+                ? 'ev-row-nature-up'
+                : nature?.minus === statId
+                ? 'ev-row-nature-down'
+                : ''
+            }`}
+          >
+            <span className="ev-stat-label">
+              {STAT_LABELS[statId]}
+              {nature?.plus === statId && (
+                <span
+                  className="ev-nature-indicator ev-nature-indicator-up"
+                  aria-label="increased by nature"
+                  title="Increased by nature"
+                >
+                  ↑
+                </span>
+              )}
+              {nature?.minus === statId && (
+                <span
+                  className="ev-nature-indicator ev-nature-indicator-down"
+                  aria-label="decreased by nature"
+                  title="Decreased by nature"
+                >
+                  ↓
+                </span>
+              )}
+            </span>
             <span className="ev-base-stat">{baseStats?.[statId] ?? '—'}</span>
             <input
               className="ev-iv"
