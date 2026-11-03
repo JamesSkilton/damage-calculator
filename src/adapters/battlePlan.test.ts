@@ -184,7 +184,7 @@ describe('battle plan adapter', () => {
   it('applies status from moves like Thunder Wave and carries it into later steps', () => {
     const team = createTeamDraft(9);
     const attacker = { ...team.attacker, currentHp: 100, moves: ['Thunder Wave'] };
-    const defender = { ...team.defender, types: ['Normal'], currentHp: 100, moves: ['Tackle'] };
+    const defender = { ...team.defender, types: ['Normal'] as const, currentHp: 100, moves: ['Tackle'] };
     const wave = { name: 'Thunder Wave', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
     const results = buildBattlePlanResults({
       generation: 9,
