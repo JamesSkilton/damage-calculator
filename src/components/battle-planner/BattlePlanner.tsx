@@ -327,7 +327,7 @@ export default function BattlePlanner({
     });
 
   // Turns are derived: each "End of turn" step closes the turn it belongs to.
-  const turnNumbers = actions.reduce<number[]>((numbers, action, index) => {
+  const turnNumbers = actions.reduce<number[]>((numbers, _action, index) => {
     const previous = index === 0 ? 1 : numbers[index - 1] + (actions[index - 1].type === 'end-turn' ? 1 : 0);
     numbers.push(previous);
     return numbers;
@@ -802,7 +802,7 @@ export default function BattlePlanner({
             : [];
           const aiSwitchTop = aiSwitchOrder[0];
           const aiSwitchChoice = defenderRoster.find((entry) => entry.id === aiSwitchTop?.id);
-          if (action.type === 'end-turn') {
+          if (action.type === 'end-turn' || action.type === 'state') {
             return null;
           }
           return (

@@ -236,7 +236,7 @@ export function buildBattlePlanResults({
           attacker: opponent.combatant,
           defender: { ...entry.combatant, currentHp: getHp(entry).max },
           field: currentField,
-          moves: [{ ...action.move, name: opponent.moves[0]?.name || action.move.name || 'Tackle', skipped: false }],
+          moves: [{ ...action.move, name: opponent.moves[0]?.name || action.move.name || 'Tackle' }],
         })[0];
         if (probe?.details) {
           maxHpById.set(entry.id, probe.details.defenderMaxHp);
