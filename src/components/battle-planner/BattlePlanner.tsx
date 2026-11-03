@@ -7,17 +7,21 @@ import type {
   BattlePlanActor,
   BattlePlanMove,
   BattlePlanRosterEntry,
+  BattlePlanResidual,
+  BattlePlanStateAction,
 } from 'domain/index';
 import { buildBattlePlanResults } from 'adapters/battlePlan';
 import { buildBattleCalcBreakdowns, type BattleCalcBreakdown } from 'adapters/battleCalc';
 import { calculateBattleSpeed } from 'calc-runtime';
 import { chooseAiSwitchIn, predictAiMoves } from 'adapters/runAndBunAi';
+import { getMovePriority } from 'adapters/movePriority';
 import type { RankedSwitchIn } from 'ai/runAndBunAi';
 import { useActiveAiProfile } from '../../nuzlocke/useActiveAiProfile';
+import type { BattleStatId, BattleStatusName, BattleTerrain, BattleWeather } from 'domain/shared';
 import type { MoveOption } from '../combatant/moves/moveOptions';
 import { createMoveDraft, type MoveDraft } from '../combatant/moves/moveDraft';
 import SearchableTypePicker from '../combatant/shared/SearchableTypePicker';
-import HpRangeBar from '../shared/HpRangeBar';
+import HpRangeBar, { type HpRangeBarLoss } from '../shared/HpRangeBar';
 import PokemonSprite from '../shared/PokemonSprite';
 import './BattlePlanner.scss';
 
@@ -46,6 +50,26 @@ function createAction(actor: BattlePlanActor): BattlePlanAction {
     move: createMoveDraft(),
   };
 }
+
+type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
+
+const STATUS_OPTIONS: { value: BattleStatusName; label: string }[] = [
+  { value: 'slp', label: 'Asleep' },
+  { value: 'psn', label: 'Poisoned' },
+  { value: 'tox', label: 'Badly poisoned' },
+  { value: 'brn', label: 'Burned' },
+  { value: 'frz', label: 'Frozen' },
+  { value: 'par', label: 'Paralyzed' },
+];
+const WEATHER_OPTIONS: BattleWeather[] = ['Sun', 'Rain', 'Sand', 'Hail', 'Snow', 'Harsh Sunshine', 'Heavy Rain', 'Strong Winds'];
+const TERRAIN_OPTIONS: BattleTerrain[] = ['Electric', 'Grassy', 'Psychic', 'Misty'];
+const BOOST_STATS: { id: Exclude<BattleStatId, 'hp'>; label: string }[] = [
+  { id: 'atk', label: 'Atk' },
+  { id: 'def', label: 'Def' },
+  { id: 'spa', label: 'SpA' },
+  { id: 'spd', label: 'SpD' },
+  { id: 'spe', label: 'Spe' },
+];
 
 function formatHpRange(range: { min: number; max: number }): string {
   return range.min === range.max ? `${range.min}` : `${range.min}-${range.max}`;
@@ -78,14 +102,30 @@ type MovePreview = {
   breakdown: BattleCalcBreakdown;
 };
 
+const LOSS_KIND: Record<string, string> = {
+  burn: 'burn',
+  poison: 'poison',
+  toxic: 'poison',
+  sandstorm: 'weather',
+  hail: 'cold',
+};
+
+function toLosses(residual: BattlePlanResidual | undefined): HpRangeBarLoss[] {
+  return (residual?.parts ?? [])
+    .filter((part) => part.amount > 0)
+    .map((part) => ({ label: part.source, amount: part.amount, kind: LOSS_KIND[part.source] ?? 'item' }));
+}
+
 function PlannerHpRange({
   range,
   maxHp,
   label,
+  losses = [],
 }: {
   range: { min: number; max: number };
   maxHp: number;
   label: string;
+  losses?: readonly HpRangeBarLoss[];
 }) {
   if (maxHp <= 0) {
     return null;
@@ -104,28 +144,21 @@ function PlannerHpRange({
         max={range.max}
         maxHp={maxHp}
         label={label}
+        losses={losses}
       />
+      {losses.length > 0 && (
+        <div className="d-flex flex-wrap gap-1">
+          {losses.map((loss) => (
+            <span key={loss.label} className="small d-inline-flex align-items-center gap-1">
+              <span className={`hp-range-bar hp-range-bar-loss-${loss.kind} d-inline-block`} style={{ width: '0.6rem' }} />
+              {loss.label} -{loss.amount}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
-
-function moveAction(
-  actions: BattlePlanAction[],
-  id: string,
-  direction: -1 | 1,
-): BattlePlanAction[] {
-  const index = actions.findIndex((action) => action.id === id);
-  const nextIndex = index + direction;
-
-  if (index < 0 || nextIndex < 0 || nextIndex >= actions.length) {
-    return actions;
-  }
-
-  const next = [...actions];
-  [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
-  return next;
-}
-
 
 export default function BattlePlanner({
   generation,
@@ -160,7 +193,17 @@ export default function BattlePlanner({
     [actions, attacker, defender, field, generation, attackerRoster, defenderRoster, attackerRosterId, defenderRosterId],
   );
 
-  const updateAction = (id: string, updates: { actor: BattlePlanActor; type: 'move'; move: BattlePlanMove } | { actor: BattlePlanActor; type: 'switch'; targetPokemonId: string }) => {
+  // Field and status in effect before the given step, including any "Set state" corrections.
+  const fieldBefore = (index: number): BattleField => results[index - 1]?.field ?? field;
+  const withStatus = (entry: BattlePlanRosterEntry | undefined, fallback: BattleCombatant, index: number): BattleCombatant => {
+    const combatant = entry?.combatant ?? fallback;
+    const statuses = results[index - 1]?.statuses;
+    const boosts = results[index - 1]?.boosts;
+    const next = entry && statuses && entry.id in statuses ? { ...combatant, status: statuses[entry.id] } : combatant;
+    return entry && boosts?.[entry.id] ? { ...next, boosts: boosts[entry.id] } : next;
+  };
+
+  const updateAction = (id: string, updates: DistributiveOmit<BattlePlanAction, 'id'>) => {
     onActionsChange((current) =>
       current.map((action) =>
         action.id === id
@@ -170,16 +213,135 @@ export default function BattlePlanner({
     );
   };
 
-  const updateMove = (id: string, updates: Partial<BattlePlanMove>) => {
-    onActionsChange((current) => current.map((action) =>
-      action.id === id && action.type === 'move'
-        ? { ...action, move: { ...action.move, ...updates } }
-        : action,
-    ));
+  // HP/stat corrections made from a turn's bar live in one hidden "Set state" step per side,
+  // placed after the turn's actions and before its end-of-turn tick.
+  const setTurnState = (
+    turn: { stepIndices: number[]; summaryIndex?: number },
+    side: BattlePlanActor,
+    updates: Partial<Pick<BattlePlanStateAction, 'hp' | 'boosts' | 'status' | 'weather' | 'terrain'>>,
+  ) => {
+    onActionsChange((current) => {
+      const existing = turn.stepIndices
+        .map((index) => actions[index])
+        .find((item): item is BattlePlanStateAction => item.type === 'state' && item.source === 'turn' && item.actor === side);
+      const base: BattlePlanStateAction = existing ?? {
+        id: `state-${Date.now()}-${Math.random()}`,
+        actor: side,
+        type: 'state',
+        source: 'turn',
+      };
+      const next = { ...base, ...updates };
+      const empty = next.hp === undefined && !next.boosts && !next.status && !next.weather && !next.terrain;
+      if (existing) {
+        return empty
+          ? current.filter((item) => item.id !== existing.id)
+          : current.map((item) => (item.id === existing.id ? next : item));
+      }
+      if (empty) return current;
+      const anchorId = turn.summaryIndex !== undefined
+        ? actions[turn.summaryIndex].id
+        : actions[turn.stepIndices.at(-1)!].id;
+      const anchor = current.findIndex((item) => item.id === anchorId);
+      const insertAt = turn.summaryIndex !== undefined ? anchor : anchor + 1;
+      return [...current.slice(0, insertAt), next, ...current.slice(insertAt)];
+    });
   };
 
-  const reorderAction = (id: string, direction: -1 | 1) =>
-    onActionsChange((current) => moveAction(current, id, direction));
+  // Within a turn, the higher-priority move (or any switch) goes first; equal priority falls back to speed.
+  const orderTurnByPriority = (list: BattlePlanAction[], changedId: string): BattlePlanAction[] => {
+    const changedAt = list.findIndex((item) => item.id === changedId);
+    if (changedAt < 0) return list;
+    let start = changedAt;
+    while (start > 0 && list[start - 1].type !== 'end-turn') start--;
+    let end = changedAt;
+    while (end + 1 < list.length && list[end + 1].type !== 'end-turn') end++;
+    const slots = [];
+    for (let i = start; i <= end; i++) {
+      if (list[i].type === 'move' || list[i].type === 'switch') slots.push(i);
+    }
+    if (slots.length !== 2) return list;
+
+    const [a, b] = slots;
+    const first = list[a];
+    const second = list[b];
+    if (first.actor === second.actor) return list;
+
+    const priorityOf = (action: BattlePlanAction) =>
+      action.type === 'switch' ? 100 : action.type === 'move' && action.move.name && !action.move.skipped ? getMovePriority(generation, action.move.name) : 0;
+    const speedOf = (side: BattlePlanActor) => {
+      try {
+        return calculateBattleSpeed({
+          generation,
+          combatant: withStatus(getActiveRosterEntry(side, start), side === 'attacker' ? attacker : defender, start),
+          field: fieldBefore(start),
+          side,
+        });
+      } catch {
+        return 0;
+      }
+    };
+
+    const diff = priorityOf(second) - priorityOf(first) || speedOf(second.actor) - speedOf(first.actor);
+    if (diff <= 0) return list;
+    const next = [...list];
+    next[a] = second;
+    next[b] = first;
+    return next;
+  };
+
+  const updateMove = (id: string, updates: Partial<BattlePlanMove>) => {
+    onActionsChange((current) => {
+      const next = current.map((action) =>
+        action.id === id && action.type === 'move'
+          ? { ...action, move: { ...action.move, ...updates } }
+          : action,
+      );
+      return updates.name !== undefined || updates.skipped !== undefined ? orderTurnByPriority(next, id) : next;
+    });
+  };
+
+  const plannerStatusOf = (actor: BattlePlanActor, index: number): BattleStatusName | undefined => {
+    const entry = getActiveRosterEntry(actor, index);
+    const statuses = results[index - 1]?.statuses;
+    return entry && statuses && entry.id in statuses ? statuses[entry.id] : entry?.combatant.status;
+  };
+
+  const statusLabel = (status: BattleStatusName | undefined): string =>
+    STATUS_OPTIONS.find((option) => option.value === status)?.label ?? '';
+
+  const reorderTurn = (turnIndex: number, direction: -1 | 1) =>
+    onActionsChange((current) => {
+      const target = turnIndex + direction;
+      if (target < 0 || target >= turns.length) return current;
+      const byId = new Map(current.map((item) => [item.id, item]));
+      // End-of-turn markers stay in their slots so an open (unclosed) turn is never merged into its neighbour.
+      const slots = turns.map((turn) => ({
+        body: turn.stepIndices.filter((index) => actions[index].type !== 'end-turn').map((index) => actions[index].id),
+        end: turn.summaryIndex !== undefined ? actions[turn.summaryIndex].id : undefined,
+      }));
+      [slots[turnIndex].body, slots[target].body] = [slots[target].body, slots[turnIndex].body];
+      return slots
+        .flatMap((slot) => [...slot.body, ...(slot.end ? [slot.end] : [])])
+        .map((id) => byId.get(id))
+        .filter((item): item is BattlePlanAction => Boolean(item));
+    });
+
+  // Turns are derived: each "End of turn" step closes the turn it belongs to.
+  const turnNumbers = actions.reduce<number[]>((numbers, _action, index) => {
+    const previous = index === 0 ? 1 : numbers[index - 1] + (actions[index - 1].type === 'end-turn' ? 1 : 0);
+    numbers.push(previous);
+    return numbers;
+  }, []);
+  const turns = actions.reduce<{ number: number; stepIndices: number[]; summaryIndex?: number }[]>((groups, action, index) => {
+    const open = groups.at(-1);
+    if (!open || open.summaryIndex !== undefined) {
+      groups.push({ number: turnNumbers[index], stepIndices: [], summaryIndex: undefined });
+    }
+    const current = groups.at(-1)!;
+    if (action.type === 'end-turn') current.summaryIndex = index;
+    else current.stepIndices.push(index);
+    return groups;
+  }, []);
 
   const resetPlan = () => onActionsChange([]);
 
@@ -198,8 +360,12 @@ export default function BattlePlanner({
 
   // The first step of a turn goes to the faster active Pokémon; the second goes to the other one.
   const getNextActor = (): BattlePlanActor => {
-    const last = actions.at(-1);
-    if (last && actions.length % 2 === 1) {
+    const lastEndTurn = actions.map((item) => item.type).lastIndexOf('end-turn');
+    const turnActions = actions
+      .slice(lastEndTurn + 1)
+      .filter((item) => item.type === 'move' || item.type === 'switch');
+    const last = turnActions.at(-1);
+    if (last && turnActions.length % 2 === 1) {
       return last.actor === 'attacker' ? 'defender' : 'attacker';
     }
 
@@ -207,8 +373,8 @@ export default function BattlePlanner({
     const speedOf = (side: BattlePlanActor) =>
       calculateBattleSpeed({
         generation,
-        combatant: getActiveRosterEntry(side, index)?.combatant ?? (side === 'attacker' ? attacker : defender),
-        field,
+        combatant: withStatus(getActiveRosterEntry(side, index), side === 'attacker' ? attacker : defender, index),
+        field: fieldBefore(index),
         side,
       });
     try {
@@ -230,11 +396,9 @@ export default function BattlePlanner({
   };
 
   const getMovePreviews = (action: Extract<BattlePlanAction, { type: 'move' }>, index: number): MovePreview[] => {
-    const activeActor = getActiveRosterEntry(action.actor, index)?.combatant ??
-      (action.actor === 'attacker' ? attacker : defender);
+    const activeActor = withStatus(getActiveRosterEntry(action.actor, index), action.actor === 'attacker' ? attacker : defender, index);
     const targetActor = action.actor === 'attacker' ? 'defender' : 'attacker';
-    const activeTarget = getActiveRosterEntry(targetActor, index)?.combatant ??
-      (action.actor === 'attacker' ? defender : attacker);
+    const activeTarget = withStatus(getActiveRosterEntry(targetActor, index), action.actor === 'attacker' ? defender : attacker, index);
     const previousResult = results[index - 1];
     const actorHp = action.actor === 'attacker'
       ? previousResult?.attackerHp.max
@@ -247,7 +411,7 @@ export default function BattlePlanner({
       generation,
       attacker: { ...activeActor, currentHp: actorHp ?? activeActor.currentHp },
       defender: { ...activeTarget, currentHp: targetHp ?? activeTarget.currentHp },
-      field,
+      field: fieldBefore(index),
       moves: moveOptions.map((option) => ({ ...action.move, name: option.name })),
     });
 
@@ -286,6 +450,14 @@ export default function BattlePlanner({
     for (let step = 0; step < index; step++) {
       const result = results[step];
       if (!result?.isKo || result.error) continue;
+      if (result.action.type === 'end-turn') {
+        for (const side of ['attacker', 'defender'] as const) {
+          const hp = side === 'attacker' ? result.attackerHp : result.defenderHp;
+          const entry = getActiveRosterEntry(side, step);
+          if (hp.max === 0 && entry) fainted.add(entry.id);
+        }
+        continue;
+      }
       const victim = result.action.actor === 'attacker' ? 'defender' : 'attacker';
       const entry = getActiveRosterEntry(victim, step);
       if (entry) fainted.add(entry.id);
@@ -326,14 +498,14 @@ export default function BattlePlanner({
     const aiEntry = getActiveRosterEntry('defender', index);
     const playerEntry = getActiveRosterEntry('attacker', index);
     const previous = results[index - 1];
-    const ai = aiEntry?.combatant ?? defender;
-    const player = playerEntry?.combatant ?? attacker;
+    const ai = withStatus(aiEntry, defender, index);
+    const player = withStatus(playerEntry, attacker, index);
     const lastDefenderAction = [...actions].reverse().find((item) => item.actor === 'defender');
     return predictAiMoves({
       generation,
       ai,
       player,
-      field,
+      field: fieldBefore(index),
       aiHp: previous?.defenderHp.max ?? ai.currentHp,
       playerHp: previous?.attackerHp.max ?? player.currentHp,
       aiMoves: (aiEntry?.moves ?? defenderMoves).map((move) => move.name),
@@ -387,10 +559,33 @@ export default function BattlePlanner({
             type="button"
             className="btn btn-sm btn-success text-nowrap"
             onClick={() => {
-              onActionsChange((current) => [...current, createPlannedAction(getNextActor())]);
+              // Adds the whole turn: the faster side first, then the other, then closes the turn.
+              const lastEndTurn = actions.map((item) => item.type).lastIndexOf('end-turn');
+              const turnActions = actions.slice(lastEndTurn + 1).filter((item) => item.type === 'move' || item.type === 'switch');
+              const first = getNextActor();
+              const added: BattlePlanAction[] = [];
+              if (turnActions.length === 0) {
+                added.push(createPlannedAction(first), createPlannedAction(first === 'attacker' ? 'defender' : 'attacker'));
+              } else if (turnActions.length === 1) {
+                added.push(createPlannedAction(first));
+              } else {
+                added.push(createPlannedAction(first), createPlannedAction(first === 'attacker' ? 'defender' : 'attacker'));
+              }
+              added.push({ id: `end-turn-${Date.now()}-${Math.random()}`, actor: 'attacker', type: 'end-turn' });
+              onActionsChange((current) => [...current, ...added]);
             }}
           >
             + Add action
+          </button>
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-success text-nowrap"
+            onClick={() => onActionsChange((current) => [
+              ...current,
+              { id: `end-turn-${Date.now()}-${Math.random()}`, actor: 'attacker', type: 'end-turn' },
+            ])}
+          >
+            + End of turn
           </button>
           <button type="button" className="btn btn-sm btn-outline-secondary text-nowrap" onClick={resetPlan}>
             Reset plan
@@ -399,16 +594,201 @@ export default function BattlePlanner({
       </div>
 
       <ol className="battle-plan-list list-unstyled m-0 p-0 d-grid gap-3">
-        {actions.map((action, index) => {
+        {turns.map((turn, turnIndex) => (
+          <li key={turn.number} className="battle-plan-turn border rounded-3 overflow-hidden shadow-sm" aria-label={`Turn ${turn.number}`}>
+            <div className="d-flex align-items-center gap-2 px-3 py-2 bg-dark text-white">
+              <strong className="me-auto">Turn {turn.number}</strong>
+              <button
+                type="button"
+                className="battle-plan-turn-action btn btn-sm btn-outline-light"
+                onClick={() => reorderTurn(turnIndex, -1)}
+                disabled={turnIndex === 0}
+                aria-label={`Move turn ${turn.number} up`}
+              >
+                ↑
+              </button>
+              <button
+                type="button"
+                className="battle-plan-turn-action btn btn-sm btn-outline-light"
+                onClick={() => reorderTurn(turnIndex, 1)}
+                disabled={turnIndex === turns.length - 1}
+                aria-label={`Move turn ${turn.number} down`}
+              >
+                ↓
+              </button>
+              <button
+                type="button"
+                className="battle-plan-turn-action btn btn-sm btn-outline-danger"
+                onClick={() => {
+                  const ids = new Set(turn.stepIndices.map((index) => actions[index].id));
+                  if (turn.summaryIndex !== undefined) ids.add(actions[turn.summaryIndex].id);
+                  onActionsChange((current) => current.filter((item) => !ids.has(item.id)));
+                }}
+                aria-label={`Remove turn ${turn.number}`}
+                title="Remove turn"
+              >
+                ×
+              </button>
+            </div>
+            <div className="battle-plan-turn-steps p-2 p-sm-3">
+              {turn.stepIndices
+                .filter((index) => {
+                  const step = actions[index];
+                  return !(step.type === 'state');
+                })
+                .map((index) => renderStep(actions[index], index))}
+            </div>
+            {renderTurnFooter(turn)}
+          </li>
+        ))}
+      </ol>
+
+    </section>
+  );
+
+  // One bar per turn: each action's outcome, then end-of-turn residuals, then one HP bar per side.
+  function renderTurnFooter(turn: { number: number; stepIndices: number[]; summaryIndex?: number }) {
+    const summary = turn.summaryIndex !== undefined ? results[turn.summaryIndex] : undefined;
+    const lastIndex = turn.summaryIndex ?? turn.stepIndices.at(-1);
+    const lastActionIndex = turn.stepIndices.filter((index) => {
+      const step = actions[index];
+      return !(step.type === 'state');
+    }).at(-1);
+    const last = lastIndex !== undefined ? results[lastIndex] : undefined;
+    if (!last) return null;
+
+    const lines = turn.stepIndices.map((index) => ({ action: actions[index], step: results[index] }));
+
+    // Max HP is only known for a side once it has been the target of a step.
+    const maxHpFor = (side: BattlePlanActor): number => {
+      const known = last.maxHp[side];
+      if (known) return known;
+      const residualMax = summary?.residual?.[side]?.maxHp;
+      if (residualMax) return residualMax;
+      for (const { action, step } of [...lines].reverse()) {
+        if (step && !step.error && step.targetMaxHp > 0 && (action.type === 'move' ? action.actor !== side : action.actor === side)) {
+          return step.targetMaxHp;
+        }
+      }
+      return 0;
+    };
+
+    return (
+      <div className="battle-plan-summary d-flex align-items-start gap-3 p-2 p-sm-3 border-top bg-body-tertiary">
+        <div className="flex-grow-1 d-grid gap-2">
+          <div className="d-flex flex-wrap align-items-end gap-2 small fw-semibold text-secondary" role="group" aria-label={`Turn ${turn.number} field`}>
+            {([
+              { key: 'weather', label: 'Weather', options: WEATHER_OPTIONS, current: last.field.weather },
+              { key: 'terrain', label: 'Terrain', options: TERRAIN_OPTIONS, current: last.field.terrain },
+            ] as const).map(({ key, label, options, current }) => {
+              const attackerState = turn.stepIndices
+                .map((index) => actions[index])
+                .find((item): item is BattlePlanStateAction => item.type === 'state' && item.source === 'turn' && item.actor === 'attacker');
+              return (
+                <label key={key} className="d-grid">
+                  <span>{label}</span>
+                  <select
+                    className="form-select form-select-sm"
+                    value={attackerState?.[key] ?? ''}
+                    aria-label={`Turn ${turn.number} ${key}`}
+                    onChange={(event) => setTurnState(turn, 'attacker', { [key]: (event.target.value || undefined) as BattlePlanStateAction[typeof key] })}
+                  >
+                    <option value="">{attackerState?.[key] === undefined && current ? current : '—'}</option>
+                    <option value="none">None</option>
+                    {options.map((option) => <option key={option} value={option}>{option}</option>)}
+                  </select>
+                </label>
+              );
+            })}
+          </div>
+          <div className="battle-plan-summary-sides">
+            {(['attacker', 'defender'] as const).map((side) => {
+              const hp = side === 'attacker' ? last.attackerHp : last.defenderHp;
+              const maxHp = maxHpFor(side);
+              const label = summary?.residual?.[side]?.label ?? getActiveRosterEntry(side, lastIndex!)?.label ?? side;
+              if (maxHp <= 0) return null;
+              return (
+                <div key={side} className="small p-2 border rounded-2 bg-body">
+                  <PlannerHpRange range={hp} maxHp={maxHp} label={label} losses={toLosses(summary?.residual?.[side])} />
+                  {lastActionIndex !== undefined && (() => {
+                    const turnState = turn.stepIndices
+                      .map((index) => actions[index])
+                      .find((item): item is BattlePlanStateAction => item.type === 'state' && item.source === 'turn' && item.actor === side);
+                    const predicted = (side === 'attacker' ? results[lastActionIndex].attackerHp : results[lastActionIndex].defenderHp).max;
+                    const stageResult = results[lastIndex!]?.boosts[getActiveRosterEntry(side, lastIndex!)?.id ?? ''];
+                    const currentStatus = results[lastIndex!]?.statuses[getActiveRosterEntry(side, lastIndex!)?.id ?? ''];
+                    return (
+                      <details className="mt-2" open={Boolean(turnState)}>
+                        <summary className="small fw-semibold text-secondary">
+                          Adjust HP &amp; stats{turnState ? ' ✓' : ''}
+                        </summary>
+                        <div className="d-flex flex-wrap align-items-end gap-2 mt-2">
+                          <label className="d-grid small fw-semibold text-secondary">
+                            <span>HP</span>
+                            <input
+                              className="form-control form-control-sm battle-plan-number"
+                              type="number"
+                              min="0"
+                              max={maxHp}
+                              value={turnState?.hp ?? ''}
+                              placeholder={`${predicted}`}
+                              aria-label={`Turn ${turn.number} ${side} actual HP`}
+                              onChange={(event) => setTurnState(turn, side, {
+                                hp: event.target.value === '' ? undefined : Math.max(0, Math.floor(Number(event.target.value)) || 0),
+                              })}
+                            />
+                          </label>
+                          <label className="d-grid small fw-semibold text-secondary">
+                            <span>Status</span>
+                            <select
+                              className="form-select form-select-sm"
+                              value={turnState?.status ?? ''}
+                              aria-label={`Turn ${turn.number} ${side} status`}
+                              onChange={(event) => setTurnState(turn, side, { status: (event.target.value || undefined) as BattlePlanStateAction['status'] })}
+                            >
+                              <option value="">{turnState?.status === undefined && currentStatus ? `${currentStatus}` : '—'}</option>
+                              <option value="none">None</option>
+                              {STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                            </select>
+                          </label>
+                          {BOOST_STATS.map(({ id, label: statLabel }) => (
+                            <label key={id} className="d-grid small fw-semibold text-secondary">
+                              <span>{statLabel}</span>
+                              <select
+                                className="form-select form-select-sm"
+                                value={turnState?.boosts?.[id] ?? ''}
+                                aria-label={`Turn ${turn.number} ${side} ${statLabel} stage`}
+                                onChange={(event) => {
+                                  const rest = { ...turnState?.boosts };
+                                  delete rest[id];
+                                  const boosts = event.target.value === '' ? rest : { ...rest, [id]: Number(event.target.value) };
+                                  setTurnState(turn, side, { boosts: Object.keys(boosts).length > 0 ? boosts : undefined });
+                                }}
+                              >
+                                <option value="">{turnState?.boosts?.[id] === undefined && stageResult?.[id] ? `${stageResult[id]! > 0 ? '+' : ''}${stageResult[id]}` : '—'}</option>
+                                {Array.from({ length: 13 }, (_, i) => i - 6).map((stage) => (
+                                  <option key={stage} value={stage}>{stage > 0 ? `+${stage}` : stage}</option>
+                                ))}
+                              </select>
+                            </label>
+                          ))}
+                        </div>
+                      </details>
+                    );
+                  })()}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function renderStep(action: BattlePlanAction, index: number) {
           const result = results[index];
           const actorEntry = getActiveRosterEntry(action.actor, index);
           const actor = actorEntry?.combatant ?? (action.actor === 'attacker' ? attacker : defender);
-          const targetEntry = getActiveRosterEntry(action.actor === 'attacker' ? 'defender' : 'attacker', index);
-          const target = targetEntry?.combatant ?? (action.actor === 'attacker' ? defender : attacker);
-          const resultActor = action.type === 'switch' && result?.activePokemonId
-            ? getActorRoster(action.actor).find((entry) => entry.id === result.activePokemonId)?.combatant ?? actor
-            : actor;
-          const actorName = actorEntry?.label ?? actor.name;
           const movePreviews = action.type === 'move' ? getMovePreviews(action, index) : [];
           const aiPredictions = action.actor === 'defender' && action.type === 'move'
             ? getAiPredictions(index)
@@ -422,10 +802,13 @@ export default function BattlePlanner({
             : [];
           const aiSwitchTop = aiSwitchOrder[0];
           const aiSwitchChoice = defenderRoster.find((entry) => entry.id === aiSwitchTop?.id);
+          if (action.type === 'end-turn' || action.type === 'state') {
+            return null;
+          }
           return (
-            <li
+            <div
               key={action.id}
-              className={`battle-plan-row row g-2 align-items-start flex-nowrap p-2 p-sm-3 border rounded-3 bg-body-tertiary shadow-sm${result?.isKo ? ' border-success-subtle bg-success-subtle' : ''}${result?.error ? ' border-danger-subtle bg-danger-subtle' : ''}`}
+              className={`battle-plan-row battle-plan-step row g-2 align-items-start flex-wrap p-2 p-sm-3 border rounded-3 bg-body-tertiary${result?.isKo ? ' border-success-subtle bg-success-subtle' : ''}${result?.error ? ' border-danger-subtle bg-danger-subtle' : ''}`}
             >
               <PokemonSprite
                 className="battle-plan-sprite col-auto align-self-center"
@@ -456,12 +839,17 @@ export default function BattlePlanner({
                 <label className="d-grid flex-shrink-0 small fw-semibold text-secondary">
                   <span>Action</span>
                   <select
-                    value={action.type}
+                    value={action.type === 'move' && action.move.skipped ? 'skip' : action.type}
                     onChange={(event) => {
                       if (event.target.value === 'switch') {
                         const activeId = getActiveRosterEntry(action.actor, index)?.id;
                         const targetId = getActorRoster(action.actor).find((entry) => entry.id !== activeId)?.id ?? activeId ?? '';
                         updateAction(action.id, { actor: action.actor, type: 'switch', targetPokemonId: targetId });
+                      } else if (event.target.value === 'skip') {
+                        if (action.type === 'move') updateMove(action.id, { skipped: true });
+                        else updateAction(action.id, { actor: action.actor, type: 'move', move: { ...createMoveDraft(), skipped: true } });
+                      } else if (action.type === 'move') {
+                        updateMove(action.id, { skipped: false });
                       } else {
                         updateAction(action.id, { actor: action.actor, type: 'move', move: createMoveDraft() });
                       }
@@ -469,6 +857,11 @@ export default function BattlePlanner({
                     className="form-select form-select-sm"
                   >
                     <option value="move">Move</option>
+                    <option value="skip">
+                      {plannerStatusOf(action.actor, index)
+                        ? `No move (${statusLabel(plannerStatusOf(action.actor, index))})`
+                        : 'No move'}
+                    </option>
                     <option value="switch">Switch</option>
                   </select>
                 </label>
@@ -521,14 +914,14 @@ export default function BattlePlanner({
                         <div className="battle-plan-move-previews d-flex flex-nowrap w-100 gap-1 mt-1" aria-label="Move damage previews">
                           {movePreviews.map(({ option, breakdown }) => {
                             const details = breakdown.details;
-                            const isSelected = action.move.name === option.name;
+                            const isSelected = action.move.name === option.name && !action.move.skipped;
                             return (
                               <button
                                 key={option.name}
                                 type="button"
                                 className={`battle-plan-move-preview btn btn-sm d-grid gap-1 text-start fw-normal${isSelected ? ' btn-success' : ' btn-outline-secondary text-body'}`}
                                 aria-pressed={isSelected}
-                                onClick={() => updateMove(action.id, { name: option.name })}
+                                onClick={() => updateMove(action.id, { name: option.name, skipped: false })}
                               >
                                 <span className={`d-flex justify-content-between gap-2 small${isSelected ? ' text-white' : ''}`}>
                                   <strong>{option.name}</strong>
@@ -568,68 +961,8 @@ export default function BattlePlanner({
                     </div>
                   </>
                 )}
-                <div className="d-flex flex-column align-items-center gap-1 text-nowrap">
-                  <div className="battle-plan-order d-flex flex-column gap-1" aria-label={`Reorder plan step ${index + 1}`}>
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-outline-secondary p-0"
-                      onClick={() => reorderAction(action.id, -1)}
-                      disabled={index === 0}
-                      aria-label={`Move plan step ${index + 1} up`}
-                    >
-                      ↑
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-outline-secondary p-0"
-                      onClick={() => reorderAction(action.id, 1)}
-                      disabled={index === actions.length - 1}
-                      aria-label={`Move plan step ${index + 1} down`}
-                    >
-                      ↓
-                    </button>
-                  </div>
-                  <button
-                    type="button"
-                    className="battle-plan-remove btn btn-sm btn-outline-danger d-flex align-items-center justify-content-center p-0"
-                    onClick={() => onActionsChange((current) => current.filter((item) => item.id !== action.id))}
-                    aria-label={`Remove plan step ${index + 1}`}
-                  >
-                    ×
-                  </button>
-                </div>
               </div>
-              <div className="battle-plan-result col-auto text-body-secondary">
-                <div className="battle-plan-result-copy d-grid gap-1">
-                  <strong className="text-body fs-6">{result?.error ? result.error : action.type === 'switch' ? `Switched to ${result?.activePokemonLabel ?? 'Pokemon'} (0 damage)` : result?.isKo ? 'KO' : `${result?.damage.min ?? 0}-${result?.damage.max ?? 0} damage`}</strong>
-                  {result && !result.error && (
-                    <span className="small lh-sm">
-                      {actorName} → {result.isKo ? 'KO' : action.actor === 'attacker'
-                        ? `Defender ${formatHpRange(result.defenderHp)} HP`
-                        : `Attacker ${formatHpRange(result.attackerHp)} HP`}
-                    </span>
-                  )}
-                </div>
-                {result && !result.error && (
-                  <>
-                    <PlannerHpRange
-                      range={result.targetHp}
-                      maxHp={result.targetMaxHp}
-                      label={action.type === 'switch' ? result.activePokemonLabel ?? 'Pokemon' : action.actor === 'attacker' ? 'Defender' : 'Attacker'}
-                    />
-                    <PokemonSprite
-                      className="battle-plan-result-sprite"
-                      name={(action.type === 'switch' ? resultActor : target).species || (action.type === 'switch' ? resultActor : target).name}
-                      alt={(action.type === 'switch' ? resultActor : target).name || (action.type === 'switch' ? resultActor : target).species}
-                    />
-                  </>
-                )}
-              </div>
-            </li>
+            </div>
           );
-        })}
-      </ol>
-
-    </section>
-  );
+  }
 }

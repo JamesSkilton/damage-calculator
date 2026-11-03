@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import type { AppShellContext } from '../AppShell';
 import CombatantPanel from '../combatant/CombatantPanel';
@@ -46,6 +46,7 @@ import BattlePlanner from '../battle-planner/BattlePlanner';
 import type { BattlePlanAction, BattlePlanRosterEntry } from 'domain/battlePlan';
 import Party from '../party/Party';
 import DefenderPresetRoster from './DefenderPresetRoster';
+import { loadOneVsOneProgress, saveOneVsOneProgress } from './oneVsOneProgress';
 import { buildBattleCalcBreakdowns } from 'adapters/battleCalc';
 import { evaluateBoxMatchup, type BoxMatchup } from 'adapters/boxMatchup';
 import {
@@ -62,6 +63,8 @@ export default function OneVsOneMode() {
     selectedUserLibraryCode,
   } =
     useOutletContext<AppShellContext>();
+  const progressKey = `${isUserLibrarySelected ? `user:${selectedUserLibraryCode ?? ''}` : `builtin:${presetLibraryId}`}:${generation}`;
+  const initialProgress = loadOneVsOneProgress(progressKey);
   const [rawDraft, setDraft] = useState(() => createTeamDraft(generation));
   const [field, setField] = useState(() => createBattleFieldDraft(generation));
   const [attackerMoves, setAttackerMoves] = useState(() =>
@@ -76,12 +79,17 @@ export default function OneVsOneMode() {
   const [selectedImportedSetIds, setSelectedImportedSetIds] = useState<{
     attacker?: string;
     defender?: string;
-  }>({});
+  }>(() => (isUserLibrarySelected ? { defender: initialProgress.defenderId } : {}));
   const [selectedPresetIds, setSelectedPresetIds] = useState<{
     attacker?: string;
     defender?: string;
-  }>({});
-  const [activeTrainerName, setActiveTrainerName] = useState<string>();
+  }>(() => (!isUserLibrarySelected ? { defender: initialProgress.defenderId } : {}));
+  const [activeTrainerName, setActiveTrainerName] = useState<string | undefined>(
+    initialProgress.trainerName,
+  );
+  const previousGeneration = useRef(generation);
+  const previousPresetLibraryId = useRef(presetLibraryId);
+  const restoredProgressKey = useRef<string | undefined>(undefined);
   const [importedSets, setImportedSets] = useState<ImportedPokemonSet[]>(() =>
     loadImportedPokemonSets(),
   );
@@ -131,7 +139,12 @@ export default function OneVsOneMode() {
       ...current,
       generation,
     }));
-    setSelectedPresetIds({});
+    if (previousGeneration.current !== generation) {
+      setSelectedPresetIds({});
+      setSelectedImportedSetIds({});
+      setActiveTrainerName(undefined);
+      previousGeneration.current = generation;
+    }
   }, [generation]);
 
   const availableMoves = useMemo(
@@ -288,9 +301,27 @@ export default function OneVsOneMode() {
   }, [activeTrainerGroups]);
 
   useEffect(() => {
-    setSelectedPresetIds({});
-    setActiveTrainerName(undefined);
+    if (previousPresetLibraryId.current !== presetLibraryId) {
+      setSelectedPresetIds({});
+      setActiveTrainerName(undefined);
+      previousPresetLibraryId.current = presetLibraryId;
+    }
   }, [presetLibraryId]);
+
+  useEffect(() => {
+    saveOneVsOneProgress(progressKey, {
+      trainerName: activeTrainerName,
+      defenderId: isUserLibrarySelected
+        ? selectedImportedSetIds.defender
+        : selectedPresetIds.defender,
+    });
+  }, [
+    activeTrainerName,
+    isUserLibrarySelected,
+    progressKey,
+    selectedImportedSetIds.defender,
+    selectedPresetIds.defender,
+  ]);
 
   const attackerResults = useMemo(
     () =>
@@ -383,6 +414,33 @@ export default function OneVsOneMode() {
     });
     (role === 'attacker' ? setAttackerMoves : setDefenderMoves)(updateMoves);
   };
+
+  // Restore once the library roster is available; the ref prevents repeat application.
+  useEffect(() => {
+    if (
+      restoredProgressKey.current === progressKey ||
+      !initialProgress.defenderId
+    ) {
+      return;
+    }
+    const preset = activeTrainerGroups
+      .flatMap((group) => group.presets)
+      .find((entry) => entry.id === initialProgress.defenderId);
+    if (!preset) return;
+    restoredProgressKey.current = progressKey;
+    if (isUserLibrarySelected) {
+      selectImportedSet('defender', preset);
+    } else {
+      selectPreset('defender', preset);
+    }
+  // The restore guard makes these callbacks safe to omit from the dependency list.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    activeTrainerGroups,
+    initialProgress.defenderId,
+    isUserLibrarySelected,
+    progressKey,
+  ]);
 
   const updateImportedSet = (role: 'attacker' | 'defender') => {
     const setId = selectedImportedSetIds[role];
