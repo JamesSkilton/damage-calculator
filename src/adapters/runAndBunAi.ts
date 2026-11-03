@@ -30,20 +30,7 @@ export interface RunAndBunPredictionInput {
   firstTurnOut: boolean;
 }
 
-const priorityCache = new Map<BattleGeneration, Map<string, number>>();
-
-function movePriorities(generation: BattleGeneration): Map<string, number> {
-  let priorities = priorityCache.get(generation);
-  if (!priorities) {
-    priorities = new Map();
-    for (const move of Generations.get(generation).moves) {
-      priorities.set(move.name, move.priority ?? 0);
-    }
-    priorityCache.set(generation, priorities);
-  }
-  return priorities;
-}
-
+import { movePriorities } from 'adapters/movePriority';
 function moveCategories(
   generation: BattleGeneration,
 ): Map<string, AiMoveCategory> {

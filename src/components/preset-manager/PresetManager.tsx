@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { BattleGeneration } from 'domain/index';
 import type { ImportedPokemonSet } from '../../import/pokemonSet';
-import type { PokemonPreset, PresetLibraryId } from '../../import/legacySets/legacyPresetCatalog';
+import type { PokemonPreset } from '../../import/legacySets/legacyPresetCatalog';
 import { loadKnownPresetLibraryCaches } from '../../presets/remote/presetLibraryCache';
 import type { UserPresetLibraryState } from '../../presets/remote/useUserPresetLibrary';
 import type { MoveOption } from '../combatant/moves/moveOptions';
@@ -11,6 +11,11 @@ import BuiltInLibraryDetail from './BuiltInLibraryDetail';
 import LibraryDetail from './LibraryDetail';
 import TrainerEditor from './TrainerEditor';
 import { summarizeLibrary } from './presetManagerUtils';
+import {
+  loadPresetManagerView,
+  savePresetManagerView,
+  type PresetManagerView,
+} from './presetManagerView';
 
 type PresetManagerProps = {
   library: UserPresetLibraryState;
@@ -22,12 +27,6 @@ type PresetManagerProps = {
   availableMoves: MoveOption[];
 };
 
-type View =
-  | { kind: 'catalog' }
-  | { kind: 'library' }
-  | { kind: 'builtin'; libraryId: PresetLibraryId }
-  | { kind: 'trainer'; trainerName: string | undefined; session: number };
-
 export default function PresetManager({
   library,
   generation,
@@ -37,7 +36,7 @@ export default function PresetManager({
   availableSpecies,
   availableMoves,
 }: PresetManagerProps) {
-  const [view, setView] = useState<View>({ kind: 'catalog' });
+  const [view, setView] = useState<PresetManagerView>(() => loadPresetManagerView());
   const [message, setMessage] = useState<string>();
   const [registryVersion, setRegistryVersion] = useState(0);
   const [session, setSession] = useState(0);
@@ -76,9 +75,10 @@ export default function PresetManager({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [library.snapshot, library.canEdit, registryVersion]);
 
-  const goTo = (next: View) => {
+  const goTo = (next: PresetManagerView) => {
     setMessage(undefined);
     setView(next);
+    savePresetManagerView(next);
   };
   // Keeps the current message so "Copied …" feedback survives the jump to the editor.
   const openTrainer = (trainerName: string | undefined) => {
@@ -86,7 +86,7 @@ export default function PresetManager({
     setView({ kind: 'trainer', trainerName, session: session + 1 });
   };
 
-  const effectiveView: View =
+  const effectiveView: PresetManagerView =
     (view.kind === 'library' || view.kind === 'trainer') && !library.snapshot
       ? { kind: 'catalog' }
       : view;
