@@ -21,6 +21,7 @@ export interface BattlePlanMoveAction {
   id: string;
   actor: BattlePlanActor;
   type: 'move';
+  pokemonId?: string;
   move: BattlePlanMove;
 }
 

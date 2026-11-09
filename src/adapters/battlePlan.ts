@@ -14,6 +14,65 @@ import { getInflictedStatus, inflictsConfusion } from './moveStatus';
 import { canEatBerry, curesConfusion, curesStatus, getHitBerry, getHpBerry } from './berries';
 import { getBerryResistType } from 'calc-runtime/core/items';
 
+export function replaceActivePokemonInPlanSegment(
+  actions: readonly BattlePlanAction[],
+  actor: BattlePlanActor,
+  initialPokemonId: string,
+  replacementPokemonId: string,
+): BattlePlanAction[] {
+  const lastSwitchIndex = actions.reduce(
+    (last, action, index) =>
+      action.actor === actor && action.type === 'switch' ? index : last,
+    -1,
+  );
+  const firstIndex = lastSwitchIndex >= 0 ? lastSwitchIndex + 1 : 0;
+  const lastSwitch = lastSwitchIndex >= 0 ? actions[lastSwitchIndex] : undefined;
+  const switchPokemonId =
+    lastSwitch?.type === 'switch'
+      ? lastSwitch.targetPokemonId
+      : initialPokemonId;
+  let currentPokemonId = switchPokemonId;
+
+  for (let index = firstIndex; index < actions.length; index++) {
+    const action = actions[index];
+    if (action.actor === actor && action.type === 'move') {
+      currentPokemonId = action.pokemonId ?? currentPokemonId;
+    }
+  }
+
+  const next = [...actions];
+  const replaceSwitchTarget =
+    lastSwitch?.type === 'switch' &&
+    lastSwitch.targetPokemonId === currentPokemonId;
+
+  if (replaceSwitchTarget && lastSwitch?.type === 'switch') {
+    next[lastSwitchIndex] = {
+      ...lastSwitch,
+      targetPokemonId: replacementPokemonId,
+    };
+  }
+
+  let activePokemonId = switchPokemonId;
+  for (let index = firstIndex; index < next.length; index++) {
+    const action = next[index];
+    if (action.actor !== actor || action.type !== 'move') continue;
+
+    const actionPokemonId = action.pokemonId ?? activePokemonId;
+    if (
+      actionPokemonId === currentPokemonId ||
+      (actionPokemonId === replacementPokemonId &&
+        activePokemonId === replacementPokemonId)
+    ) {
+      next[index] = { ...action, pokemonId: replacementPokemonId };
+      activePokemonId = replacementPokemonId;
+    } else {
+      activePokemonId = actionPokemonId;
+    }
+  }
+
+  return next;
+}
+
 function createHpRange(min: number, max: number): BattlePlanHpRange {
   return { min: Math.max(0, min), max: Math.max(0, max) };
 }
@@ -557,6 +616,9 @@ export function buildBattlePlanResults({
 
   return actions.map((action) => {
     stepEvents = [];
+    if (action.type === 'move' && action.pokemonId) {
+      activeIds[action.actor] = action.pokemonId;
+    }
     const step = resolve(action);
     return {
       ...step,

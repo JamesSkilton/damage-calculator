@@ -380,8 +380,14 @@ export default function BattlePlanner({
     const previous = [...results.slice(0, index)].reverse().find(
       (result) => result.action.actor === actor && result.activePokemonId,
     );
+    const currentAction = actions[index];
+    const selectedId =
+      currentAction?.actor === actor && currentAction.type === 'move'
+        ? currentAction.pokemonId
+        : undefined;
     return getActorRoster(actor).find(
-      (entry) => entry.id === (previous?.activePokemonId ?? initialId),
+      (entry) =>
+        entry.id === (selectedId ?? previous?.activePokemonId ?? initialId),
     ) ?? getActorRoster(actor)[0];
   };
 

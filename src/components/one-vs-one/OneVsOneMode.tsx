@@ -48,6 +48,7 @@ import Party from '../party/Party';
 import DefenderPresetRoster from './DefenderPresetRoster';
 import { loadOneVsOneProgress, saveOneVsOneProgress } from './oneVsOneProgress';
 import { buildBattleCalcBreakdowns } from 'adapters/battleCalc';
+import { replaceActivePokemonInPlanSegment } from 'adapters/battlePlan';
 import { evaluateBoxMatchup, type BoxMatchup } from 'adapters/boxMatchup';
 import {
   loadMatchupSettings,
@@ -537,6 +538,21 @@ export default function OneVsOneMode() {
     }));
   };
 
+  const selectPartyAttacker = (set: ImportedPokemonSet) => {
+    if (isPlannerOpen && plannerActions.length > 0) {
+      setPlannerActions((current) =>
+        replaceActivePokemonInPlanSegment(
+          current,
+          'attacker',
+          plannerRosters.attackerInitialId,
+          set.id,
+        ),
+      );
+      return;
+    }
+    selectImportedSet('attacker', set);
+  };
+
   const navigateFight = (direction: -1 | 1) => {
     const currentIndex = activeTrainerGroups.findIndex(
       (group) => group.trainerName === activeTrainerName,
@@ -635,12 +651,17 @@ export default function OneVsOneMode() {
         </>
       )}
 
-      <details className="party-manager">
+      <details className="party-manager" open={isPlannerOpen}>
         <summary>Manage party and imported Pokemon</summary>
+        {isPlannerOpen && (
+          <p className="px-3 pt-3 mb-0 text-body-secondary">
+            Click a Pokemon below to replace the active Pokemon in this part of the plan.
+          </p>
+        )}
         <Party
           importedSets={importedSets}
           onDeleteSet={deleteImportedSet}
-          onSelectSet={(set) => selectImportedSet('attacker', set)}
+          onSelectSet={selectPartyAttacker}
           matchups={boxMatchups}
           matchupTargetLabel={matchupDefender.label}
           matchupSettings={matchupSettings}
