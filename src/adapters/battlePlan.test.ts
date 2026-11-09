@@ -1,9 +1,131 @@
 import { describe, expect, it } from 'vitest';
-import { buildBattlePlanResults } from './battlePlan';
+import {
+  buildBattlePlanResults,
+  replaceActivePokemonInPlanSegment,
+} from './battlePlan';
 import { createBattleFieldDraft } from '../components/combatant/shared/battleFieldDraft';
 import { createTeamDraft } from '../components/combatant/shared/combatantDraft';
 
 describe('battle plan adapter', () => {
+  it('replaces the switched-in Pokemon and its actions without changing earlier actions', () => {
+    const actions = [
+      {
+        id: 'before-switch',
+        actor: 'attacker',
+        type: 'move',
+        move: {
+          name: 'Thunderbolt',
+          isCrit: false,
+          hits: 1,
+          isStellarFirstUse: false,
+          timesUsed: 1,
+        },
+      },
+      {
+        id: 'switch-in',
+        actor: 'attacker',
+        type: 'switch',
+        targetPokemonId: 'switched-in',
+      },
+      {
+        id: 'after-switch',
+        actor: 'attacker',
+        type: 'move',
+        move: {
+          name: 'Thunderbolt',
+          isCrit: false,
+          hits: 1,
+          isStellarFirstUse: false,
+          timesUsed: 1,
+        },
+      },
+      {
+        id: 'after-switch-again',
+        actor: 'attacker',
+        type: 'move',
+        move: {
+          name: 'Thunderbolt',
+          isCrit: false,
+          hits: 1,
+          isStellarFirstUse: false,
+          timesUsed: 1,
+        },
+      },
+    ] as const;
+
+    expect(
+      replaceActivePokemonInPlanSegment(
+        actions,
+        'attacker',
+        'initial',
+        'eevee',
+      ),
+    ).toEqual([
+      actions[0],
+      { ...actions[1], targetPokemonId: 'eevee' },
+      { ...actions[2], pokemonId: 'eevee' },
+      { ...actions[3], pokemonId: 'eevee' },
+    ]);
+  });
+
+  it('resolves a move using its explicitly selected roster Pokemon', () => {
+    const team = createTeamDraft(9);
+    const attacker = {
+      ...team.attacker,
+      name: 'Initial',
+      species: 'Pikachu',
+      moves: ['Thunderbolt'],
+    };
+    const replacement = {
+      ...attacker,
+      name: 'Eevee',
+      species: 'Eevee',
+      moves: ['Tackle'],
+    };
+    const defender = team.defender;
+    const results = buildBattlePlanResults({
+      generation: 9,
+      attacker,
+      defender,
+      field: createBattleFieldDraft(9),
+      attackerRoster: [
+        {
+          id: 'initial',
+          label: 'Initial',
+          source: 'current',
+          combatant: attacker,
+          moves: [],
+        },
+        {
+          id: 'eevee',
+          label: 'Eevee',
+          source: 'party',
+          combatant: replacement,
+          moves: [],
+        },
+      ],
+      attackerRosterId: 'initial',
+      actions: [
+        {
+          id: 'selected-move',
+          actor: 'attacker',
+          type: 'move',
+          pokemonId: 'eevee',
+          move: {
+            name: 'Tackle',
+            isCrit: false,
+            hits: 1,
+            isStellarFirstUse: false,
+            timesUsed: 1,
+          },
+        },
+      ],
+    });
+
+    expect(results[0].activePokemonId).toBe('eevee');
+    expect(results[0].activePokemonLabel).toBe('Eevee');
+  });
+
   it('propagates damage ranges through ordered player actions', () => {
     const attacker = createTeamDraft(9).attacker;
     const defender = createTeamDraft(9).defender;
