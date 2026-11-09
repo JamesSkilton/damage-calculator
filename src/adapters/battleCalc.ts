@@ -7,6 +7,7 @@ import type {
 import { normalizeCalcResult } from 'adapters/calcResult';
 import { calculateBattleRuntime } from 'calc-runtime';
 import type { Result as CoreResult } from 'calc-runtime/core/result';
+import { getMoveEffectiveness } from 'calc-runtime/core/mechanics/util';
 
 export interface BattleCalcMoveInput {
   name: string;
@@ -43,6 +44,13 @@ export interface BattleCalcDetails {
   defenderMaxHp: number;
   /** Defender's current HP (accounts for any prior damage/field state). */
   defenderCurrentHp: number;
+  /** Attacker's max HP stat, for recoil from berries like Jaboca and Rowap. */
+  attackerMaxHp: number;
+  moveCategory: string;
+  /** The move is more than neutral against the defender's types. */
+  isSuperEffective: boolean;
+  /** Item that changed the damage (e.g. a resist berry), as reported by the calc. */
+  defenderItemUsed?: string;
 }
 
 export type BattleCalcBreakdown =
@@ -243,6 +251,13 @@ function computeBattleCalcDetails({
     isCritOhko,
     defenderMaxHp: maxHp,
     defenderCurrentHp: curHp,
+    attackerMaxHp: coreResult.attacker.maxHP(),
+    moveCategory: coreResult.move.category,
+    isSuperEffective: coreResult.defender.types.reduce(
+      (product, type) => product * getMoveEffectiveness(coreResult.gen, coreResult.move, type),
+      1,
+    ) > 1,
+    defenderItemUsed: coreResult.rawDesc.defenderItem,
   };
 }
 
