@@ -23,6 +23,13 @@ const INFLICTED_STATUS: Record<string, BattleStatusName> = {
 
 const POWDER_MOVES = new Set(['Stun Spore', 'Sleep Powder', 'Spore', 'Poison Powder']);
 
+/** Status moves that always confuse their target when they hit. Accuracy is not modelled. */
+const CONFUSING_MOVES = new Set(['Confuse Ray', 'Supersonic', 'Swagger', 'Flatter', 'Sweet Kiss', 'Teeter Dance']);
+
+export function inflictsConfusion(moveName: string, targetAbility: string | undefined): boolean {
+  return CONFUSING_MOVES.has(moveName) && targetAbility !== 'Own Tempo';
+}
+
 /**
  * The status a move would leave on a target with the given types and current status,
  * or undefined when the move doesn't inflict one or the target can't take it.

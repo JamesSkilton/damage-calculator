@@ -143,7 +143,7 @@ export interface EndOfTurnResidual {
   damage: number;
   sources: string[];
   /** Per-source HP change; negative amounts are healing. */
-  parts: { source: string; amount: number }[];
+  parts: { source: string; amount: number; berry?: boolean }[];
   /** Status a Flame Orb / Toxic Orb inflicts at the end of this turn; its damage starts next turn. */
   inflictedStatus?: 'brn' | 'tox';
 }

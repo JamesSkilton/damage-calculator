@@ -47,6 +47,9 @@ describe('BattleResultPanel', () => {
               damageRollFrequency: [{ damage: 50, count: 1 }],
               defenderMaxHp: 279,
               defenderCurrentHp: 279,
+              attackerMaxHp: 300,
+              moveCategory: 'Special',
+              isSuperEffective: false,
               koBreakdown: [
                 { hits: 1, label: 'OHKO', chance: 0 },
                 { hits: 2, label: '2HKO', chance: 0 },

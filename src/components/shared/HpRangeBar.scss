@@ -19,8 +19,24 @@
   background: #facc15;
 }
 
+.hp-range-bar-scale {
+  height: 2.2rem;
+}
+
+.hp-range-bar-tick {
+  transform: translateX(-50%);
+  line-height: 1.1rem;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.hp-range-bar-tick:last-child {
+  transform: translateX(-100%);
+}
+
 .hp-range-bar-loss-burn { background: #ea580c; }
 .hp-range-bar-loss-poison { background: #9333ea; }
 .hp-range-bar-loss-weather { background: #b45309; }
 .hp-range-bar-loss-cold { background: #38bdf8; }
 .hp-range-bar-loss-item { background: #dc2626; }
+.hp-range-bar-gain-berry { background: #2dd4bf; }

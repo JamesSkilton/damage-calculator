@@ -245,6 +245,285 @@ describe('battle plan adapter', () => {
     expect(results[1].residual!.defender.sources).toContain('burn');
   });
 
+  it('consumes a resist berry on the first super effective hit only', () => {
+    const team = createTeamDraft(9);
+    const attacker = { ...team.attacker, currentHp: 100, moves: ['Thunderbolt'] };
+    const defender = { ...team.defender, species: 'Squirtle', name: 'Squirtle', types: ['Water'] as const, item: 'Wacan Berry', currentHp: 0, moves: ['Tackle'] };
+    const move = { name: 'Thunderbolt', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const withBerry = buildBattlePlanResults({
+      generation: 9,
+      attacker,
+      defender,
+      field: createBattleFieldDraft(9),
+      actions: [
+        { id: 'one', actor: 'attacker', type: 'move', move },
+        { id: 'two', actor: 'attacker', type: 'move', move },
+      ],
+    });
+
+    expect(withBerry[0].items['initial-defender']).toBe('consumed');
+    expect(withBerry[0].itemEvents.join(' ')).toContain('Wacan Berry weakened the hit');
+    expect(withBerry[1].damage.max).toBeGreaterThan(withBerry[0].damage.max * 1.8);
+  });
+
+  it('raises Defense when a Kee Berry holder survives a physical hit', () => {
+    const team = createTeamDraft(9);
+    const attacker = { ...team.attacker, currentHp: 100, moves: ['Tackle'] };
+    const defender = { ...team.defender, item: 'Kee Berry', currentHp: 0, moves: ['Tackle'] };
+    const [result] = buildBattlePlanResults({
+      generation: 9,
+      attacker,
+      defender,
+      field: createBattleFieldDraft(9),
+      actions: [{ id: 'hit', actor: 'attacker', type: 'move', move: { name: 'Tackle', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 } }],
+    });
+
+    expect(result.items['initial-defender']).toBe('consumed');
+    expect(result.boosts['initial-defender'].def).toBe(1);
+  });
+
+  it('makes the attacker lose HP to a Jaboca Berry on a physical hit', () => {
+    const team = createTeamDraft(9);
+    const attacker = { ...team.attacker, currentHp: 0, moves: ['Tackle'] };
+    const defender = { ...team.defender, item: 'Jaboca Berry', currentHp: 0, moves: ['Tackle'] };
+    const [result] = buildBattlePlanResults({
+      generation: 9,
+      attacker,
+      defender,
+      field: createBattleFieldDraft(9),
+      actions: [{ id: 'hit', actor: 'attacker', type: 'move', move: { name: 'Tackle', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 } }],
+    });
+
+    expect(result.maxHp.attacker).toBeGreaterThan(0);
+    expect(result.attackerHp.max).toBe(result.maxHp.attacker - Math.floor(result.maxHp.attacker / 8));
+    expect(result.items['initial-defender']).toBe('consumed');
+  });
+
+  it('eats a Sitrus Berry right after the hit that crosses half HP', () => {
+    const team = createTeamDraft(9);
+    const attacker = { ...team.attacker, currentHp: 0, moves: ['Thunderbolt'] };
+    const defender = { ...team.defender, types: ['Normal'] as const, currentHp: 0, moves: ['Tackle'] };
+    const field = createBattleFieldDraft(9);
+    const move = { name: 'Thunderbolt', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const plain = buildBattlePlanResults({ generation: 9, attacker, defender, field, actions: [{ id: 'hit', actor: 'attacker', type: 'move', move }] })[0];
+    // Hit once for a bit over half of max HP via a state correction, then check the berry fires on the next hit.
+    const maxHp = plain.maxHp.defender;
+    const results = buildBattlePlanResults({
+      generation: 9,
+      attacker,
+      defender: { ...defender, item: 'Sitrus Berry' },
+      field,
+      actions: [
+        { id: 'prime', actor: 'attacker', type: 'move', move },
+        { id: 'set', actor: 'defender', type: 'state', hp: Math.floor(maxHp / 2) + 1 },
+        { id: 'hit', actor: 'attacker', type: 'move', move },
+      ],
+    });
+
+    expect(results[0].items['initial-defender']).toBe('held');
+    expect(results[2].items['initial-defender']).not.toBe('held');
+    expect(results[2].itemEvents.join(' ')).toContain('Sitrus Berry');
+  });
+
+  it('cures a status as soon as a move inflicts it', () => {
+    const team = createTeamDraft(9);
+    const attacker = { ...team.attacker, currentHp: 100, moves: ['Thunder Wave'] };
+    const defender = { ...team.defender, types: ['Normal'] as const, item: 'Cheri Berry', currentHp: 100, moves: ['Tackle'] };
+    const [result] = buildBattlePlanResults({
+      generation: 9,
+      attacker,
+      defender,
+      field: createBattleFieldDraft(9),
+      actions: [{ id: 'wave', actor: 'attacker', type: 'move', move: { name: 'Thunder Wave', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 } }],
+    });
+
+    expect(result.statuses['initial-defender']).toBeUndefined();
+    expect(result.items['initial-defender']).toBe('consumed');
+  });
+
+  it('does not eat berries next to an Unnerve opponent', () => {
+    const team = createTeamDraft(9);
+    const attacker = { ...team.attacker, ability: 'Unnerve', currentHp: 0, moves: ['Tackle'] };
+    const defender = { ...team.defender, item: 'Kee Berry', currentHp: 0, moves: ['Tackle'] };
+    const [result] = buildBattlePlanResults({
+      generation: 9,
+      attacker,
+      defender,
+      field: createBattleFieldDraft(9),
+      actions: [{ id: 'hit', actor: 'attacker', type: 'move', move: { name: 'Tackle', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 } }],
+    });
+
+    expect(result.items['initial-defender']).toBe('held');
+  });
+
+  it('heals with Cheek Pouch after a healing berry, without exceeding max HP', () => {
+    const team = createTeamDraft(9);
+    const attacker = { ...team.attacker, currentHp: 100, moves: ['Tackle'] };
+    const defender = { ...team.defender, ability: 'Cheek Pouch', item: 'Sitrus Berry', currentHp: 0 };
+    const move = { name: 'Tackle', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const base = { generation: 9 as const, attacker, defender, field: createBattleFieldDraft(9) };
+    const [probe] = buildBattlePlanResults({ ...base, actions: [{ id: 'probe', actor: 'attacker', type: 'move', move }] });
+    const results = buildBattlePlanResults({
+      ...base,
+      actions: [
+        { id: 'probe', actor: 'attacker', type: 'move', move },
+        { id: 'set', actor: 'defender', type: 'state', hp: Math.floor(probe.maxHp.defender / 2) },
+        { id: 'hit', actor: 'attacker', type: 'move', move },
+      ],
+    });
+    const result = results[2];
+    const maxHp = result.maxHp.defender;
+    const initialHp = Math.floor(maxHp / 2);
+    const heal = Math.floor(maxHp / 4) + Math.floor(maxHp / 3);
+    expect(result.items['initial-defender']).toBe('consumed');
+    expect(result.defenderHp).toEqual({
+      min: Math.min(maxHp, initialHp - result.damage.max + heal),
+      max: Math.min(maxHp, initialHp - result.damage.min + heal),
+    });
+    expect(result.itemEvents.join(' ')).toContain('Cheek Pouch restored');
+  });
+
+  it('keeps both HP outcomes when a healing berry with Cheek Pouch only possibly triggers', () => {
+    const team = createTeamDraft(9);
+    const base = {
+      generation: 9 as const,
+      attacker: { ...team.attacker, currentHp: 100 },
+      defender: { ...team.defender, ability: 'Cheek Pouch', item: 'Sitrus Berry', currentHp: 0 },
+      field: createBattleFieldDraft(9),
+    };
+    const move = { name: 'Tackle', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const [probe] = buildBattlePlanResults({ ...base, actions: [{ id: 'hit', actor: 'attacker', type: 'move', move }] });
+    const maxHp = probe.maxHp.defender;
+    const threshold = Math.floor(maxHp / 2);
+    const initialHp = threshold + probe.damage.max - 1;
+    const [result] = buildBattlePlanResults({
+      ...base,
+      defender: { ...base.defender, currentHp: initialHp },
+      actions: [{ id: 'hit', actor: 'attacker', type: 'move', move }],
+    });
+    const heal = Math.floor(maxHp / 4) + Math.floor(maxHp / 3);
+    expect(result.items['initial-defender']).toBe('maybe-consumed');
+    expect(result.defenderHp).toEqual({
+      min: Math.min(threshold + 1, Math.min(maxHp, threshold - 1 + heal)),
+      max: Math.max(initialHp - result.damage.min, Math.min(maxHp, threshold + heal)),
+    });
+    expect(result.itemEvents.join(' ')).toContain('Cheek Pouch possibly restored');
+  });
+
+  it('heals from Cheek Pouch when a status or hit berry is eaten, but not when blocked', () => {
+    const team = createTeamDraft(9);
+    const defender = { ...team.defender, ability: 'Cheek Pouch', item: 'Cheri Berry', currentHp: 30, types: ['Normal'] as const };
+    const move = { name: 'Thunder Wave', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const base = {
+      generation: 9 as const,
+      attacker: { ...team.attacker, currentHp: 100, ability: 'Static' },
+      defender,
+      field: createBattleFieldDraft(9),
+      actions: [{ id: 'wave', actor: 'attacker' as const, type: 'move' as const, move }],
+    };
+    const [cured] = buildBattlePlanResults(base);
+    expect(cured.defenderHp.max).toBe(Math.min(cured.maxHp.defender, 30 + Math.floor(cured.maxHp.defender / 3)));
+    expect(cured.statuses['initial-defender']).toBeUndefined();
+    const [blocked] = buildBattlePlanResults({ ...base, attacker: { ...base.attacker, ability: 'Unnerve' } });
+    expect(blocked.items['initial-defender']).toBe('held');
+    expect(blocked.defenderHp.max).toBe(30);
+    const [hit] = buildBattlePlanResults({
+      ...base,
+      defender: { ...defender, item: 'Kee Berry', currentHp: 100 },
+      actions: [{ ...base.actions[0], move: { ...move, name: 'Tackle' } }],
+    });
+    expect(hit.items['initial-defender']).toBe('consumed');
+    expect(hit.defenderHp.max).toBe(Math.min(hit.maxHp.defender, 100 - hit.damage.min + Math.floor(hit.maxHp.defender / 3)));
+  });
+
+  it('applies Cheek Pouch before damage when a resist berry is eaten', () => {
+    const team = createTeamDraft(9);
+    const attacker = { ...team.attacker, currentHp: 100, moves: ['Thunderbolt'] };
+    const defender = { ...team.defender, species: 'Squirtle', name: 'Squirtle', types: ['Water'] as const, ability: 'Cheek Pouch', item: 'Wacan Berry', currentHp: 60 };
+    const move = { name: 'Thunderbolt', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const base = { generation: 9 as const, attacker, defender, field: createBattleFieldDraft(9) };
+    const [survives] = buildBattlePlanResults({ ...base, actions: [{ id: 'hit', actor: 'attacker', type: 'move', move }] });
+    expect(survives.items['initial-defender']).toBe('consumed');
+    expect(survives.defenderHp.max).toBe(Math.max(0, Math.min(
+      survives.maxHp.defender, 60 + Math.floor(survives.maxHp.defender / 3),
+    ) - survives.damage.min));
+    expect(survives.itemEvents.join(' ')).toContain('Cheek Pouch restored');
+  });
+
+  it('applies Cheek Pouch to a status berry before end-of-turn damage', () => {
+    const team = createTeamDraft(9);
+    const defender = { ...team.defender, ability: 'Cheek Pouch', item: 'Pecha Berry', status: 'psn' as const, currentHp: 30 };
+    const [result] = buildBattlePlanResults({
+      generation: 9,
+      attacker: { ...team.attacker, currentHp: 100 },
+      defender,
+      field: createBattleFieldDraft(9),
+      actions: [{ id: 'end', actor: 'attacker', type: 'end-turn' }],
+    });
+    expect(result.statuses['initial-defender']).toBeUndefined();
+    expect(result.defenderHp.max).toBe(Math.min(result.maxHp.defender, 30 + Math.floor(result.maxHp.defender / 3)));
+    expect(result.itemEvents.join(' ')).toContain('Cheek Pouch restored');
+  });
+
+  it('activates Unburden after eating a berry for later damage and clears it on switching', () => {
+    const team = createTeamDraft(9);
+    const attacker = { ...team.attacker, currentHp: 0, moves: ['Tackle'] };
+    const defender = { ...team.defender, ability: 'Unburden', abilityOn: false, item: 'Kee Berry', currentHp: 0, moves: ['Gyro Ball'] };
+    const other = { ...defender, ability: 'Static', item: undefined, name: 'Other' };
+    const tackle = { name: 'Tackle', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const gyro = { ...tackle, name: 'Gyro Ball' };
+    const results = buildBattlePlanResults({
+      generation: 9,
+      attacker,
+      defender,
+      field: createBattleFieldDraft(9),
+      defenderRoster: [
+        { id: 'd', label: 'Defender', source: 'trainer', combatant: defender, moves: [] },
+        { id: 'other', label: 'Other', source: 'trainer', combatant: other, moves: [] },
+      ],
+      actions: [
+        { id: 'hit', actor: 'attacker', type: 'move', move: tackle },
+        { id: 'gyro-boosted', actor: 'defender', type: 'move', move: gyro },
+        { id: 'out', actor: 'defender', type: 'switch', targetPokemonId: 'other' },
+        { id: 'back', actor: 'defender', type: 'switch', targetPokemonId: 'd' },
+        { id: 'gyro-normal', actor: 'defender', type: 'move', move: gyro },
+      ],
+    });
+    expect(results[0].unburdenActive.d).toBe(true);
+    expect(results[0].itemEvents.join(' ')).toContain('Unburden activated');
+    expect(results[3].unburdenActive.d).toBe(false);
+    expect(results[3].items.d).toBe('consumed');
+    expect(results[1].damage.max).toBeLessThan(results[4].damage.max);
+  });
+
+  it('does not activate Unburden when a berry is blocked or only possibly eaten', () => {
+    const team = createTeamDraft(9);
+    const defender = { ...team.defender, ability: 'Unburden', abilityOn: false, item: 'Kee Berry', currentHp: 0 };
+    const move = { name: 'Tackle', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const base = {
+      generation: 9 as const,
+      attacker: { ...team.attacker, currentHp: 100, ability: 'Static' },
+      defender,
+      field: createBattleFieldDraft(9),
+    };
+    const [probe] = buildBattlePlanResults({ ...base, actions: [{ id: 'hit', actor: 'attacker', type: 'move', move }] });
+    const possible = buildBattlePlanResults({
+      ...base,
+      actions: [
+        { id: 'set', actor: 'defender', type: 'state', hp: probe.damage.max },
+        { id: 'hit2', actor: 'attacker', type: 'move', move },
+      ],
+    });
+    expect(possible[1].items['initial-defender']).toBe('maybe-consumed');
+    expect(possible[1].unburdenActive['initial-defender']).toBe(false);
+    const [blocked] = buildBattlePlanResults({
+      ...base,
+      attacker: { ...base.attacker, ability: 'Unnerve' },
+      actions: [{ id: 'hit', actor: 'attacker', type: 'move', move }],
+    });
+    expect(blocked.unburdenActive['initial-defender']).toBe(false);
+  });
+
   it('reports an invalid switch target without changing active state', () => {
     const team = createTeamDraft(9);
     const results = buildBattlePlanResults({

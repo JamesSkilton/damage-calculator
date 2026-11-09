@@ -23,6 +23,7 @@ import { createMoveDraft, type MoveDraft } from '../combatant/moves/moveDraft';
 import SearchableTypePicker from '../combatant/shared/SearchableTypePicker';
 import HpRangeBar, { type HpRangeBarLoss } from '../shared/HpRangeBar';
 import PokemonSprite from '../shared/PokemonSprite';
+import HeldItemOverlay from '../shared/HeldItemOverlay';
 import './BattlePlanner.scss';
 
 type BattlePlannerProps = {
@@ -116,16 +117,24 @@ function toLosses(residual: BattlePlanResidual | undefined): HpRangeBarLoss[] {
     .map((part) => ({ label: part.source, amount: part.amount, kind: LOSS_KIND[part.source] ?? 'item' }));
 }
 
+function toGains(residual: BattlePlanResidual | undefined): HpRangeBarLoss[] {
+  return (residual?.parts ?? [])
+    .filter((part) => part.berry)
+    .map((part) => ({ label: part.source, amount: -part.amount, kind: 'berry' }));
+}
+
 function PlannerHpRange({
   range,
   maxHp,
   label,
   losses = [],
+  gains = [],
 }: {
   range: { min: number; max: number };
   maxHp: number;
   label: string;
   losses?: readonly HpRangeBarLoss[];
+  gains?: readonly HpRangeBarLoss[];
 }) {
   if (maxHp <= 0) {
     return null;
@@ -136,6 +145,8 @@ function PlannerHpRange({
       <div className="d-flex justify-content-between gap-2 small text-secondary">
         <span>{label} remaining</span>
         <strong className="text-body fw-semibold">
+          {range.min === 0 && range.max > 0 && <span className="badge text-bg-warning me-2">Can KO</span>}
+          {range.max === 0 && <span className="badge text-bg-danger me-2">KO</span>}
           {formatHpRange(range)} / {maxHp} HP
         </strong>
       </div>
@@ -145,7 +156,19 @@ function PlannerHpRange({
         maxHp={maxHp}
         label={label}
         losses={losses}
+        gains={gains}
+        showScale
       />
+      {gains.length > 0 && (
+        <div className="d-flex flex-wrap gap-1">
+          {gains.map((gain) => (
+            <span key={gain.label} className="small d-inline-flex align-items-center gap-1">
+              <span className={`hp-range-bar hp-range-bar-gain-${gain.kind} d-inline-block`} style={{ width: '0.6rem' }} />
+              {gain.label} +{gain.amount}
+            </span>
+          ))}
+        </div>
+      )}
       {losses.length > 0 && (
         <div className="d-flex flex-wrap gap-1">
           {losses.map((loss) => (
@@ -200,7 +223,11 @@ export default function BattlePlanner({
     const statuses = results[index - 1]?.statuses;
     const boosts = results[index - 1]?.boosts;
     const next = entry && statuses && entry.id in statuses ? { ...combatant, status: statuses[entry.id] } : combatant;
-    return entry && boosts?.[entry.id] ? { ...next, boosts: boosts[entry.id] } : next;
+    const held = entry && results[index - 1]?.items[entry.id] === 'consumed' ? { ...next, item: undefined } : next;
+    const unburden = entry && held.ability === 'Unburden' && results[index - 1]
+      ? { ...held, abilityOn: results[index - 1].unburdenActive[entry.id] ?? false }
+      : held;
+    return entry && boosts?.[entry.id] ? { ...unburden, boosts: boosts[entry.id] } : unburden;
   };
 
   const updateAction = (id: string, updates: DistributiveOmit<BattlePlanAction, 'id'>) => {
@@ -473,7 +500,7 @@ export default function BattlePlanner({
     if (!active || !fainted.has(active.id)) return [];
 
     const playerEntry = getActiveRosterEntry('attacker', index);
-    const player = playerEntry?.combatant ?? attacker;
+    const player = withStatus(playerEntry, attacker, index);
     const candidates = defenderRoster.filter(
       (entry) => entry.id !== active.id && !fainted.has(entry.id),
     );
@@ -484,7 +511,7 @@ export default function BattlePlanner({
       player,
       playerHp: results[index - 1]?.attackerHp.max ?? player.currentHp,
       playerMoves: (playerEntry?.moves ?? attackerMoves).map((move) => move.name),
-      field,
+      field: fieldBefore(index),
       candidates: candidates.map((entry) => ({
         id: entry.id,
         combatant: entry.combatant,
@@ -536,7 +563,7 @@ export default function BattlePlanner({
 
   return (
     <section className="battle-planner d-grid gap-3 p-3 border rounded-3 bg-body" aria-label="Battle planner">
-      <div className="battle-planner-header d-flex justify-content-between gap-3 align-items-start">
+      <div className="battle-planner-header sticky-top bg-body py-2 border-bottom d-flex justify-content-between gap-3 align-items-start">
         <div>
           <p className="battle-planner-kicker small fw-bold text-uppercase text-success mb-0">Battle planner</p>
           {aiProfile === 'run-and-bun' && (
@@ -701,6 +728,17 @@ export default function BattlePlanner({
               );
             })}
           </div>
+          {(() => {
+            const itemEvents = [...turn.stepIndices, ...(turn.summaryIndex !== undefined ? [turn.summaryIndex] : [])]
+              .flatMap((index) => results[index]?.itemEvents ?? []);
+            return itemEvents.length > 0 && (
+              <ul className="list-unstyled small mb-0 d-grid gap-1" aria-label={`Turn ${turn.number} item effects`}>
+                {itemEvents.map((event, eventIndex) => (
+                  <li key={`${eventIndex}-${event}`} className="text-secondary">{event}</li>
+                ))}
+              </ul>
+            );
+          })()}
           <div className="battle-plan-summary-sides">
             {(['attacker', 'defender'] as const).map((side) => {
               const hp = side === 'attacker' ? last.attackerHp : last.defenderHp;
@@ -709,7 +747,7 @@ export default function BattlePlanner({
               if (maxHp <= 0) return null;
               return (
                 <div key={side} className="small p-2 border rounded-2 bg-body">
-                  <PlannerHpRange range={hp} maxHp={maxHp} label={label} losses={toLosses(summary?.residual?.[side])} />
+                  <PlannerHpRange range={hp} maxHp={maxHp} label={label} losses={toLosses(summary?.residual?.[side])} gains={toGains(summary?.residual?.[side])} />
                   {lastActionIndex !== undefined && (() => {
                     const turnState = turn.stepIndices
                       .map((index) => actions[index])
@@ -808,13 +846,18 @@ export default function BattlePlanner({
           return (
             <div
               key={action.id}
-              className={`battle-plan-row battle-plan-step row g-2 align-items-start flex-wrap p-2 p-sm-3 border rounded-3 bg-body-tertiary${result?.isKo ? ' border-success-subtle bg-success-subtle' : ''}${result?.error ? ' border-danger-subtle bg-danger-subtle' : ''}`}
+              className={`battle-plan-row battle-plan-step row g-2 align-items-start flex-wrap p-2 p-sm-3 border rounded-3 bg-body-tertiary${result?.isKo ? ' border-success-subtle bg-success-subtle' : ''}${result?.canKo && !result.error ? ' border-warning bg-warning-subtle' : ''}${result?.error ? ' border-danger-subtle bg-danger-subtle' : ''}`}
             >
-              <PokemonSprite
-                className="battle-plan-sprite col-auto align-self-center"
-                name={actor.species || actor.name}
-                alt={actor.name || actor.species}
-              />
+              <div className="position-relative col-auto align-self-center">
+                <PokemonSprite
+                  className="battle-plan-sprite"
+                  name={actor.species || actor.name}
+                  alt={actor.name || actor.species}
+                />
+                {actor.item && actorEntry && (
+                  <HeldItemOverlay item={actor.item} state={result?.items[actorEntry.id] ?? 'held'} />
+                )}
+              </div>
               <div className="battle-plan-action col d-flex flex-nowrap align-items-start gap-2">
                 <div className="d-flex flex-column gap-2">
                 <label className="d-grid flex-shrink-0 small fw-semibold text-secondary">

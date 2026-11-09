@@ -68,7 +68,7 @@ export interface BattlePlanResidual {
   damage: number;
   maxHp: number;
   sources: string[];
-  parts: { source: string; amount: number }[];
+  parts: { source: string; amount: number; berry?: boolean }[];
 }
 
 export interface BattlePlanRosterEntry {
@@ -84,6 +84,9 @@ export interface BattlePlanHpRange {
   max: number;
 }
 
+/** `maybe-consumed`: eaten on some damage rolls but not all of them. */
+export type BattlePlanItemState = 'held' | 'maybe-consumed' | 'consumed';
+
 export interface BattlePlanStepResult {
   action: BattlePlanAction;
   damage: BattlePlanHpRange;
@@ -93,11 +96,19 @@ export interface BattlePlanStepResult {
   targetHp: BattlePlanHpRange;
   targetMaxHp: number;
   isKo: boolean;
+  /** Some damage roll knocks the target out, but not every roll. */
+  canKo?: boolean;
   /** End-of-turn damage taken (or healed, if negative) by each active Pokémon. */
   residual?: Record<BattlePlanActor, BattlePlanResidual>;
   /** Field and per-Pokémon statuses in effect after this step. */
   field: BattleField;
   statuses: Readonly<Record<string, BattleStatusName | undefined>>;
+  /** Held item state per roster id (only for Pokémon holding one) after this step. */
+  items: Readonly<Record<string, BattlePlanItemState>>;
+  /** Pokémon whose Unburden speed boost is active after this step. */
+  unburdenActive: Readonly<Record<string, boolean>>;
+  /** Item activations during this step, e.g. "Sitrus Berry restored 28 HP". */
+  itemEvents: readonly string[];
   /** Stat stages per roster id in effect after this step. */
   boosts: Readonly<Record<string, BattleStatBoosts>>;
   /** Max HP of each side's active Pokémon once known (0 until a calculation reveals it). */
