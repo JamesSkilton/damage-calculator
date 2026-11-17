@@ -21,7 +21,7 @@ import type { BattleStatId, BattleStatusName, BattleTerrain, BattleWeather } fro
 import type { MoveOption } from '../combatant/moves/moveOptions';
 import { createMoveDraft, type MoveDraft } from '../combatant/moves/moveDraft';
 import SearchableTypePicker from '../combatant/shared/SearchableTypePicker';
-import HpRangeBar, { type HpRangeBarLoss } from '../shared/HpRangeBar';
+import HpRangeBar, { type HpRangeBarGain, type HpRangeBarLoss } from '../shared/HpRangeBar';
 import PokemonSprite from '../shared/PokemonSprite';
 import HeldItemOverlay from '../shared/HeldItemOverlay';
 import './BattlePlanner.scss';
@@ -117,12 +117,6 @@ function toLosses(residual: BattlePlanResidual | undefined): HpRangeBarLoss[] {
     .map((part) => ({ label: part.source, amount: part.amount, kind: LOSS_KIND[part.source] ?? 'item' }));
 }
 
-function toGains(residual: BattlePlanResidual | undefined): HpRangeBarLoss[] {
-  return (residual?.parts ?? [])
-    .filter((part) => part.berry)
-    .map((part) => ({ label: part.source, amount: -part.amount, kind: 'berry' }));
-}
-
 function PlannerHpRange({
   range,
   maxHp,
@@ -134,7 +128,7 @@ function PlannerHpRange({
   maxHp: number;
   label: string;
   losses?: readonly HpRangeBarLoss[];
-  gains?: readonly HpRangeBarLoss[];
+  gains?: readonly HpRangeBarGain[];
 }) {
   if (maxHp <= 0) {
     return null;
@@ -158,13 +152,16 @@ function PlannerHpRange({
         losses={losses}
         gains={gains}
         showScale
+        showPercentMarks
+        useHealthColors
       />
+      {range.min < range.max && <span className="small text-secondary">Striped: possible HP range</span>}
       {gains.length > 0 && (
         <div className="d-flex flex-wrap gap-1">
-          {gains.map((gain) => (
-            <span key={gain.label} className="small d-inline-flex align-items-center gap-1">
+          {gains.map((gain, index) => (
+            <span key={`${gain.label}-${index}`} className="small d-inline-flex align-items-center gap-1">
               <span className={`hp-range-bar hp-range-bar-gain-${gain.kind} d-inline-block`} style={{ width: '0.6rem' }} />
-              {gain.label} +{gain.amount}
+              {gain.label} {gain.amount === (gain.maxAmount ?? gain.amount) ? `+${gain.amount}` : `+${gain.amount}-${gain.maxAmount}`}
             </span>
           ))}
         </div>
@@ -691,6 +688,37 @@ export default function BattlePlanner({
     if (!last) return null;
 
     const lines = turn.stepIndices.map((index) => ({ action: actions[index], step: results[index] }));
+    const firstActor = lines.find(({ action }) => action.type === 'move' || action.type === 'switch')?.action.actor ?? 'attacker';
+    const summarySides: BattlePlanActor[] = [firstActor, firstActor === 'attacker' ? 'defender' : 'attacker'];
+    const activeIdAt = (side: BattlePlanActor, index: number) =>
+      actions.slice(0, index + 1).reduce((id, action) => {
+        if (action.actor !== side) return id;
+        if (action.type === 'switch') return action.targetPokemonId;
+        if (action.type === 'move' && action.pokemonId) return action.pokemonId;
+        return id;
+      }, side === 'attacker' ? attackerRosterId : defenderRosterId);
+
+    const gainsFor = (side: BattlePlanActor): HpRangeBarGain[] => {
+      const currentId = activeIdAt(side, lastIndex!);
+      const hpFor = (index: number) => side === 'attacker' ? results[index].attackerHp : results[index].defenderHp;
+      const indices = [...turn.stepIndices, ...(turn.summaryIndex !== undefined ? [turn.summaryIndex] : [])];
+      return indices.flatMap((index) => {
+        const hp = hpFor(index);
+        const unchanged = indices.filter((later) => later > index).every((later) => {
+          const next = hpFor(later);
+          return activeIdAt(side, later) === currentId && next.min === hp.min && next.max === hp.max;
+        });
+        if (!unchanged || activeIdAt(side, index) !== currentId) return [];
+        return results[index].healing
+          .filter((gain) => gain.pokemonId === currentId)
+          .map((gain) => ({
+            label: gain.source,
+            amount: gain.amount.min,
+            maxAmount: gain.amount.max,
+            kind: 'heal',
+          }));
+      });
+    };
 
     // Max HP is only known for a side once it has been the target of a step.
     const maxHpFor = (side: BattlePlanActor): number => {
@@ -746,14 +774,14 @@ export default function BattlePlanner({
             );
           })()}
           <div className="battle-plan-summary-sides">
-            {(['attacker', 'defender'] as const).map((side) => {
+            {summarySides.map((side) => {
               const hp = side === 'attacker' ? last.attackerHp : last.defenderHp;
               const maxHp = maxHpFor(side);
               const label = summary?.residual?.[side]?.label ?? getActiveRosterEntry(side, lastIndex!)?.label ?? side;
               if (maxHp <= 0) return null;
               return (
                 <div key={side} className="small p-2 border rounded-2 bg-body">
-                  <PlannerHpRange range={hp} maxHp={maxHp} label={label} losses={toLosses(summary?.residual?.[side])} gains={toGains(summary?.residual?.[side])} />
+                  <PlannerHpRange range={hp} maxHp={maxHp} label={label} losses={toLosses(summary?.residual?.[side])} gains={gainsFor(side)} />
                   {lastActionIndex !== undefined && (() => {
                     const turnState = turn.stepIndices
                       .map((index) => actions[index])

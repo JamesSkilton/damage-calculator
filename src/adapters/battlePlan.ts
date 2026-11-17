@@ -5,6 +5,7 @@ import type {
   BattlePlanInput,
   BattlePlanStepResult,
   BattlePlanHpRange,
+  BattlePlanHealing,
   BattlePlanRosterEntry,
 } from 'domain/battlePlan';
 import type { BattleStatBoosts, BattleStatusName } from 'domain/shared';
@@ -119,6 +120,7 @@ export function buildBattlePlanResults({
       .map((entry) => entry.id),
   );
   let stepEvents: string[] = [];
+  let stepHealing: BattlePlanHealing[] = [];
   const maxHpById = new Map<string, number>();
   for (const entry of [...rosters.attacker, ...rosters.defender]) {
     hpById.set(entry.id, createHpRange(entry.combatant.currentHp, entry.combatant.currentHp));
@@ -178,6 +180,7 @@ export function buildBattlePlanResults({
     const max = Math.max(...gains);
     if (max > 0) {
       stepEvents.push(`${entry.label}: Cheek Pouch ${certain ? 'restored' : 'possibly restored'} ${min === max ? max : `${min}-${max}`} HP`);
+      stepHealing.push({ pokemonId: entry.id, source: 'Cheek Pouch', amount: { min, max } });
     }
   };
 
@@ -226,6 +229,13 @@ export function buildBattlePlanResults({
       const healMin = Math.min(...gains);
       const healMax = Math.max(...gains);
       stepEvents.push(`${entry.label}: ${label} restored ${healMax === healMin ? healMax : `${healMin}-${healMax}`} HP`);
+      if (healMax > 0) {
+        stepHealing.push({
+          pokemonId: entry.id,
+          source: item,
+          amount: { min: healMin, max: healMax },
+        });
+      }
       recordCheekPouch(entry, certain, candidates.map(pouchGain));
       return healMax;
     }
@@ -251,7 +261,7 @@ export function buildBattlePlanResults({
     currentHp: hp.max,
   });
 
-  const resolve = (action: BattlePlanAction): Omit<BattlePlanStepResult, 'field' | 'statuses' | 'items' | 'unburdenActive' | 'boosts' | 'maxHp' | 'itemEvents'> => {
+  const resolve = (action: BattlePlanAction): Omit<BattlePlanStepResult, 'field' | 'statuses' | 'items' | 'unburdenActive' | 'boosts' | 'maxHp' | 'itemEvents' | 'healing'> => {
     const isAttackerAction = action.actor === 'attacker';
     const actor = action.actor;
     const activeEntry = getActiveEntry(actor);
@@ -317,6 +327,22 @@ export function buildBattlePlanResults({
           const apply = (value: number) => Math.min(tick.maxHp, Math.max(0, value - tick.damage));
           const next = createHpRange(apply(hp.min), apply(hp.max));
           hpById.set(entry.id, next);
+          if (tick.parts.every((part) => part.amount < 0)) {
+            let recoveryHp = hp;
+            for (const part of tick.parts) {
+              const amount = {
+                min: recoveryHp.min > 0 ? Math.max(0, Math.min(-part.amount, tick.maxHp - recoveryHp.max)) : 0,
+                max: Math.max(0, Math.min(-part.amount, tick.maxHp - recoveryHp.min)),
+              };
+              if (amount.max > 0) {
+                stepHealing.push({ pokemonId: entry.id, source: part.source, amount });
+              }
+              recoveryHp = createHpRange(
+                recoveryHp.min > 0 ? Math.min(tick.maxHp, recoveryHp.min - part.amount) : 0,
+                Math.min(tick.maxHp, recoveryHp.max - part.amount),
+              );
+            }
+          }
           const healed = eatHpBerry(entry);
           if (healed > 0) {
             tick.parts = [...tick.parts, { source: entry.combatant.item!, amount: -healed, berry: true }];
@@ -531,7 +557,7 @@ export function buildBattlePlanResults({
       (hitBerry.when === 'super-effective'
         ? details.isSuperEffective
         : details.moveCategory.toLowerCase() === hitBerry.when);
-    if (hitBerry && hitTriggers) {
+    if (hitBerry && hitTriggers && targetItem) {
       const certain = nextTargetHp.min > 0 && damage.min > 0;
       const berryName = `${heldItem(targetEntry)}${certain ? '' : ' (possibly)'}`;
       markConsumed(targetEntry, certain);
@@ -542,6 +568,8 @@ export function buildBattlePlanResults({
       } else if (effect.kind === 'heal') {
         const amount = Math.floor(details.defenderMaxHp / effect.divisor);
         const current = getHp(targetEntry);
+        const minHeal = certain ? Math.min(amount, details.defenderMaxHp - current.max) : 0;
+        const maxHeal = Math.min(amount, details.defenderMaxHp - Math.max(1, current.min));
         hpById.set(
           targetEntry.id,
           createHpRange(
@@ -550,6 +578,9 @@ export function buildBattlePlanResults({
           ),
         );
         stepEvents.push(`${targetEntry.label}: ${berryName} restored ${amount} HP`);
+        if (maxHeal > 0) {
+          stepHealing.push({ pokemonId: targetEntry.id, source: targetItem, amount: { min: minHeal, max: maxHeal } });
+        }
       } else if (!actingCombatant.ability?.includes('Magic Guard')) {
         const amount = Math.max(1, Math.floor(details.attackerMaxHp / effect.divisor));
         const current = actingHp.max === 0
@@ -616,6 +647,7 @@ export function buildBattlePlanResults({
 
   return actions.map((action) => {
     stepEvents = [];
+    stepHealing = [];
     if (action.type === 'move' && action.pokemonId) {
       activeIds[action.actor] = action.pokemonId;
     }
@@ -623,6 +655,7 @@ export function buildBattlePlanResults({
     return {
       ...step,
       itemEvents: stepEvents,
+      healing: stepHealing,
       field: currentField,
       statuses: Object.fromEntries(statusById),
       items: Object.fromEntries(

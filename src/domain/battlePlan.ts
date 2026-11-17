@@ -88,6 +88,12 @@ export interface BattlePlanHpRange {
 /** `maybe-consumed`: eaten on some damage rolls but not all of them. */
 export type BattlePlanItemState = 'held' | 'maybe-consumed' | 'consumed';
 
+export interface BattlePlanHealing {
+  pokemonId: string;
+  source: string;
+  amount: BattlePlanHpRange;
+}
+
 export interface BattlePlanStepResult {
   action: BattlePlanAction;
   damage: BattlePlanHpRange;
@@ -110,6 +116,8 @@ export interface BattlePlanStepResult {
   unburdenActive: Readonly<Record<string, boolean>>;
   /** Item activations during this step, e.g. "Sitrus Berry restored 28 HP". */
   itemEvents: readonly string[];
+  /** HP restored during this step, including conditional healing. */
+  healing: readonly BattlePlanHealing[];
   /** Stat stages per roster id in effect after this step. */
   boosts: Readonly<Record<string, BattleStatBoosts>>;
   /** Max HP of each side's active Pokémon once known (0 until a calculation reveals it). */
