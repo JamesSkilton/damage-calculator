@@ -56,6 +56,8 @@ export interface BattlePlanEndTurnAction {
   id: string;
   actor: BattlePlanActor;
   type: 'end-turn';
+  /** Closes a forced post-KO switch: no residual damage, since the turn's end already happened. */
+  replacement?: boolean;
 }
 
 export type BattlePlanAction =

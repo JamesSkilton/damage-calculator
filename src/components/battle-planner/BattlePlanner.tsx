@@ -79,6 +79,7 @@ function formatHpRange(range: { min: number; max: number }): string {
 type SwitchPokemonOption = {
   name: string;
   displayName: string;
+  species: string;
   group: string;
   types: string[];
 };
@@ -228,13 +229,15 @@ export default function BattlePlanner({
   };
 
   const updateAction = (id: string, updates: DistributiveOmit<BattlePlanAction, 'id'>) => {
-    onActionsChange((current) =>
-      current.map((action) =>
+    onActionsChange((current) => {
+      const next = current.map((action) =>
         action.id === id
           ? { ...updates, id: action.id }
           : action,
-      ),
-    );
+      );
+      // A switch resolves before the other side's move, so that move must target the incoming Pokémon.
+      return updates.type === 'switch' ? orderTurnByPriority(next, id) : next;
+    });
   };
 
   // HP/stat corrections made from a turn's bar live in one hidden "Set state" step per side,
@@ -479,6 +482,11 @@ export default function BattlePlanner({
     const fainted = new Set<string>();
     for (let step = 0; step < index; step++) {
       const result = results[step];
+      if (result?.action.type === 'state' && result.action.hp === 0) {
+        const entry = getActiveRosterEntry(result.action.actor, step);
+        if (entry) fainted.add(entry.id);
+        continue;
+      }
       if (!result?.isKo || result.error) continue;
       if (result.action.type === 'end-turn') {
         for (const side of ['attacker', 'defender'] as const) {
@@ -523,6 +531,25 @@ export default function BattlePlanner({
     });
   };
 
+  // After a KO the replacement is its own row: nobody attacks while the fainted side sends in a new Pokémon.
+  const createReplacementTurn = (): BattlePlanAction[] => {
+    const index = actions.length;
+    const fainted = getFaintedIds(index);
+    const added: BattlePlanAction[] = [];
+    for (const side of ['attacker', 'defender'] as const) {
+      const active = getActiveRosterEntry(side, index);
+      if (!active || !fainted.has(active.id)) continue;
+      const aiPick = side === 'defender' ? getAiSwitchOrder(index)[0]?.id : undefined;
+      const targetPokemonId = aiPick ?? getSwitchOptions(side, index).find((option) => !fainted.has(option.name))?.name;
+      if (!targetPokemonId) continue;
+      added.push({ id: `${side}-${Date.now()}-${Math.random()}`, actor: side, type: 'switch', targetPokemonId });
+    }
+    if (added.length > 0) {
+      added.push({ id: `end-turn-${Date.now()}-${Math.random()}`, actor: 'attacker', type: 'end-turn', replacement: true });
+    }
+    return added;
+  };
+
   const getAiPredictions = (index: number) => {
     if (aiProfile !== 'run-and-bun') return [];
     const aiEntry = getActiveRosterEntry('defender', index);
@@ -551,6 +578,7 @@ export default function BattlePlanner({
       .map((entry) => ({
         name: entry.id,
         displayName: entry.label,
+        species: entry.combatant.species || entry.combatant.name,
         group: actor === 'attacker'
           ? entry.source === 'party' ? 'Party' : 'Box'
           : entry.source,
@@ -593,6 +621,11 @@ export default function BattlePlanner({
               const lastEndTurn = actions.map((item) => item.type).lastIndexOf('end-turn');
               const turnActions = actions.slice(lastEndTurn + 1).filter((item) => item.type === 'move' || item.type === 'switch');
               const first = getNextActor();
+              const replacement = turnActions.length === 0 ? createReplacementTurn() : [];
+              if (replacement.length > 0) {
+                onActionsChange((current) => [...current, ...replacement]);
+                return;
+              }
               const added: BattlePlanAction[] = [];
               if (turnActions.length === 0) {
                 added.push(createPlannedAction(first), createPlannedAction(first === 'attacker' ? 'defender' : 'attacker'));
@@ -627,7 +660,13 @@ export default function BattlePlanner({
         {turns.map((turn, turnIndex) => (
           <li key={turn.number} className="battle-plan-turn border rounded-3 overflow-hidden shadow-sm" aria-label={`Turn ${turn.number}`}>
             <div className="d-flex align-items-center gap-2 px-3 py-2 bg-dark text-white">
-              <strong className="me-auto">Turn {turn.number}</strong>
+              <strong className="me-auto">
+                Turn {turn.number}
+                {turn.summaryIndex !== undefined && (() => {
+                  const end = actions[turn.summaryIndex];
+                  return end.type === 'end-turn' && end.replacement ? ' · Forced switch' : '';
+                })()}
+              </strong>
               <button
                 type="button"
                 className="battle-plan-turn-action btn btn-sm btn-outline-light"
@@ -968,6 +1007,13 @@ export default function BattlePlanner({
                       filterOptions={filterSwitchPokemonOptions}
                       getTypes={(option) => option.types}
                       getDisplayName={(option) => option.displayName}
+                      renderLeading={(option) => (
+                        <PokemonSprite
+                          className="battle-plan-switch-sprite"
+                          name={option.species}
+                          alt=""
+                        />
+                      )}
                       getGroup={(option) => option.group}
                       emptyMessage="No switch targets found"
                     />

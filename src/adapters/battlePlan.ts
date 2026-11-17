@@ -282,6 +282,21 @@ export function buildBattlePlanResults({
       };
     }
 
+    if (action.type === 'end-turn' && action.replacement) {
+      return {
+        action,
+        damage: createHpRange(0, 0),
+        cumulativeDamage,
+        attackerHp,
+        defenderHp,
+        targetHp: defenderHp,
+        targetMaxHp: maxHpById.get(getActiveEntry('defender')!.id) ?? 0,
+        isKo: false,
+        activePokemonId: activeEntry.id,
+        activePokemonLabel: activeEntry.label,
+      };
+    }
+
     if (action.type === 'end-turn') {
       const residual = {} as Record<BattlePlanActor, BattlePlanResidual>;
       for (const side of ['attacker', 'defender'] as const) {
@@ -425,6 +440,34 @@ export function buildBattlePlanResults({
           error: `Unknown switch target: ${action.targetPokemonId}`,
         };
       }
+      if (!maxHpById.has(nextEntry.id)) {
+        try {
+          const hp = calculateEndOfTurnResidual({
+            generation,
+            combatant: nextEntry.combatant,
+            field: currentField,
+            toxicCounter: 0,
+          }).maxHp;
+          maxHpById.set(nextEntry.id, hp);
+          if (hpById.get(nextEntry.id)?.max === 0) {
+            hpById.set(nextEntry.id, createHpRange(hp, hp));
+          }
+        } catch (error) {
+          return {
+            action,
+            damage: createHpRange(0, 0),
+            cumulativeDamage,
+            attackerHp,
+            defenderHp,
+            targetHp: getHp(targetEntry),
+            targetMaxHp: maxHpById.get(targetEntry.id) ?? 0,
+            isKo: false,
+            activePokemonId: activeEntry.id,
+            activePokemonLabel: activeEntry.label,
+            error: `Unable to determine HP for switch target ${nextEntry.id}: ${error instanceof Error ? error.message : String(error)}`,
+          };
+        }
+      }
       hpById.set(activeEntry.id, getHp(activeEntry));
       toxicCounterById.set(activeEntry.id, 0);
       boostsById.set(activeEntry.id, { ...activeEntry.combatant.boosts });
@@ -520,7 +563,13 @@ export function buildBattlePlanResults({
     );
     hpById.set(targetEntry.id, resolvedTargetHp);
     maxHpById.set(targetEntry.id, details.defenderMaxHp);
-    if (!maxHpById.has(activeEntry.id)) maxHpById.set(activeEntry.id, details.attackerMaxHp);
+    if (!maxHpById.has(activeEntry.id)) {
+      maxHpById.set(activeEntry.id, details.attackerMaxHp);
+      // An unset (0) HP means full health; resolve it so it isn't mistaken for a KO.
+      if (getHp(activeEntry).max === 0) {
+        hpById.set(activeEntry.id, createHpRange(details.attackerMaxHp, details.attackerMaxHp));
+      }
+    }
 
     // Resist berries are eaten while the incoming damage is being calculated.
     const targetItem = heldItem(targetEntry);

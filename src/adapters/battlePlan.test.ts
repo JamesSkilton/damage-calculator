@@ -203,7 +203,7 @@ describe('battle plan adapter', () => {
     const team = createTeamDraft(9);
     const attacker = { ...team.attacker, currentHp: 100, moves: ['Thunderbolt'] };
     const defender = { ...team.defender, currentHp: 100, moves: ['Tackle'] };
-    const alternateDefender = { ...defender, name: 'Alternate', species: 'Charizard', currentHp: 100 };
+    const alternateDefender = { ...defender, name: 'Alternate', species: 'Charizard', currentHp: 0 };
     const move = {
       name: 'Thunderbolt',
       isCrit: false,
@@ -234,9 +234,43 @@ describe('battle plan adapter', () => {
     expect(results[0].damage.max).toBeGreaterThan(0);
     expect(results[1].damage).toEqual({ min: 0, max: 0 });
     expect(results[1].activePokemonId).toBe('alt');
+    expect(results[1].defenderHp).toEqual({
+      min: results[1].maxHp.defender,
+      max: results[1].maxHp.defender,
+    });
     expect(results[2].cumulativeDamage.max).toBeGreaterThan(results[0].cumulativeDamage.max);
     expect(results[3].activePokemonId).toBe('d');
     expect(results[3].targetHp).toEqual(results[0].defenderHp);
+  });
+
+  it('skips residual damage on the end marker of a forced post-KO switch', () => {
+    const team = createTeamDraft(9);
+    const attacker = { ...team.attacker, currentHp: 100, moves: ['Thunderbolt'] };
+    const defender = { ...team.defender, currentHp: 100, moves: ['Tackle'] };
+    const alternate = { ...defender, name: 'Alternate', species: 'Charizard', currentHp: 0 };
+    const field = { ...createBattleFieldDraft(9), weather: 'Sand' as const };
+    const results = buildBattlePlanResults({
+      generation: 9,
+      attacker,
+      defender,
+      field,
+      attackerRoster: [{ id: 'a', label: 'Attacker', source: 'party', combatant: attacker, moves: [] }],
+      defenderRoster: [
+        { id: 'd', label: 'Defender', source: 'trainer', combatant: defender, moves: [] },
+        { id: 'alt', label: 'Alternate', source: 'trainer', combatant: alternate, moves: [] },
+      ],
+      attackerRosterId: 'a',
+      defenderRosterId: 'd',
+      actions: [
+        { id: 'faint', actor: 'defender', type: 'state', hp: 0 },
+        { id: 'switch', actor: 'defender', type: 'switch', targetPokemonId: 'alt' },
+        { id: 'end', actor: 'attacker', type: 'end-turn', replacement: true },
+      ],
+    });
+
+    expect(results[2].residual).toBeUndefined();
+    expect(results[2].isKo).toBe(false);
+    expect(results[2].defenderHp.max).toBe(results[2].maxHp.defender);
   });
 
   it('applies state steps: exact HP, status and weather feed later calculations', () => {
