@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type {
   BattleCombatant,
@@ -198,6 +198,18 @@ export default function BattlePlanner({
   onBack,
 }: BattlePlannerProps) {
   const aiProfile = useActiveAiProfile();
+  const [startingPokemonIds, setStartingPokemonIds] = useState({
+    attacker: attackerRosterId,
+    defender: defenderRosterId,
+  });
+  const activeStartingIds = {
+    attacker: attackerRoster.some((entry) => entry.id === startingPokemonIds.attacker)
+      ? startingPokemonIds.attacker
+      : attackerRosterId,
+    defender: defenderRoster.some((entry) => entry.id === startingPokemonIds.defender)
+      ? startingPokemonIds.defender
+      : defenderRosterId,
+  };
   const results = useMemo(
     () =>
       buildBattlePlanResults({
@@ -208,10 +220,10 @@ export default function BattlePlanner({
         actions,
         attackerRoster,
         defenderRoster,
-        attackerRosterId,
-        defenderRosterId,
+        attackerRosterId: activeStartingIds.attacker,
+        defenderRosterId: activeStartingIds.defender,
       }),
-    [actions, attacker, defender, field, generation, attackerRoster, defenderRoster, attackerRosterId, defenderRosterId],
+    [actions, attacker, defender, field, generation, attackerRoster, defenderRoster, activeStartingIds.attacker, activeStartingIds.defender],
   );
 
   // Field and status in effect before the given step, including any "Set state" corrections.
@@ -376,7 +388,7 @@ export default function BattlePlanner({
     actor === 'attacker' ? attackerRoster : defenderRoster;
 
   const getActiveRosterEntry = (actor: BattlePlanActor, index: number) => {
-    const initialId = actor === 'attacker' ? attackerRosterId : defenderRosterId;
+    const initialId = activeStartingIds[actor];
     const previous = [...results.slice(0, index)].reverse().find(
       (result) => result.action.actor === actor && result.activePokemonId,
     );
@@ -573,8 +585,12 @@ export default function BattlePlanner({
 
   const getSwitchOptions = (actor: BattlePlanActor, index: number): SwitchPokemonOption[] => {
     const activeId = getActiveRosterEntry(actor, index)?.id;
-    return getActorRoster(actor)
-      .filter((entry) => entry.id !== activeId)
+    return getRosterOptions(actor)
+      .filter((entry) => entry.name !== activeId);
+  };
+
+  const getRosterOptions = (actor: BattlePlanActor): SwitchPokemonOption[] =>
+    getActorRoster(actor)
       .map((entry) => ({
         name: entry.id,
         displayName: entry.label,
@@ -590,7 +606,6 @@ export default function BattlePlanner({
           (groupOrder[right.group as keyof typeof groupOrder] ?? 2) ||
           left.displayName.localeCompare(right.displayName);
       });
-  };
 
   return (
     <section className="battle-planner d-grid gap-3 p-3 border rounded-3 bg-body" aria-label="Battle planner">
@@ -608,6 +623,34 @@ export default function BattlePlanner({
               tracker to see move predictions here.
             </p>
           )}
+          <div className="battle-planner-starting-pokemon d-flex flex-wrap gap-3 mt-2">
+            {(['attacker', 'defender'] as const).map((side) => (
+              <label key={side} className="d-grid gap-1 small fw-semibold text-secondary">
+                <span>{side === 'attacker' ? 'Attacker' : 'Defender'} starting Pokémon</span>
+                <SearchableTypePicker
+                  value={activeStartingIds[side]}
+                  options={getRosterOptions(side)}
+                  onSelect={(id) =>
+                    setStartingPokemonIds((current) => ({ ...current, [side]: id }))
+                  }
+                  ariaLabel={`${side === 'attacker' ? 'Attacker' : 'Defender'} starting Pokémon`}
+                  placeholder="— Select Pokémon —"
+                  filterOptions={filterSwitchPokemonOptions}
+                  getTypes={(option) => option.types}
+                  getDisplayName={(option) => option.displayName}
+                  renderLeading={(option) => (
+                    <PokemonSprite
+                      className="battle-plan-switch-sprite"
+                      name={option.species}
+                      alt=""
+                    />
+                  )}
+                  getGroup={(option) => option.group}
+                  emptyMessage="No Pokémon found"
+                />
+              </label>
+            ))}
+          </div>
         </div>
         <div className="battle-planner-header-actions d-flex gap-2">
           <button type="button" className="btn btn-sm btn-outline-secondary text-nowrap" onClick={onBack}>
@@ -735,7 +778,7 @@ export default function BattlePlanner({
         if (action.type === 'switch') return action.targetPokemonId;
         if (action.type === 'move' && action.pokemonId) return action.pokemonId;
         return id;
-      }, side === 'attacker' ? attackerRosterId : defenderRosterId);
+      }, activeStartingIds[side]);
 
     const gainsFor = (side: BattlePlanActor): HpRangeBarGain[] => {
       const currentId = activeIdAt(side, lastIndex!);

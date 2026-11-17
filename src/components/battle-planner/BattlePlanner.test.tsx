@@ -1,5 +1,10 @@
+// @vitest-environment jsdom
+
+import { useState } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import '@testing-library/jest-dom/vitest';
 import { buildBattlePlanResults } from 'adapters/battlePlan';
 import type { BattlePlanAction } from 'domain/battlePlan';
 import { createBattleFieldDraft } from '../combatant/shared/battleFieldDraft';
@@ -163,5 +168,54 @@ describe('battle planner turn summary', () => {
       'Defender remaining',
       'Attacker remaining',
     ]);
+  });
+
+  it('lets the planner start with a roster Pokémon without loading it into the panel', () => {
+    const reserve = {
+      ...attacker,
+      name: 'Reserve',
+      species: 'Bulbasaur',
+    };
+    const Wrapper = () => {
+      const [actions, setActions] = useState<BattlePlanAction[]>([]);
+      return (
+        <BattlePlanner
+          {...base}
+          attackerRoster={[
+            ...attackerRoster,
+            {
+              id: 'reserve',
+              label: 'Reserve',
+              source: 'box',
+              combatant: reserve,
+              moves: [move],
+            },
+          ]}
+          availableMoves={[]}
+          attackerMoves={[move]}
+          defenderMoves={[]}
+          actions={actions}
+          onActionsChange={setActions}
+          onBack={() => {}}
+        />
+      );
+    };
+    const { unmount } = render(<Wrapper />);
+
+    fireEvent.focus(
+      screen.getByRole('textbox', { name: 'Attacker starting Pokémon' }),
+    );
+    fireEvent.click(screen.getByRole('option', { name: /Reserve/ }));
+    fireEvent.click(screen.getByRole('button', { name: '+ Add action' }));
+
+    expect(
+      screen.getByRole('textbox', { name: 'Attacker starting Pokémon' }),
+    ).toHaveAttribute('placeholder', 'Reserve');
+    expect(
+      Array.from(
+        screen.getAllByLabelText('Actor')[0].querySelectorAll('option'),
+      ).map((option) => option.textContent),
+    ).toContain('Attacker: Reserve');
+    unmount();
   });
 });

@@ -1,5 +1,8 @@
-import { describe, expect, it } from 'vitest';
+// @vitest-environment jsdom
+
+import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  ACTIVE_RUN_KEY,
   loadImportedPokemonSets,
   loadPartyPokemonSetIds,
   mergeImportedPokemonSets,
@@ -9,6 +12,11 @@ import {
 } from './pokemonSetStorage';
 
 describe('pokemon set storage', () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    localStorage.clear();
+  });
+
   it('round trips imported sets through session storage', () => {
     const storage = new StorageMock();
     const sets = [{ id: 'pikachu-0', species: 'Pikachu' }] as never[];
@@ -26,6 +34,31 @@ describe('pokemon set storage', () => {
 
     expect(loadImportedPokemonSets(storage)).toEqual([{ id: 'bulbasaur-0' }]);
     expect(loadPartyPokemonSetIds(storage)).toEqual(['bulbasaur-0']);
+  });
+
+  it('restores a scratch box and party after the tab session ends', () => {
+    const sets = [{ id: 'pikachu', species: 'Pikachu', item: 'Oran Berry' }] as never[];
+    saveImportedPokemonSets(sets);
+    savePartyPokemonSetIds(['pikachu']);
+    sessionStorage.clear();
+
+    expect(loadImportedPokemonSets()).toEqual(sets);
+    expect(loadPartyPokemonSetIds()).toEqual(['pikachu']);
+  });
+
+  it('keeps the active run box separate from the durable scratch box', () => {
+    const scratch = [{ id: 'scratch', species: 'Pikachu' }] as never[];
+    saveImportedPokemonSets(scratch);
+    savePartyPokemonSetIds(['scratch']);
+    localStorage.setItem(ACTIVE_RUN_KEY, JSON.stringify({ libraryId: 'lib', runId: 'run' }));
+    sessionStorage.clear();
+    expect(loadImportedPokemonSets()).toEqual([]);
+    expect(loadPartyPokemonSetIds()).toEqual([]);
+
+    saveImportedPokemonSets([{ id: 'run', species: 'Eevee' }] as never[]);
+    savePartyPokemonSetIds(['run']);
+    expect(loadImportedPokemonSets(localStorage)).toEqual(scratch);
+    expect(loadPartyPokemonSetIds(localStorage)).toEqual(['scratch']);
   });
 
   it('updates an existing imported set while preserving its id', () => {

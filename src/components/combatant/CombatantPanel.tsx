@@ -32,6 +32,7 @@ type CombatantPanelProps = {
   onImportedSetCleared?: () => void;
   selectedImportedSetId?: string;
   onUpdateImportedSet?: () => void;
+  itemAutoSaved?: boolean;
   presets?: PokemonPreset[];
   onPreset?: (preset: PokemonPreset) => void;
   onPresetCleared?: () => void;
@@ -54,6 +55,7 @@ export default function CombatantPanel({
   onImportedSetCleared,
   selectedImportedSetId,
   onUpdateImportedSet,
+  itemAutoSaved = false,
   presets = [],
   onPreset,
   onPresetCleared,
@@ -169,6 +171,11 @@ export default function CombatantPanel({
         </>
       )}
 
+      {itemAutoSaved && (
+        <p className="small text-body-secondary mb-0" role="status">
+          Item changes are saved automatically to your box.
+        </p>
+      )}
       {presetRoster}
 
       <CombatantMoveFields
