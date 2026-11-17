@@ -1,7 +1,6 @@
 dist
 node_modules
 coverage
-.squad/**
 old-code
 docs
 .copilot
