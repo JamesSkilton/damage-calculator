@@ -23,6 +23,8 @@ type SearchableTypePickerProps<T extends { name: string }> = {
   getGroup?: (option: T) => string | undefined;
   /** Optional second heading level nested inside a group. */
   getSubGroup?: (option: T) => string | undefined;
+  /** Optional content rendered before the name (e.g. a sprite). */
+  renderLeading?: (option: T) => React.ReactNode;
   /** Optional extra metadata rendered after the type badges (e.g. move base power). */
   renderExtra?: (option: T) => React.ReactNode;
   /** Optional extra class name applied to an option's <li> (e.g. "status-move"). */
@@ -49,6 +51,7 @@ export default function SearchableTypePicker<T extends { name: string }>({
   getDisplayName = (option) => option.name,
   getGroup,
   getSubGroup,
+  renderLeading,
   renderExtra,
   getOptionClassName,
   isOptionDisabled,
@@ -239,6 +242,7 @@ export default function SearchableTypePicker<T extends { name: string }>({
         {showSelectedChip && selectedOption && (
           <div className="type-picker-selected-chip" aria-hidden="true">
             <div className="type-option-content">
+              {renderLeading?.(selectedOption)}
               <span className="type-option-name">
                 {getDisplayName(selectedOption)}
               </span>
@@ -326,6 +330,7 @@ export default function SearchableTypePicker<T extends { name: string }>({
                     }}
                   >
                     <div className="type-option-content">
+                      {renderLeading?.(option)}
                       <span className="type-option-name">
                         {getDisplayName(option)}
                       </span>
