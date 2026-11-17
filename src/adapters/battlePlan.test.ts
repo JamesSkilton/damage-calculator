@@ -447,6 +447,78 @@ describe('battle plan adapter', () => {
     expect(results[2].itemEvents.join(' ')).toContain('Sitrus Berry');
   });
 
+  it('records healing from a berry triggered by a hit', () => {
+    const team = createTeamDraft(9);
+    const attacker = { ...team.attacker, currentHp: 100 };
+    const defender = { ...team.defender, currentHp: 100, item: 'Oran Berry' };
+    const move = { name: 'Tackle', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const results = buildBattlePlanResults({
+      generation: 9,
+      attacker,
+      defender,
+      field: createBattleFieldDraft(9),
+      actions: [
+        { id: 'hit', actor: 'attacker', type: 'move', move },
+        { id: 'end', actor: 'attacker', type: 'end-turn' },
+      ],
+    });
+
+    expect(results[0].healing).toContainEqual({
+      pokemonId: 'initial-defender',
+      source: 'Oran Berry',
+      amount: { min: 10, max: 10 },
+    });
+    expect(results[0].defenderHp).toEqual({
+      min: 100 - results[0].damage.max + 10,
+      max: 100 - results[0].damage.min + 10,
+    });
+    expect(results[1].healing).toEqual([]);
+  });
+
+  it('records capped end-of-turn recovery', () => {
+    const team = createTeamDraft(9);
+    const base = {
+      generation: 9 as const,
+      attacker: { ...team.attacker, item: 'Leftovers', currentHp: 100 },
+      defender: team.defender,
+      field: createBattleFieldDraft(9),
+    };
+    const [probe] = buildBattlePlanResults({
+      ...base,
+      actions: [{ id: 'end', actor: 'attacker', type: 'end-turn' }],
+    });
+    const [result] = buildBattlePlanResults({
+      ...base,
+      attacker: { ...base.attacker, currentHp: probe.maxHp.attacker - 1 },
+      actions: [{ id: 'end', actor: 'attacker', type: 'end-turn' }],
+    });
+
+    expect(result.healing).toContainEqual({
+      pokemonId: 'initial-attacker',
+      source: 'Leftovers',
+      amount: { min: 1, max: 1 },
+    });
+  });
+
+  it('does not report berry healing when the hit is a knockout', () => {
+    const team = createTeamDraft(9);
+    const [result] = buildBattlePlanResults({
+      generation: 9,
+      attacker: team.attacker,
+      defender: { ...team.defender, currentHp: 1, item: 'Oran Berry' },
+      field: createBattleFieldDraft(9),
+      actions: [{
+        id: 'hit',
+        actor: 'attacker',
+        type: 'move',
+        move: { name: 'Tackle', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 },
+      }],
+    });
+
+    expect(result.isKo).toBe(true);
+    expect(result.healing).toEqual([]);
+  });
+
   it('cures a status as soon as a move inflicts it', () => {
     const team = createTeamDraft(9);
     const attacker = { ...team.attacker, currentHp: 100, moves: ['Thunder Wave'] };
@@ -525,6 +597,11 @@ describe('battle plan adapter', () => {
     });
     const heal = Math.floor(maxHp / 4) + Math.floor(maxHp / 3);
     expect(result.items['initial-defender']).toBe('maybe-consumed');
+    expect(result.healing).toContainEqual({
+      pokemonId: 'initial-defender',
+      source: 'Sitrus Berry',
+      amount: { min: 0, max: Math.floor(maxHp / 4) },
+    });
     expect(result.defenderHp).toEqual({
       min: Math.min(threshold + 1, Math.min(maxHp, threshold - 1 + heal)),
       max: Math.max(initialHp - result.damage.min, Math.min(maxHp, threshold + heal)),

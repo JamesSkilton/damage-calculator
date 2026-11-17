@@ -19,8 +19,56 @@
   background: #facc15;
 }
 
+.hp-range-bar-health-green { background-color: #16a34a; }
+.hp-range-bar-health-yellow { background-color: #facc15; }
+.hp-range-bar-health-red { background-color: #dc2626; }
+
+.hp-range-bar-uncertain {
+  background-image: repeating-linear-gradient(
+    135deg,
+    transparent 0 3px,
+    rgba(255, 255, 255, 0.45) 3px 6px
+  );
+}
+
 .hp-range-bar-scale {
   height: 2.2rem;
+}
+
+.hp-range-bar-percent-scale {
+  height: 2.1rem;
+}
+
+.hp-range-bar-percent-tick {
+  transform: translateX(-50%);
+  line-height: 1rem;
+  white-space: nowrap;
+}
+
+.hp-range-bar-percent-tick:first-child {
+  transform: none;
+}
+
+.hp-range-bar-percent-tick:nth-child(even) {
+  top: 1rem;
+}
+
+.hp-range-bar-percent-tick:last-child {
+  transform: translateX(-100%);
+}
+
+.hp-range-bar-percent-marker {
+  width: 1px;
+  background: rgba(15, 23, 42, 0.65);
+  transform: translateX(-50%);
+}
+
+.hp-range-bar-percent-marker:first-child {
+  transform: none;
+}
+
+.hp-range-bar-percent-marker:last-child {
+  transform: translateX(-100%);
 }
 
 .hp-range-bar-tick {
@@ -40,3 +88,4 @@
 .hp-range-bar-loss-cold { background: #38bdf8; }
 .hp-range-bar-loss-item { background: #dc2626; }
 .hp-range-bar-gain-berry { background: #2dd4bf; }
+.hp-range-bar-gain-heal { background: #2dd4bf; }
