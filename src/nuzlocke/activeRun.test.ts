@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from 'vitest';
-import { syncEncountersToBox } from './activeRun';
+import { deactivateRun, syncEncountersToBox } from './activeRun';
 import {
+  ACTIVE_RUN_KEY,
   loadImportedPokemonSets,
   loadPartyPokemonSetIds,
   saveImportedPokemonSets,
@@ -17,7 +18,39 @@ const encounter = (
 ): RunEncounter => ({ id, route: `Route ${id}`, status, species });
 
 describe('syncEncountersToBox', () => {
-  beforeEach(() => sessionStorage.clear());
+  beforeEach(() => {
+    sessionStorage.clear();
+    localStorage.clear();
+  });
+
+  it('restores the durable scratch box after the run is deactivated in a new tab', async () => {
+    saveImportedPokemonSets([
+      {
+        id: 'scratch',
+        generation: 3,
+        species: 'Pidgey',
+        item: 'Oran Berry',
+        level: 10,
+        nature: 'Serious',
+        evs: emptyStats(0),
+        ivs: emptyStats(31),
+        moves: [],
+      },
+    ]);
+    savePartyPokemonSetIds(['scratch']);
+    localStorage.setItem(
+      ACTIVE_RUN_KEY,
+      JSON.stringify({ libraryId: 'lib', runId: 'run' }),
+    );
+    sessionStorage.clear();
+
+    await deactivateRun();
+
+    expect(loadImportedPokemonSets()).toMatchObject([
+      { id: 'scratch', item: 'Oran Berry' },
+    ]);
+    expect(loadPartyPokemonSetIds()).toEqual(['scratch']);
+  });
 
   it('adds caught Pokémon and removes dead ones from box and party', () => {
     syncEncountersToBox([encounter('a', 'caught', 'Pidgey')], 3);

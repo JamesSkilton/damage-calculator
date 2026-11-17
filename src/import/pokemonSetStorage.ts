@@ -4,6 +4,7 @@ import { familyOf } from '../nuzlocke/dupesClause';
 export const IMPORTED_POKEMON_SETS_KEY = 'pokemans.imported-pokemon-sets.v1';
 export const PARTY_POKEMON_SET_IDS_KEY = 'pokemans.party-pokemon-set-ids.v1';
 export const BOX_CHANGED_EVENT = 'pokemans.box-changed';
+export const ACTIVE_RUN_KEY = 'pokemans.active-nuzlocke-run.v1';
 
 function notifyBoxChanged(): void {
   if (typeof window !== 'undefined') window.dispatchEvent(new Event(BOX_CHANGED_EVENT));
@@ -13,7 +14,11 @@ export function loadImportedPokemonSets(storage?: Storage): ImportedPokemonSet[]
   if (!storage && typeof sessionStorage === 'undefined') return [];
   const target = storage ?? sessionStorage;
   try {
-    const value = JSON.parse(target.getItem(IMPORTED_POKEMON_SETS_KEY) || '[]');
+    const stored = target.getItem(IMPORTED_POKEMON_SETS_KEY) ??
+      (!storage && typeof localStorage !== 'undefined' && !localStorage.getItem(ACTIVE_RUN_KEY)
+        ? localStorage.getItem(IMPORTED_POKEMON_SETS_KEY)
+        : null);
+    const value = JSON.parse(stored || '[]');
     return Array.isArray(value) ? value : [];
   } catch {
     return [];
@@ -25,7 +30,11 @@ export function saveImportedPokemonSets(
   storage?: Storage,
 ): void {
   if (!storage && typeof sessionStorage === 'undefined') return;
-  (storage ?? sessionStorage).setItem(IMPORTED_POKEMON_SETS_KEY, JSON.stringify(sets));
+  const value = JSON.stringify(sets);
+  if (!storage && typeof localStorage !== 'undefined' && !localStorage.getItem(ACTIVE_RUN_KEY)) {
+    localStorage.setItem(IMPORTED_POKEMON_SETS_KEY, value);
+  }
+  (storage ?? sessionStorage).setItem(IMPORTED_POKEMON_SETS_KEY, value);
   notifyBoxChanged();
 }
 
@@ -55,7 +64,11 @@ export function loadPartyPokemonSetIds(storage?: Storage): string[] {
   if (!storage && typeof sessionStorage === 'undefined') return [];
   const target = storage ?? sessionStorage;
   try {
-    const value = JSON.parse(target.getItem(PARTY_POKEMON_SET_IDS_KEY) || '[]');
+    const stored = target.getItem(PARTY_POKEMON_SET_IDS_KEY) ??
+      (!storage && typeof localStorage !== 'undefined' && !localStorage.getItem(ACTIVE_RUN_KEY)
+        ? localStorage.getItem(PARTY_POKEMON_SET_IDS_KEY)
+        : null);
+    const value = JSON.parse(stored || '[]');
     return Array.isArray(value)
       ? value.filter((id): id is string => typeof id === 'string')
       : [];
@@ -69,7 +82,11 @@ export function savePartyPokemonSetIds(
   storage?: Storage,
 ): void {
   if (!storage && typeof sessionStorage === 'undefined') return;
-  (storage ?? sessionStorage).setItem(PARTY_POKEMON_SET_IDS_KEY, JSON.stringify(ids));
+  const value = JSON.stringify(ids);
+  if (!storage && typeof localStorage !== 'undefined' && !localStorage.getItem(ACTIVE_RUN_KEY)) {
+    localStorage.setItem(PARTY_POKEMON_SET_IDS_KEY, value);
+  }
+  (storage ?? sessionStorage).setItem(PARTY_POKEMON_SET_IDS_KEY, value);
   notifyBoxChanged();
 }
 

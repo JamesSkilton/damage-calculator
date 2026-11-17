@@ -553,6 +553,16 @@ export default function OneVsOneMode() {
     selectImportedSet('attacker', set);
   };
 
+  const saveAttackerItem = (item: string | undefined) => {
+    const setId = selectedImportedSetIds.attacker;
+    if (!setId || !importedSets.some((set) => set.id === setId)) return;
+    const updated = importedSets.map((set) =>
+      set.id === setId ? { ...set, item } : set,
+    );
+    saveImportedPokemonSets(updated);
+    setImportedSets(updated);
+  };
+
   const navigateFight = (direction: -1 | 1) => {
     const currentIndex = activeTrainerGroups.findIndex(
       (group) => group.trainerName === activeTrainerName,
@@ -677,12 +687,15 @@ export default function OneVsOneMode() {
           title="Attacker panel"
           description="Edit the attacking combatant before calculating damage."
           combatant={draft.attacker}
-          onChange={(attacker) =>
+          onChange={(attacker) => {
+            if (attacker.item !== draft.attacker.item) {
+              saveAttackerItem(attacker.item);
+            }
             setDraft((current) => ({
               ...current,
               attacker,
-            }))
-          }
+            }));
+          }}
           generation={generation}
           moves={attackerMoves.slots}
           availableMoves={availableMoves}
@@ -692,6 +705,7 @@ export default function OneVsOneMode() {
           onImportedSetCleared={() => clearSelectedImportedSet('attacker')}
           selectedImportedSetId={selectedImportedSetIds.attacker}
           onUpdateImportedSet={() => updateImportedSet('attacker')}
+          itemAutoSaved={importedSets.some((set) => set.id === selectedImportedSetIds.attacker)}
           presets={presets}
           onPreset={(preset) => selectPreset('attacker', preset)}
           onPresetCleared={() => clearSelectedPreset('attacker')}

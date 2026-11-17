@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import Modal from 'react-bootstrap/Modal';
 import type { SpeciesOption } from '../combatant/species/speciesOptions';
 import { buildSpeciesCatalog } from '../combatant/species/speciesCatalog';
 import TypeBadges from '../combatant/shared/TypeBadges';
@@ -78,6 +79,7 @@ export default function Party({
   );
   const [draggedSetId, setDraggedSetId] = useState<string>();
   const [draggedFromParty, setDraggedFromParty] = useState(false);
+  const [matchupSettingsOpen, setMatchupSettingsOpen] = useState(false);
   const species = useMemo<SpeciesOption[]>(() => buildSpeciesCatalog(9), []);
   const typesBySpecies = useMemo(
     () => new Map(species.map((option) => [option.name, option.types])),
@@ -202,43 +204,65 @@ export default function Party({
       <section className="party-box" aria-labelledby="party-box-title">
         <div className="party-section-heading">
           <h3 id="party-box-title">Pokemon box</h3>
-          <span>{importedSets.length} imported</span>
+          <div className="d-flex align-items-center gap-2">
+            <span>{importedSets.length} imported</span>
+            {matchups && matchupSettings && onMatchupSettingsChange && (
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary"
+                aria-label="Matchup settings"
+                title="Matchup settings"
+                onClick={() => setMatchupSettingsOpen(true)}
+              >
+                <span aria-hidden="true">⚙</span>
+              </button>
+            )}
+          </div>
         </div>
         {matchups && matchupSettings && onMatchupSettingsChange && (
-          <details className="small">
-            <summary>
-              Matchups vs {matchupTargetLabel ?? 'current defender'}
-            </summary>
-            <p className="mb-1">
-              A green border means it outspeeds; no green border means it
-              doesn’t. Fill: green is excellent, blue is good, red is poor.
-            </p>
-            <div className="d-flex flex-wrap gap-2">
-              {(
-                [
-                  ['surviveHits', 'Good if survives hits'],
-                  ['comboSurviveHits', 'Excellent: survives hits'],
-                  ['comboKoHits', 'Excellent: KOs in hits'],
-                ] as const
-              ).map(([key, label]) => (
-                <label key={key} className="d-flex align-items-center gap-1">
-                  <span>{label}</span>
-                  <input
-                    type="number"
-                    className="form-control form-control-sm"
-                    style={{ width: '4rem' }}
-                    min={1}
-                    max={10}
-                    value={matchupSettings[key]}
-                    onChange={(event) => {
-                      const value = Math.min(10, Math.max(1, Math.floor(Number(event.target.value)) || 1));
-                      onMatchupSettingsChange({ ...matchupSettings, [key]: value });
-                    }}
-                  />
-                </label>
-              ))}
-            </div>
-          </details>
+          <Modal
+            show={matchupSettingsOpen}
+            onHide={() => setMatchupSettingsOpen(false)}
+            aria-labelledby="box-matchup-settings-title"
+            animation={false}
+          >
+            <Modal.Header closeButton>
+              <Modal.Title id="box-matchup-settings-title">
+                Matchups vs {matchupTargetLabel ?? 'current defender'}
+              </Modal.Title>
+            </Modal.Header>
+            <Modal.Body>
+              <p>
+                A green border means it outspeeds; no green border means it
+                doesn’t. Fill: green is excellent, blue is good, red is poor.
+              </p>
+              <div className="d-flex flex-wrap gap-2">
+                {(
+                  [
+                    ['surviveHits', 'Good if survives hits'],
+                    ['comboSurviveHits', 'Excellent: survives hits'],
+                    ['comboKoHits', 'Excellent: KOs in hits'],
+                  ] as const
+                ).map(([key, label]) => (
+                  <label key={key} className="d-flex align-items-center gap-1">
+                    <span>{label}</span>
+                    <input
+                      type="number"
+                      className="form-control form-control-sm"
+                      style={{ width: '4rem' }}
+                      min={1}
+                      max={10}
+                      value={matchupSettings[key]}
+                      onChange={(event) => {
+                        const value = Math.min(10, Math.max(1, Math.floor(Number(event.target.value)) || 1));
+                        onMatchupSettingsChange({ ...matchupSettings, [key]: value });
+                      }}
+                    />
+                  </label>
+                ))}
+              </div>
+            </Modal.Body>
+          </Modal>
         )}
         {importedSets.length === 0 ? (
           <p className="party-empty">Import Pokemon sets from the One vs One calculator to see them here.</p>
@@ -303,6 +327,7 @@ export default function Party({
                     </button>
                     <div className="d-flex flex-column align-items-center">
                       <strong>{displayName(set)}</strong>
+                      <span className="small text-body-secondary">{set.item || 'No item'}</span>
                       <div className="party-card-meta">
                         <span>{set.nickname ? set.species : `Lv. ${set.level}`}</span>
                         <span className="party-card-types">

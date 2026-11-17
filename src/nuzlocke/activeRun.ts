@@ -2,9 +2,12 @@ import type { NuzlockeClient } from './httpClient';
 import type { NuzlockeRun, RunBoxSet, RunEncounter } from './types';
 import { loadPresetLibraryCache } from '../presets/remote/presetLibraryCache';
 import {
+  ACTIVE_RUN_KEY,
   BOX_CHANGED_EVENT,
   IMPORTED_POKEMON_SETS_KEY,
   PARTY_POKEMON_SET_IDS_KEY,
+  loadImportedPokemonSets,
+  loadPartyPokemonSetIds,
   saveImportedPokemonSets,
   savePartyPokemonSetIds,
 } from '../import/pokemonSetStorage';
@@ -12,8 +15,8 @@ import { emptyStats, type ImportedPokemonSet } from '../import/pokemonSet';
 import { familyOf } from './dupesClause';
 
 export { BOX_CHANGED_EVENT };
+export { ACTIVE_RUN_KEY };
 export const ACTIVE_RUN_CHANGED_EVENT = 'pokemans.active-run-changed';
-export const ACTIVE_RUN_KEY = 'pokemans.active-nuzlocke-run.v1';
 const SCRATCH_BOX_KEY = 'pokemans.scratch-box.v1';
 const SYNC_DELAY_MS = 800;
 
@@ -205,8 +208,21 @@ export async function activateRun(run: NuzlockeRun): Promise<boolean> {
   const library = loadPresetLibraryCache();
   if (!library) return false;
   await flushBoxSync();
-  if (!loadActiveRun())
-    sessionStorage.setItem(SCRATCH_BOX_KEY, JSON.stringify(readBox()));
+  if (!loadActiveRun()) {
+    const scratch = {
+      box: loadImportedPokemonSets(),
+      partyIds: loadPartyPokemonSetIds(),
+    };
+    sessionStorage.setItem(SCRATCH_BOX_KEY, JSON.stringify(scratch));
+    localStorage.setItem(
+      IMPORTED_POKEMON_SETS_KEY,
+      JSON.stringify(scratch.box),
+    );
+    localStorage.setItem(
+      PARTY_POKEMON_SET_IDS_KEY,
+      JSON.stringify(scratch.partyIds),
+    );
+  }
   writeBox(run.box, run.partyIds);
   localStorage.setItem(
     ACTIVE_RUN_KEY,
@@ -225,7 +241,10 @@ export async function deactivateRun(): Promise<void> {
   const scratch = readJson<{ box?: RunBoxSet[]; partyIds?: string[] }>(
     sessionStorage,
     SCRATCH_BOX_KEY,
-    {},
+    {
+      box: loadImportedPokemonSets(localStorage).map((set) => ({ ...set })),
+      partyIds: loadPartyPokemonSetIds(localStorage),
+    },
   );
   writeBox(scratch.box ?? [], scratch.partyIds ?? []);
   sessionStorage.removeItem(SCRATCH_BOX_KEY);
