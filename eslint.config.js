@@ -11,7 +11,6 @@ export default tseslint.config(
       'dist',
       'node_modules',
       'coverage',
-      '.squad',
       'old-code',
       'src/calc-runtime/core',
     ],
