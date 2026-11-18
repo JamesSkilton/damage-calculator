@@ -13,7 +13,9 @@ import { calculateEndOfTurnResidual, type EndOfTurnResidual } from 'calc-runtime
 import { buildBattleCalcBreakdowns } from './battleCalc';
 import { getInflictedStatus, inflictsConfusion } from './moveStatus';
 import { canEatBerry, curesConfusion, curesStatus, getHitBerry, getHpBerry } from './berries';
-import { getBerryResistType } from 'calc-runtime/core/items';
+import { getBerryResistType, getFlingPower } from 'calc-runtime/core/items';
+import { Generations } from 'calc-runtime/core/data';
+import { toID } from 'calc-runtime/core/util';
 
 export function replaceActivePokemonInPlanSegment(
   actions: readonly BattlePlanAction[],
@@ -113,6 +115,10 @@ export function buildBattlePlanResults({
   const consumedItems = new Set<string>();
   // Items eaten on some damage rolls but not all of them.
   const maybeConsumedItems = new Set<string>();
+  const eatenBerries = new Set<string>();
+  const maybeEatenBerries = new Set<string>();
+  const recyclableItems = new Map<string, string>();
+  const items = Generations.get(generation)?.items;
   const unburdenActive = new Set(
     [...rosters.attacker, ...rosters.defender]
       .filter((entry) => (entry.id === activeIds.attacker || entry.id === activeIds.defender) &&
@@ -150,13 +156,30 @@ export function buildBattlePlanResults({
 
   const heldItem = (entry: BattlePlanRosterEntry) =>
     consumedItems.has(entry.id) ? undefined : entry.combatant.item;
+  const isBerry = (item: string | undefined) =>
+    Boolean(item && items?.get(toID(item))?.isBerry);
   const sideOf = (entry: BattlePlanRosterEntry): BattlePlanActor =>
     rosters.attacker.some((candidate) => candidate.id === entry.id) ? 'attacker' : 'defender';
   const canEat = (entry: BattlePlanRosterEntry) => {
     const opponent = getActiveEntry(sideOf(entry) === 'attacker' ? 'defender' : 'attacker');
     return canEatBerry(entry.combatant.ability, opponent?.combatant.ability);
   };
-  const markConsumed = (entry: BattlePlanRosterEntry, certain: boolean) => {
+  const markConsumed = (
+    entry: BattlePlanRosterEntry,
+    certain: boolean,
+    eater: BattlePlanRosterEntry | null = entry,
+    eaterCertain = certain,
+  ) => {
+    const item = heldItem(entry);
+    if (item) recyclableItems.set(entry.id, item);
+    if (item && isBerry(item) && eater) {
+      if (eaterCertain) {
+        eatenBerries.add(eater.id);
+        maybeEatenBerries.delete(eater.id);
+      } else if (!eatenBerries.has(eater.id)) {
+        maybeEatenBerries.add(eater.id);
+      }
+    }
     if (certain) {
       consumedItems.add(entry.id);
       maybeConsumedItems.delete(entry.id);
@@ -198,6 +221,51 @@ export function buildBattlePlanResults({
     const healed = candidates.map((value) => value + gain(value));
     hpById.set(entry.id, createHpRange(certain || threshold !== undefined ? Math.min(...healed) : hp.min, Math.max(...healed)));
     recordCheekPouch(entry, certain, certain || threshold !== undefined ? candidates.map(gain) : [0, ...candidates.map(gain)]);
+  };
+
+  const applyEatenBerry = (item: string, eater: BattlePlanRosterEntry, certain = true) => {
+    stepEvents.push(`${eater.label}: ${certain ? 'ate' : 'possibly ate'} ${item}`);
+    const berry = getHpBerry(item, generation, eater.combatant.ability);
+    const effect = berry?.effect;
+    const maxHp = maxHpById.get(eater.id) ?? 0;
+    const hp = getHp(eater);
+    if (effect?.kind === 'heal' && maxHp > 0) {
+      const candidates = [hp.min, hp.max, 1]
+        .filter((value) => value >= hp.min && value <= hp.max);
+      const heal = (value: number) => value > 0
+        ? Math.min(maxHp - value, effect.amount(maxHp))
+        : 0;
+      const healed = candidates.map((value) => value + (certain ? heal(value) : 0));
+      const possibleHealed = candidates.map((value) => value + heal(value));
+      hpById.set(
+        eater.id,
+        createHpRange(
+          Math.min(...(certain ? healed : candidates)),
+          Math.max(...possibleHealed),
+        ),
+      );
+      const minHeal = certain ? Math.min(...candidates.map(heal)) : 0;
+      const maxHeal = Math.max(...candidates.map(heal));
+      if (maxHeal > 0) {
+        stepEvents.push(`${eater.label}: ${item} restored ${maxHeal === minHeal ? maxHeal : `${minHeal}-${maxHeal}`} HP`);
+        stepHealing.push({ pokemonId: eater.id, source: item, amount: { min: minHeal, max: maxHeal } });
+      }
+    } else if (effect?.kind === 'boost') {
+      if (certain) boostStat(eater, effect.stat, effect.stages);
+      stepEvents.push(`${eater.label}: ${item} ${certain ? 'raised' : 'may raise'} ${effect.stat.toUpperCase()} ${signed(effect.stages)}`);
+    } else if (effect?.kind === 'random-boost') {
+      stepEvents.push(`${eater.label}: ${item} sharply raised a random stat`);
+    }
+
+    const status = statusById.get(eater.id);
+    if (status && curesStatus(item, status)) {
+      if (certain) {
+        statusById.set(eater.id, undefined);
+        toxicCounterById.set(eater.id, 0);
+      }
+      stepEvents.push(`${eater.label}: ${item} ${certain ? 'cured' : 'may cure'} ${status}`);
+    }
+    applyCheekPouch(eater, certain);
   };
 
   /** Eats the active Pokémon's low-HP berry if its HP is at or below the berry's threshold. Returns the HP healed. */
@@ -495,8 +563,30 @@ export function buildBattlePlanResults({
     const targetHp = getHp(targetEntry);
     const actingHp = getHp(activeEntry);
 
-    if (action.move.skipped) {
-      // No damage calc runs for a skipped move, so probe once to learn each side's max HP.
+    const activeItem = heldItem(activeEntry);
+    const moveFailure =
+      action.move.name === 'Belch' &&
+      !eatenBerries.has(activeEntry.id) &&
+      !maybeEatenBerries.has(activeEntry.id)
+        ? 'Belch failed because no Berry has been eaten'
+        : action.move.name === 'Natural Gift' && !isBerry(activeItem)
+          ? 'Natural Gift failed because no Berry is held'
+          : action.move.name === 'Stuff Cheeks' &&
+              (!isBerry(activeItem) || !canEat(activeEntry))
+            ? 'Stuff Cheeks failed because the user cannot eat a held Berry'
+            : action.move.name === 'Fling' &&
+                (!activeItem || getFlingPower(activeItem, generation) === 0)
+              ? 'Fling failed because the held item cannot be thrown'
+              : action.move.name === 'Recycle' &&
+                  (!recyclableItems.has(activeEntry.id) ||
+                    (activeItem && !maybeConsumedItems.has(activeEntry.id)))
+                ? 'Recycle failed because there is no consumed item to restore'
+                : undefined;
+    if (action.move.skipped || moveFailure) {
+      if (!action.move.skipped && moveFailure) {
+        stepEvents.push(`${activeEntry.label}: ${moveFailure}`);
+      }
+      // No damage calc runs for these moves, so probe once to learn each side's max HP.
       for (const [entry, opponent] of [[activeEntry, targetEntry], [targetEntry, activeEntry]] as const) {
         if (maxHpById.has(entry.id)) continue;
         const probe = buildBattleCalcBreakdowns({
@@ -552,13 +642,24 @@ export function buildBattlePlanResults({
     }
 
     const { details } = result;
+    const belchMayFail =
+      action.move.name === 'Belch' && maybeEatenBerries.has(activeEntry.id);
+    if (belchMayFail) {
+      stepEvents.push(`${activeEntry.label}: Belch may fail because the Berry may not have been eaten`);
+    }
+    const itemMoveMayFail =
+      maybeConsumedItems.has(activeEntry.id) &&
+      (action.move.name === 'Natural Gift' || action.move.name === 'Fling');
+    if (itemMoveMayFail) {
+      stepEvents.push(`${activeEntry.label}: ${action.move.name} may fail because the item may already be consumed`);
+    }
     const resolvedTargetHp =
       targetHp.max === 0
         ? createHpRange(details.defenderCurrentHp, details.defenderCurrentHp)
         : targetHp;
 
     const damage = createHpRange(
-      details.possibleDamage[0] ?? 0,
+      belchMayFail || itemMoveMayFail ? 0 : details.possibleDamage[0] ?? 0,
       details.possibleDamage[details.possibleDamage.length - 1] ?? 0,
     );
     hpById.set(targetEntry.id, resolvedTargetHp);
@@ -639,6 +740,48 @@ export function buildBattlePlanResults({
         stepEvents.push(`${activeEntry.label}: lost ${amount} HP to ${berryName}`);
       }
       applyCheekPouch(targetEntry, certain);
+    }
+
+    if (action.move.name === 'Natural Gift' && activeItem && isBerry(activeItem)) {
+      markConsumed(activeEntry, true, null);
+      stepEvents.push(`${activeEntry.label}: Natural Gift consumed ${activeItem}`);
+    } else if (action.move.name === 'Fling' && activeItem) {
+      markConsumed(activeEntry, true, null);
+      stepEvents.push(`${activeEntry.label}: Fling consumed ${activeItem}`);
+    } else if (action.move.name === 'Stuff Cheeks') {
+      const berry = heldItem(activeEntry);
+      if (berry && isBerry(berry) && canEat(activeEntry)) {
+        const effectCertain = !maybeConsumedItems.has(activeEntry.id);
+        markConsumed(activeEntry, true, activeEntry, true);
+        applyEatenBerry(berry, activeEntry, effectCertain);
+        if (effectCertain) boostStat(activeEntry, 'def', 2);
+        stepEvents.push(`${activeEntry.label}: Defense ${effectCertain ? 'rose' : 'may rise'} +2`);
+      }
+    } else if (action.move.name === 'Teatime') {
+      for (const entry of [getActiveEntry('attacker'), getActiveEntry('defender')]) {
+        if (!entry) continue;
+        const berry = heldItem(entry);
+        if (!berry || !isBerry(berry) || !canEat(entry)) continue;
+        const effectCertain = !maybeConsumedItems.has(entry.id);
+        markConsumed(entry, true);
+        applyEatenBerry(berry, entry, effectCertain);
+      }
+    } else if (action.move.name === 'Bug Bite' || action.move.name === 'Pluck') {
+      const berry = heldItem(targetEntry);
+      if (berry && isBerry(berry) && canEat(activeEntry) && damage.max > 0) {
+        const eaterCertain = !maybeConsumedItems.has(targetEntry.id);
+        markConsumed(targetEntry, true, activeEntry, eaterCertain);
+        stepEvents.push(`${targetEntry.label}: lost ${berry} to ${action.move.name}`);
+        applyEatenBerry(berry, activeEntry, eaterCertain);
+      }
+    } else if (action.move.name === 'Recycle') {
+      const item = recyclableItems.get(activeEntry.id);
+      if (item) {
+        consumedItems.delete(activeEntry.id);
+        maybeConsumedItems.delete(activeEntry.id);
+        recyclableItems.delete(activeEntry.id);
+        stepEvents.push(`${activeEntry.label}: recycled ${item}`);
+      }
     }
 
     eatHpBerry(targetEntry);
