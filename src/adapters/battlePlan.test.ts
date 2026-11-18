@@ -422,6 +422,188 @@ describe('battle plan adapter', () => {
     expect(withBerry[1].damage.max).toBeGreaterThan(withBerry[0].damage.max * 1.8);
   });
 
+  it('fails Belch until the user has eaten a Berry', () => {
+    const team = createTeamDraft(9);
+    const attacker = { ...team.attacker, currentHp: 0, moves: ['Tackle'] };
+    const defender = { ...team.defender, currentHp: 0, item: 'Leftovers', moves: ['Belch'] };
+    const belch = { name: 'Belch', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const field = createBattleFieldDraft(9);
+    const unavailable = buildBattlePlanResults({
+      generation: 9,
+      attacker,
+      defender,
+      field,
+      actions: [{ id: 'belch', actor: 'defender', type: 'move', move: belch }],
+    })[0];
+    const afterBerry = buildBattlePlanResults({
+      generation: 9,
+      attacker,
+      defender: { ...defender, item: 'Kee Berry' },
+      field,
+      actions: [
+        {
+          id: 'hit',
+          actor: 'attacker',
+          type: 'move',
+          move: { name: 'Tackle', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 },
+        },
+        { id: 'belch', actor: 'defender', type: 'move', move: belch },
+      ],
+    });
+
+    expect(unavailable.damage).toEqual({ min: 0, max: 0 });
+    expect(unavailable.itemEvents.join(' ')).toContain('Belch failed because no Berry has been eaten');
+    expect(afterBerry[0].items['initial-defender']).toBe('consumed');
+    expect(afterBerry[1].damage.max).toBeGreaterThan(0);
+  });
+
+  it('includes a failed Belch when a Berry was only possibly eaten', () => {
+    const team = createTeamDraft(9);
+    const attacker = { ...team.attacker, currentHp: 0, moves: ['Tackle'] };
+    const defender = { ...team.defender, currentHp: 0, item: 'Sitrus Berry', moves: ['Belch'] };
+    const tackle = { name: 'Tackle', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const belch = { ...tackle, name: 'Belch' };
+    const field = createBattleFieldDraft(9);
+    const probe = buildBattlePlanResults({
+      generation: 9,
+      attacker,
+      defender: { ...defender, item: undefined },
+      field,
+      actions: [{ id: 'probe', actor: 'attacker', type: 'move', move: tackle }],
+    })[0];
+    const hpBeforeHit = Math.floor(probe.maxHp.defender / 2) + probe.damage.max;
+    const results = buildBattlePlanResults({
+      generation: 9,
+      attacker,
+      defender,
+      field,
+      actions: [
+        { id: 'set-hp', actor: 'defender', type: 'state', hp: hpBeforeHit },
+        { id: 'hit', actor: 'attacker', type: 'move', move: tackle },
+        { id: 'belch', actor: 'defender', type: 'move', move: belch },
+      ],
+    });
+
+    expect(results[1].items['initial-defender']).toBe('maybe-consumed');
+    expect(results[2].damage.min).toBe(0);
+    expect(results[2].damage.max).toBeGreaterThan(0);
+  });
+
+  it('consumes a Berry used by Natural Gift without counting it as eaten', () => {
+    const team = createTeamDraft(9);
+    const attacker = { ...team.attacker, currentHp: 0, item: 'Oran Berry', moves: ['Natural Gift', 'Belch'] };
+    const defender = { ...team.defender, currentHp: 0, moves: ['Tackle'] };
+    const gift = { name: 'Natural Gift', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const belch = { ...gift, name: 'Belch' };
+    const results = buildBattlePlanResults({
+      generation: 9,
+      attacker,
+      defender,
+      field: createBattleFieldDraft(9),
+      actions: [
+        { id: 'gift', actor: 'attacker', type: 'move', move: gift },
+        { id: 'belch', actor: 'attacker', type: 'move', move: belch },
+      ],
+    });
+
+    expect(results[0].damage.max).toBeGreaterThan(0);
+    expect(results[0].items['initial-attacker']).toBe('consumed');
+    expect(results[1].damage).toEqual({ min: 0, max: 0 });
+  });
+
+  it('consumes a Fling item and lets Recycle restore it for a later move', () => {
+    const team = createTeamDraft(9);
+    const attacker = { ...team.attacker, currentHp: 0, item: 'Sitrus Berry', moves: ['Fling', 'Recycle'] };
+    const defender = { ...team.defender, currentHp: 0, moves: ['Tackle'] };
+    const fling = { name: 'Fling', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const belch = { ...fling, name: 'Belch' };
+    const recycle = { ...fling, name: 'Recycle' };
+    const results = buildBattlePlanResults({
+      generation: 9,
+      attacker,
+      defender,
+      field: createBattleFieldDraft(9),
+      actions: [
+        { id: 'fling', actor: 'attacker', type: 'move', move: fling },
+        { id: 'belch', actor: 'attacker', type: 'move', move: belch },
+        { id: 'recycle', actor: 'attacker', type: 'move', move: recycle },
+        { id: 'fling-again', actor: 'attacker', type: 'move', move: fling },
+      ],
+    });
+
+    expect(results[0].items['initial-attacker']).toBe('consumed');
+    expect(results[1].damage).toEqual({ min: 0, max: 0 });
+    expect(results[2].items['initial-attacker']).toBe('held');
+    expect(results[3].damage.max).toBeGreaterThan(0);
+    expect(results[3].items['initial-attacker']).toBe('consumed');
+  });
+
+  it('eats the user Berry with Stuff Cheeks and raises Defense', () => {
+    const team = createTeamDraft(9);
+    const attacker = { ...team.attacker, currentHp: 0, item: 'Kee Berry', moves: ['Stuff Cheeks', 'Belch'] };
+    const defender = { ...team.defender, currentHp: 0, moves: ['Tackle'] };
+    const cheeks = { name: 'Stuff Cheeks', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const belch = { ...cheeks, name: 'Belch' };
+    const results = buildBattlePlanResults({
+      generation: 9,
+      attacker,
+      defender,
+      field: createBattleFieldDraft(9),
+      actions: [
+        { id: 'cheeks', actor: 'attacker', type: 'move', move: cheeks },
+        { id: 'belch', actor: 'attacker', type: 'move', move: belch },
+      ],
+    });
+
+    expect(results[0].items['initial-attacker']).toBe('consumed');
+    expect(results[0].boosts['initial-attacker'].def).toBe(2);
+    expect(results[1].damage.max).toBeGreaterThan(0);
+  });
+
+  it('makes Teatime consume berries held by both active Pokemon', () => {
+    const team = createTeamDraft(9);
+    const attacker = { ...team.attacker, currentHp: 0, item: 'Oran Berry', moves: ['Teatime'] };
+    const defender = { ...team.defender, currentHp: 0, item: 'Sitrus Berry', moves: ['Belch'] };
+    const teatime = { name: 'Teatime', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const belch = { ...teatime, name: 'Belch' };
+    const results = buildBattlePlanResults({
+      generation: 9,
+      attacker,
+      defender,
+      field: createBattleFieldDraft(9),
+      actions: [
+        { id: 'tea', actor: 'attacker', type: 'move', move: teatime },
+        { id: 'belch', actor: 'defender', type: 'move', move: belch },
+      ],
+    });
+
+    expect(results[0].items['initial-attacker']).toBe('consumed');
+    expect(results[0].items['initial-defender']).toBe('consumed');
+    expect(results[1].damage.max).toBeGreaterThan(0);
+  });
+
+  it.each(['Bug Bite', 'Pluck'])('%s eats the target Berry and applies its effect to the user', (name) => {
+    const team = createTeamDraft(9);
+    const attacker = { ...team.attacker, currentHp: 0, moves: [name, 'Belch'] };
+    const defender = { ...team.defender, currentHp: 0, item: 'Salac Berry', moves: ['Tackle'] };
+    const bite = { name, isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const belch = { ...bite, name: 'Belch' };
+    const results = buildBattlePlanResults({
+      generation: 9,
+      attacker,
+      defender,
+      field: createBattleFieldDraft(9),
+      actions: [
+        { id: 'bite', actor: 'attacker', type: 'move', move: bite },
+        { id: 'belch', actor: 'attacker', type: 'move', move: belch },
+      ],
+    });
+
+    expect(results[0].items['initial-defender']).toBe('consumed');
+    expect(results[0].boosts['initial-attacker'].spe).toBe(1);
+    expect(results[1].damage.max).toBeGreaterThan(0);
+  });
+
   it('raises Defense when a Kee Berry holder survives a physical hit', () => {
     const team = createTeamDraft(9);
     const attacker = { ...team.attacker, currentHp: 100, moves: ['Tackle'] };
