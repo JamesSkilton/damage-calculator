@@ -539,7 +539,10 @@ export default function OneVsOneMode() {
   };
 
   const selectPartyAttacker = (set: ImportedPokemonSet) => {
-    if (isPlannerOpen && plannerActions.length > 0) {
+    const hasAttackerSwitch = plannerActions.some(
+      (action) => action.actor === 'attacker' && action.type === 'switch',
+    );
+    if (isPlannerOpen && hasAttackerSwitch) {
       setPlannerActions((current) =>
         replaceActivePokemonInPlanSegment(
           current,
@@ -549,6 +552,18 @@ export default function OneVsOneMode() {
         ),
       );
       return;
+    }
+    if (isPlannerOpen) {
+      // Without switches the clicked mon becomes the starting mon, so drop per-action pins to the old one.
+      setPlannerActions((current) =>
+        current.map((action) =>
+          action.actor === 'attacker' &&
+          action.type === 'move' &&
+          action.pokemonId
+            ? { ...action, pokemonId: undefined }
+            : action,
+        ),
+      );
     }
     selectImportedSet('attacker', set);
   };

@@ -454,6 +454,7 @@ describe('battle plan adapter', () => {
     expect(unavailable.damage).toEqual({ min: 0, max: 0 });
     expect(unavailable.itemEvents.join(' ')).toContain('Belch failed because no Berry has been eaten');
     expect(afterBerry[0].items['initial-defender']).toBe('consumed');
+    expect(afterBerry[0].eatenBerries['initial-defender']).toBe('yes');
     expect(afterBerry[1].damage.max).toBeGreaterThan(0);
   });
 
@@ -485,6 +486,7 @@ describe('battle plan adapter', () => {
     });
 
     expect(results[1].items['initial-defender']).toBe('maybe-consumed');
+    expect(results[1].eatenBerries['initial-defender']).toBe('maybe');
     expect(results[2].damage.min).toBe(0);
     expect(results[2].damage.max).toBeGreaterThan(0);
   });
@@ -508,6 +510,7 @@ describe('battle plan adapter', () => {
 
     expect(results[0].damage.max).toBeGreaterThan(0);
     expect(results[0].items['initial-attacker']).toBe('consumed');
+    expect(results[0].eatenBerries['initial-attacker']).toBeUndefined();
     expect(results[1].damage).toEqual({ min: 0, max: 0 });
   });
 
