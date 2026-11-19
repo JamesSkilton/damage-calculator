@@ -1,6 +1,11 @@
 import type { BattleCombatant } from './combatant';
 import type { BattleField } from './field';
-import type { BattleStatBoosts, BattleStatusName, BattleTerrain, BattleWeather } from './shared';
+import type {
+  BattleStatBoosts,
+  BattleStatusName,
+  BattleTerrain,
+  BattleWeather,
+} from './shared';
 
 export type BattlePlanActor = 'attacker' | 'defender';
 
@@ -13,6 +18,8 @@ export interface BattlePlanMove {
   isStellarFirstUse: boolean;
   timesUsed: number;
   timesUsedWithMetronome?: number;
+  /** Move was preselected by the AI and should track matchup changes. */
+  aiSuggested?: boolean;
   /** The Pokémon does nothing this action (asleep, frozen, fully paralysed, flinched…). */
   skipped?: boolean;
 }
@@ -114,6 +121,8 @@ export interface BattlePlanStepResult {
   statuses: Readonly<Record<string, BattleStatusName | undefined>>;
   /** Held item state per roster id (only for Pokémon holding one) after this step. */
   items: Readonly<Record<string, BattlePlanItemState>>;
+  /** Whether each Pokémon has eaten a Berry, including uncertain damage-roll outcomes. */
+  eatenBerries: Readonly<Record<string, 'yes' | 'maybe'>>;
   /** Pokémon whose Unburden speed boost is active after this step. */
   unburdenActive: Readonly<Record<string, boolean>>;
   /** Item activations during this step, e.g. "Sitrus Berry restored 28 HP". */

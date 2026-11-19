@@ -174,7 +174,7 @@ describe('one-vs-one battle planner', () => {
     ]);
     expect(
       screen.getByRole('textbox', { name: 'Attacker starting Pokémon' }),
-    ).toHaveAttribute('placeholder', 'Eevee');
+    ).toHaveAttribute('placeholder', 'Pikachu');
     expect(
       within(panel).getByText(/Item changes are saved automatically/),
     ).toBeInTheDocument();

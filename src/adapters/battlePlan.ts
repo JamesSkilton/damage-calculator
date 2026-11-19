@@ -329,7 +329,7 @@ export function buildBattlePlanResults({
     currentHp: hp.max,
   });
 
-  const resolve = (action: BattlePlanAction): Omit<BattlePlanStepResult, 'field' | 'statuses' | 'items' | 'unburdenActive' | 'boosts' | 'maxHp' | 'itemEvents' | 'healing'> => {
+  const resolve = (action: BattlePlanAction): Omit<BattlePlanStepResult, 'field' | 'statuses' | 'items' | 'eatenBerries' | 'unburdenActive' | 'boosts' | 'maxHp' | 'itemEvents' | 'healing'> => {
     const isAttackerAction = action.actor === 'attacker';
     const actor = action.actor;
     const activeEntry = getActiveEntry(actor);
@@ -850,6 +850,10 @@ export function buildBattlePlanResults({
       healing: stepHealing,
       field: currentField,
       statuses: Object.fromEntries(statusById),
+      eatenBerries: Object.fromEntries([
+        ...[...eatenBerries].map((id) => [id, 'yes' as const] as const),
+        ...[...maybeEatenBerries].map((id) => [id, 'maybe' as const] as const),
+      ]),
       items: Object.fromEntries(
         [...rosters.attacker, ...rosters.defender]
           .filter((entry) => entry.combatant.item)
