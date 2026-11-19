@@ -16,6 +16,7 @@ import {
   type BattleCalcBreakdown,
 } from 'adapters/battleCalc';
 import { calculateBattleSpeed } from 'calc-runtime';
+import { Generations } from 'calc-runtime/core/data/index';
 import {
   chooseAiSwitchIn,
   predictAiGraph,
@@ -130,6 +131,18 @@ function filterSwitchPokemonOptions(
       value.toLowerCase().includes(normalizedSearch),
     ),
   );
+}
+
+function filterNamedOptions(
+  options: { name: string }[],
+  searchTerm: string,
+): { name: string }[] {
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  return normalizedSearch
+    ? options.filter((option) =>
+        option.name.toLowerCase().includes(normalizedSearch),
+      )
+    : options;
 }
 
 type MovePreview = {
@@ -256,6 +269,31 @@ export default function BattlePlanner({
   onBack,
 }: BattlePlannerProps) {
   const aiProfile = useActiveAiProfile();
+  const [attackerItemOverrides, setAttackerItemOverrides] = useState<
+    Record<string, string>
+  >({});
+  const [itemTargetPokemonId, setItemTargetPokemonId] =
+    useState(attackerRosterId);
+  const attackerRosterWithItems = useMemo(
+    () =>
+      attackerRoster.map((entry) => {
+        const item = attackerItemOverrides[entry.id];
+        return item === undefined
+          ? entry
+          : {
+              ...entry,
+              combatant: { ...entry.combatant, item: item || undefined },
+            };
+      }),
+    [attackerItemOverrides, attackerRoster],
+  );
+  const itemOptions = useMemo(
+    () =>
+      Array.from(Generations.get(generation).items).map((item) => ({
+        name: item.name,
+      })),
+    [generation],
+  );
   // Remember which party selection each picker choice was made against, so a later party click
   // replaces the starting Pokémon unless the plan already contains switches.
   const [startingPokemonIds, setStartingPokemonIds] = useState({
@@ -277,29 +315,52 @@ export default function BattlePlanner({
       : rosterId;
   };
   const activeStartingIds = {
-    attacker: resolveStartingId('attacker', attackerRoster, attackerRosterId),
+    attacker: resolveStartingId(
+      'attacker',
+      attackerRosterWithItems,
+      attackerRosterId,
+    ),
     defender: resolveStartingId('defender', defenderRoster, defenderRosterId),
   };
+  const effectiveAttacker = useMemo(() => {
+    const item = attackerItemOverrides[activeStartingIds.attacker];
+    return item === undefined
+      ? attacker
+      : { ...attacker, item: item || undefined };
+  }, [activeStartingIds.attacker, attacker, attackerItemOverrides]);
+  const itemTargetId = attackerRosterWithItems.some(
+    (entry) => entry.id === itemTargetPokemonId,
+  )
+    ? itemTargetPokemonId
+    : activeStartingIds.attacker;
+  const itemTargetEntry = attackerRosterWithItems.find(
+    (entry) => entry.id === itemTargetId,
+  );
+  const itemTargetItem = itemTargetEntry
+    ? (attackerItemOverrides[itemTargetEntry.id] ??
+      itemTargetEntry.combatant.item ??
+      '')
+    : '';
   const results = useMemo(
     () =>
       buildBattlePlanResults({
         generation,
-        attacker,
+        attacker: effectiveAttacker,
         defender,
         field,
         actions,
-        attackerRoster,
+        attackerRoster: attackerRosterWithItems,
         defenderRoster,
         attackerRosterId: activeStartingIds.attacker,
         defenderRosterId: activeStartingIds.defender,
       }),
     [
       actions,
-      attacker,
+      effectiveAttacker,
       defender,
       field,
       generation,
-      attackerRoster,
+      attackerRosterWithItems,
       defenderRoster,
       activeStartingIds.attacker,
       activeStartingIds.defender,
@@ -434,7 +495,7 @@ export default function BattlePlanner({
           generation,
           combatant: withStatus(
             getActiveRosterEntry(side, start),
-            side === 'attacker' ? attacker : defender,
+            side === 'attacker' ? effectiveAttacker : defender,
             start,
           ),
           field: fieldBefore(start),
@@ -543,7 +604,7 @@ export default function BattlePlanner({
   const resetPlan = () => onActionsChange([]);
 
   const getActorRoster = (actor: BattlePlanActor) =>
-    actor === 'attacker' ? attackerRoster : defenderRoster;
+    actor === 'attacker' ? attackerRosterWithItems : defenderRoster;
 
   const getActiveRosterEntry = (actor: BattlePlanActor, index: number) => {
     const initialId = activeStartingIds[actor];
@@ -584,7 +645,7 @@ export default function BattlePlanner({
         generation,
         combatant: withStatus(
           getActiveRosterEntry(side, index),
-          side === 'attacker' ? attacker : defender,
+          side === 'attacker' ? effectiveAttacker : defender,
           index,
         ),
         field: fieldBefore(index),
@@ -621,13 +682,13 @@ export default function BattlePlanner({
   ): MovePreview[] => {
     const activeActor = withStatus(
       getActiveRosterEntry(action.actor, index),
-      action.actor === 'attacker' ? attacker : defender,
+      action.actor === 'attacker' ? effectiveAttacker : defender,
       index,
     );
     const targetActor = action.actor === 'attacker' ? 'defender' : 'attacker';
     const activeTarget = withStatus(
       getActiveRosterEntry(targetActor, index),
-      action.actor === 'attacker' ? defender : attacker,
+      action.actor === 'attacker' ? defender : effectiveAttacker,
       index,
     );
     const previousResult = results[index - 1];
@@ -727,7 +788,7 @@ export default function BattlePlanner({
     if (!active || !fainted.has(active.id)) return [];
 
     const playerEntry = getActiveRosterEntry('attacker', index);
-    const player = withStatus(playerEntry, attacker, index);
+    const player = withStatus(playerEntry, effectiveAttacker, index);
     const candidates = defenderRoster.filter(
       (entry) => entry.id !== active.id && !fainted.has(entry.id),
     );
@@ -789,7 +850,7 @@ export default function BattlePlanner({
     const playerEntry = getActiveRosterEntry('attacker', index);
     const previous = results[index - 1];
     const ai = withStatus(aiEntry, defender, index);
-    const player = withStatus(playerEntry, attacker, index);
+    const player = withStatus(playerEntry, effectiveAttacker, index);
     const lastDefenderAction = actions
       .slice(0, index)
       .reverse()
@@ -931,7 +992,7 @@ export default function BattlePlanner({
                 <SearchableTypePicker
                   value={activeStartingIds[side]}
                   options={getRosterOptions(side)}
-                  onSelect={(id) =>
+                  onSelect={(id) => {
                     setStartingPokemonIds((current) => ({
                       ...current,
                       [side]: {
@@ -941,8 +1002,9 @@ export default function BattlePlanner({
                             ? attackerRosterId
                             : defenderRosterId,
                       },
-                    }))
-                  }
+                    }));
+                    if (side === 'attacker') setItemTargetPokemonId(id);
+                  }}
                   ariaLabel={`${side === 'attacker' ? 'Attacker' : 'Defender'} starting Pokémon`}
                   placeholder="— Select Pokémon —"
                   filterOptions={filterSwitchPokemonOptions}
@@ -961,6 +1023,73 @@ export default function BattlePlanner({
               </label>
             ))}
           </div>
+          {itemTargetEntry && (
+            <details className="mt-2">
+              <summary className="small fw-semibold text-secondary">
+                Compare my Pokémon&apos;s starting item
+              </summary>
+              <p className="small text-body-secondary mt-1 mb-2">
+                Changes apply from turn 1 whenever that Pokémon is active.
+              </p>
+              <div className="d-flex flex-wrap align-items-end gap-2">
+                <label className="d-grid small fw-semibold text-secondary">
+                  <span>Pokémon</span>
+                  <SearchableTypePicker
+                    value={itemTargetId}
+                    options={getRosterOptions('attacker')}
+                    onSelect={setItemTargetPokemonId}
+                    ariaLabel="Item comparison Pokémon"
+                    placeholder="— Select Pokémon —"
+                    filterOptions={filterSwitchPokemonOptions}
+                    getTypes={(option) => option.types}
+                    getDisplayName={(option) => option.displayName}
+                    renderLeading={(option) => (
+                      <PokemonSprite
+                        className="battle-plan-switch-sprite"
+                        name={option.species}
+                        alt=""
+                      />
+                    )}
+                    getGroup={(option) => option.group}
+                    emptyMessage="No Pokémon found"
+                  />
+                </label>
+                <label className="d-grid small fw-semibold text-secondary">
+                  <span>Starting item</span>
+                  <SearchableTypePicker
+                    value={itemTargetItem}
+                    options={itemOptions}
+                    onSelect={(item) =>
+                      setAttackerItemOverrides((current) => ({
+                        ...current,
+                        [itemTargetEntry.id]: item,
+                      }))
+                    }
+                    ariaLabel="Starting item"
+                    placeholder="— No item —"
+                    filterOptions={filterNamedOptions}
+                    getTypes={() => []}
+                    emptyMessage="No items found"
+                  />
+                </label>
+                {attackerItemOverrides[itemTargetEntry.id] !== undefined && (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-secondary"
+                    onClick={() =>
+                      setAttackerItemOverrides((current) => {
+                        const next = { ...current };
+                        delete next[itemTargetEntry.id];
+                        return next;
+                      })
+                    }
+                  >
+                    Restore saved item
+                  </button>
+                )}
+              </div>
+            </details>
+          )}
         </div>
         <div className="battle-planner-header-actions d-flex gap-2">
           <button
@@ -1458,7 +1587,7 @@ export default function BattlePlanner({
     const actorEntry = getActiveRosterEntry(action.actor, index);
     const actor =
       actorEntry?.combatant ??
-      (action.actor === 'attacker' ? attacker : defender);
+      (action.actor === 'attacker' ? effectiveAttacker : defender);
     const movePreviews =
       action.type === 'move' ? getMovePreviews(action, index) : [];
     const aiInput =
