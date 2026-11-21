@@ -15,6 +15,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createBattleFieldDraft } from '../combatant/shared/battleFieldDraft';
 import { createTeamDraft } from '../combatant/shared/combatantDraft';
 import { createMoveDraft } from '../combatant/moves/moveDraft';
+import { createMoveOption } from '../combatant/moves/moveOptions';
 import type { BattlePlanAction } from 'domain/index';
 import BattlePlanner from './BattlePlanner';
 
@@ -244,5 +245,98 @@ describe('battle planner AI graph', () => {
     expect(
       screen.getByText(/Run & Bun AI suggests Body Slam/),
     ).not.toHaveTextContent('Pre-selected.');
+  });
+
+  it('shows no move after Fake Out and restores the preselected move when removed', () => {
+    const team = createTeamDraft(9);
+    const fakeOut = createMoveDraft('Fake Out');
+    const tackle = createMoveDraft('Tackle');
+    const bodySlam = createMoveDraft('Body Slam');
+    const attacker = { ...team.attacker, currentHp: 100, ability: 'No Guard' };
+    const defender = { ...team.defender, currentHp: 100, ability: 'Static' };
+
+    function Harness() {
+      const [actions, setActions] = useState<BattlePlanAction[]>([
+        { id: 'player', actor: 'attacker', type: 'move', move: tackle },
+        {
+          id: 'ai',
+          actor: 'defender',
+          type: 'move',
+          move: { ...bodySlam, aiSuggested: true },
+        },
+        { id: 'end', actor: 'attacker', type: 'end-turn' },
+      ]);
+      return (
+        <BattlePlanner
+          generation={9}
+          attacker={attacker}
+          defender={defender}
+          field={createBattleFieldDraft(9)}
+          attackerRoster={[
+            {
+              id: 'attacker',
+              label: 'Attacker',
+              source: 'current',
+              combatant: attacker,
+              moves: [tackle, fakeOut],
+            },
+          ]}
+          defenderRoster={[
+            {
+              id: 'defender',
+              label: 'Defender',
+              source: 'current',
+              combatant: defender,
+              moves: [bodySlam],
+            },
+          ]}
+          attackerRosterId="attacker"
+          defenderRosterId="defender"
+          availableMoves={[
+            createMoveOption('Tackle', 'Normal', 40, 'Physical'),
+            createMoveOption('Fake Out', 'Normal', 40, 'Physical'),
+            createMoveOption('Body Slam', 'Normal', 85, 'Physical'),
+          ]}
+          attackerMoves={[tackle, fakeOut]}
+          defenderMoves={[bodySlam]}
+          actions={actions}
+          onActionsChange={setActions}
+          onBack={() => {}}
+        />
+      );
+    }
+
+    render(<Harness />);
+    const defenderRow = () =>
+      screen
+        .getByRole('button', { name: /^Body Slam/ })
+        .closest('.battle-plan-step') as HTMLElement;
+    expect(within(defenderRow()).getByLabelText('Action')).toHaveValue('move');
+    expect(
+      within(defenderRow()).getByRole('button', { name: /^Body Slam/ }),
+    ).toHaveAttribute('aria-pressed', 'true');
+
+    fireEvent.click(screen.getByRole('button', { name: /Fake Out/ }));
+
+    expect(within(defenderRow()).getByLabelText('Action')).toHaveValue('skip');
+    expect(
+      within(defenderRow()).getByText('No move (flinched)'),
+    ).toBeInTheDocument();
+    expect(
+      within(defenderRow()).getByRole('button', { name: /^Body Slam/ }),
+    ).toHaveAttribute('aria-pressed', 'false');
+    expect(
+      within(defenderRow()).getByRole('button', { name: /^Body Slam/ }),
+    ).toBeDisabled();
+    expect(
+      within(defenderRow()).getByText(/Run & Bun AI suggests/),
+    ).not.toHaveTextContent('Pre-selected.');
+
+    fireEvent.click(screen.getByRole('button', { name: /Tackle/ }));
+
+    expect(within(defenderRow()).getByLabelText('Action')).toHaveValue('move');
+    expect(
+      within(defenderRow()).getByRole('button', { name: /^Body Slam/ }),
+    ).toHaveAttribute('aria-pressed', 'true');
   });
 });

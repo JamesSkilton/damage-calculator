@@ -1589,6 +1589,11 @@ export default function BattlePlanner({
 
   function renderStep(action: BattlePlanAction, index: number) {
     const result = results[index];
+    const skipped =
+      action.type === 'move' &&
+      (Boolean(action.move.skipped) ||
+        (result?.action.type === 'move' &&
+          Boolean(result.action.move.skipped)));
     const actorEntry = getActiveRosterEntry(action.actor, index);
     const actor =
       actorEntry?.combatant ??
@@ -1684,11 +1689,7 @@ export default function BattlePlanner({
             <label className="d-grid flex-shrink-0 small fw-semibold text-secondary">
               <span>Action</span>
               <select
-                value={
-                  action.type === 'move' && action.move.skipped
-                    ? 'skip'
-                    : action.type
-                }
+                value={action.type === 'move' && skipped ? 'skip' : action.type}
                 onChange={(event) => {
                   if (event.target.value === 'switch') {
                     const activeId = getActiveRosterEntry(
@@ -1730,11 +1731,15 @@ export default function BattlePlanner({
                 }}
                 className="form-select form-select-sm"
               >
-                <option value="move">Move</option>
+                <option value="move" disabled={result?.flinched}>
+                  Move
+                </option>
                 <option value="skip">
-                  {plannerStatusOf(action.actor, index)
-                    ? `No move (${statusLabel(plannerStatusOf(action.actor, index))})`
-                    : 'No move'}
+                  {result?.flinched
+                    ? 'No move (flinched)'
+                    : plannerStatusOf(action.actor, index)
+                      ? `No move (${statusLabel(plannerStatusOf(action.actor, index))})`
+                      : 'No move'}
                 </option>
                 <option value="switch">Switch</option>
               </select>
@@ -1799,9 +1804,9 @@ export default function BattlePlanner({
                   >
                     Run &amp; Bun AI suggests {topAiPrediction.name} (
                     {Math.round(topAiPrediction.chance * 100)}%).
-                    {action.move.name === topAiPrediction.name
+                    {!skipped && action.move.name === topAiPrediction.name
                       ? ' Pre-selected.'
-                      : selectedAiPrediction
+                      : !skipped && selectedAiPrediction
                         ? ` ${action.move.name} has a ${Math.round(selectedAiPrediction.chance * 100)}% chance.`
                         : ''}
                   </span>
@@ -1815,14 +1820,14 @@ export default function BattlePlanner({
                     {movePreviews.map(({ option, breakdown }) => {
                       const details = breakdown.details;
                       const isSelected =
-                        action.move.name === option.name &&
-                        !action.move.skipped;
+                        action.move.name === option.name && !skipped;
                       return (
                         <button
                           key={option.name}
                           type="button"
                           className={`battle-plan-move-preview btn btn-sm d-grid gap-1 text-start fw-normal${isSelected ? ' btn-success' : ' btn-outline-secondary text-body'}`}
                           aria-pressed={isSelected}
+                          disabled={result?.flinched}
                           onClick={() =>
                             updateMove(action.id, {
                               name: option.name,
