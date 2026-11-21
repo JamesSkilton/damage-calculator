@@ -121,6 +121,72 @@ describe('one-vs-one battle planner', () => {
     );
   });
 
+  it('edits a switched-in attacker from the attacker panel', () => {
+    saveImportedPokemonSets([
+      {
+        id: 'pikachu',
+        generation: 9,
+        species: 'Pikachu',
+        item: 'Oran Berry',
+        level: 50,
+        nature: 'Serious',
+        evs: emptyStats(0),
+        ivs: emptyStats(31),
+        moves: ['Thunderbolt'],
+      },
+      {
+        id: 'eevee',
+        generation: 9,
+        species: 'Eevee',
+        level: 50,
+        nature: 'Serious',
+        evs: emptyStats(0),
+        ivs: emptyStats(31),
+        moves: ['Tackle'],
+      },
+    ]);
+    savePartyPokemonSetIds(['pikachu', 'eevee']);
+
+    render(
+      <MemoryRouter initialEntries={['/one-vs-one']}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Plan battle' }));
+    fireEvent.click(screen.getByRole('button', { name: '+ Add action' }));
+    fireEvent.change(screen.getAllByLabelText('Actor')[0], {
+      target: { value: 'attacker' },
+    });
+    fireEvent.change(screen.getAllByLabelText('Action')[0], {
+      target: { value: 'switch' },
+    });
+    fireEvent.click(
+      screen
+        .getAllByRole('button', { name: 'Load Eevee into attacker' })
+        .at(-1)!,
+    );
+    fireEvent.click(screen.getByRole('button', { name: '+ Add action' }));
+    fireEvent.change(screen.getAllByLabelText('Actor')[1], {
+      target: { value: 'attacker' },
+    });
+
+    const panel = screen.getByRole('article', { name: /Attacker panel/ });
+    expect(within(panel).getByRole('heading', { name: 'Eevee' })).toBeVisible();
+    const item = within(panel).getByRole('textbox', { name: 'Item' });
+    fireEvent.focus(item);
+    fireEvent.change(item, { target: { value: 'Sitrus Berry' } });
+    fireEvent.click(
+      within(panel).getByRole('option', { name: 'Sitrus Berry' }),
+    );
+
+    expect(
+      within(
+        screen.getByRole('region', { name: 'Battle planner' }),
+      ).getAllByAltText('Sitrus Berry'),
+    ).not.toHaveLength(0);
+  });
+
   it('saves an edited box item across sessions without changing the planned Pokémon', () => {
     saveImportedPokemonSets([
       {

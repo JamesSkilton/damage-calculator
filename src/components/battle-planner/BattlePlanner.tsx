@@ -57,6 +57,7 @@ type BattlePlannerProps = {
   defenderRosterId: string;
   actions: BattlePlanAction[];
   onActionsChange: Dispatch<SetStateAction<BattlePlanAction[]>>;
+  onAttackerRosterSelectionChange?: (pokemonId: string) => void;
   onBack: () => void;
 };
 
@@ -266,6 +267,7 @@ export default function BattlePlanner({
   defenderRosterId,
   actions,
   onActionsChange,
+  onAttackerRosterSelectionChange,
   onBack,
 }: BattlePlannerProps) {
   const aiProfile = useActiveAiProfile();
@@ -1003,7 +1005,10 @@ export default function BattlePlanner({
                             : defenderRosterId,
                       },
                     }));
-                    if (side === 'attacker') setItemTargetPokemonId(id);
+                    if (side === 'attacker') {
+                      onAttackerRosterSelectionChange?.(id);
+                      setItemTargetPokemonId(id);
+                    }
                   }}
                   ariaLabel={`${side === 'attacker' ? 'Attacker' : 'Defender'} starting Pokémon`}
                   placeholder="— Select Pokémon —"
@@ -1657,6 +1662,9 @@ export default function BattlePlanner({
                       type: 'switch',
                       targetPokemonId: action.targetPokemonId,
                     });
+                    if (actor === 'attacker') {
+                      onAttackerRosterSelectionChange?.(action.targetPokemonId);
+                    }
                   }
                 }}
                 className="form-select form-select-sm"
@@ -1698,6 +1706,9 @@ export default function BattlePlanner({
                       type: 'switch',
                       targetPokemonId: targetId,
                     });
+                    if (action.actor === 'attacker') {
+                      onAttackerRosterSelectionChange?.(targetId);
+                    }
                   } else if (event.target.value === 'skip') {
                     if (action.type === 'move')
                       updateMove(action.id, { skipped: true });
@@ -1747,13 +1758,16 @@ export default function BattlePlanner({
               <SearchableTypePicker
                 value={action.targetPokemonId}
                 options={getSwitchOptions(action.actor, index)}
-                onSelect={(targetPokemonId) =>
+                onSelect={(targetPokemonId) => {
                   updateAction(action.id, {
                     actor: action.actor,
                     type: 'switch',
                     targetPokemonId,
-                  })
-                }
+                  });
+                  if (action.actor === 'attacker') {
+                    onAttackerRosterSelectionChange?.(targetPokemonId);
+                  }
+                }}
                 ariaLabel={`Plan step ${index + 1} switch target`}
                 placeholder="— Select Pokémon —"
                 filterOptions={filterSwitchPokemonOptions}
