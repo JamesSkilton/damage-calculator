@@ -2,14 +2,21 @@
 
 import { useState } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { buildBattlePlanResults } from 'adapters/battlePlan';
 import type { BattlePlanAction } from 'domain/battlePlan';
 import { createBattleFieldDraft } from '../combatant/shared/battleFieldDraft';
 import { createTeamDraft } from '../combatant/shared/combatantDraft';
 import { createMoveDraft } from '../combatant/moves/moveDraft';
+import { createMoveOption } from '../combatant/moves/moveOptions';
 import BattlePlanner from './BattlePlanner';
 
 describe('battle planner turn summary', () => {
@@ -223,5 +230,87 @@ describe('battle planner turn summary', () => {
       ).map((option) => option.textContent),
     ).toContain('Attacker: Reserve');
     unmount();
+  });
+
+  it('lets you compare starting items for roster Pokémon and recalculates the plan', async () => {
+    const naturalGift = createMoveDraft('Natural Gift');
+    const onAttackerRosterSelectionChange = vi.fn();
+    const reserve = {
+      ...attacker,
+      name: 'Reserve',
+      species: attacker.species,
+      item: 'Oran Berry',
+      moves: ['Natural Gift'],
+    };
+    const actions: BattlePlanAction[] = [
+      { id: 'gift', actor: 'attacker', type: 'move', move: naturalGift },
+    ];
+    function Wrapper() {
+      const [plan, setPlan] = useState(actions);
+      return (
+        <BattlePlanner
+          {...base}
+          attackerRoster={[
+            ...attackerRoster,
+            {
+              id: 'reserve',
+              label: 'Reserve',
+              source: 'party',
+              combatant: reserve,
+              moves: [naturalGift],
+            },
+          ]}
+          availableMoves={[createMoveOption('Natural Gift')]}
+          attackerMoves={[naturalGift]}
+          defenderMoves={[]}
+          actions={plan}
+          onActionsChange={setPlan}
+          onAttackerRosterSelectionChange={onAttackerRosterSelectionChange}
+          onBack={() => {}}
+        />
+      );
+    }
+
+    render(<Wrapper />);
+    fireEvent.focus(
+      screen.getByRole('textbox', { name: 'Attacker starting Pokémon' }),
+    );
+    fireEvent.click(screen.getByRole('option', { name: /Reserve/ }));
+    expect(onAttackerRosterSelectionChange).toHaveBeenCalledWith('reserve');
+    const originalPreview = within(
+      screen.getByLabelText('Move damage previews'),
+    ).getByRole('button', { name: /Natural Gift/ }).textContent;
+    fireEvent.click(screen.getByText("Compare my Pokémon's starting item"));
+    expect(
+      screen.getByRole('textbox', { name: 'Item comparison Pokémon' }),
+    ).toHaveAttribute('placeholder', 'Reserve');
+    fireEvent.focus(
+      screen.getByRole('textbox', { name: 'Item comparison Pokémon' }),
+    );
+    fireEvent.click(
+      within(
+        screen.getByRole('listbox', {
+          name: 'Item comparison Pokémon options',
+        }),
+      ).getByRole('option', { name: /Reserve/ }),
+    );
+    const itemPicker = screen.getByRole('textbox', { name: 'Starting item' });
+    fireEvent.focus(itemPicker);
+    fireEvent.change(itemPicker, { target: { value: 'Sitrus Berry' } });
+    fireEvent.click(
+      within(
+        screen.getByRole('listbox', { name: 'Starting item options' }),
+      ).getByRole('option', { name: 'Sitrus Berry' }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByAltText('Sitrus Berry')).toBeInTheDocument();
+      expect(
+        within(screen.getByLabelText('Move damage previews')).getByRole(
+          'button',
+          { name: /Natural Gift/ },
+        ).textContent,
+      ).not.toBe(originalPreview);
+    });
   });
 });
