@@ -12,7 +12,12 @@ import {
   applyCombatantMovesGeneration,
   setCombatantMoveSlot,
 } from '../combatant/moves/combatantMovesState';
-import { createMoveDraft, setMoveName, setMoveCrit } from '../combatant/moves/moveDraft';
+import {
+  createMoveDraft,
+  setMoveName,
+  setMoveCrit,
+} from '../combatant/moves/moveDraft';
+import type { MoveDraft } from '../combatant/moves/moveDraft';
 import { applyImportedPokemonSet } from '../combatant/shared/combatantDraft';
 import { parsePokemonSets } from '../../import/pokemonSetParser';
 import { runtimeConfig } from '../../config/runtimeConfig';
@@ -30,9 +35,7 @@ import {
   saveImportedPokemonSets,
 } from '../../import/pokemonSetStorage';
 import type { ImportedPokemonSet } from '../../import/pokemonSet';
-import type {
-  PokemonPreset,
-} from '../../import/legacySets/legacyPresetCatalog';
+import type { PokemonPreset } from '../../import/legacySets/legacyPresetCatalog';
 import {
   getPresetTrainerGroups,
   getPokemonPresets,
@@ -43,7 +46,11 @@ import BattleFieldControls from './BattleFieldControls';
 import PokemonSetTools from './PokemonSetTools';
 import BattleResultPanel from './BattleResultPanel';
 import BattlePlanner from '../battle-planner/BattlePlanner';
-import type { BattlePlanAction, BattlePlanRosterEntry } from 'domain/battlePlan';
+import type {
+  BattlePlanAction,
+  BattlePlanRosterEntry,
+} from 'domain/battlePlan';
+import type { BattleCombatant } from 'domain/index';
 import Party from '../party/Party';
 import DefenderPresetRoster from './DefenderPresetRoster';
 import { loadOneVsOneProgress, saveOneVsOneProgress } from './oneVsOneProgress';
@@ -56,14 +63,18 @@ import {
 } from '../../import/matchupSettingsStorage';
 import './OneVsOneMode.scss';
 
+type PlannerAttackerEdit = {
+  combatant: BattleCombatant;
+  moves: MoveDraft[];
+};
+
 export default function OneVsOneMode() {
   const {
     generation,
     presetLibraryId,
     isUserLibrarySelected,
     selectedUserLibraryCode,
-  } =
-    useOutletContext<AppShellContext>();
+  } = useOutletContext<AppShellContext>();
   const progressKey = `${isUserLibrarySelected ? `user:${selectedUserLibraryCode ?? ''}` : `builtin:${presetLibraryId}`}:${generation}`;
   const initialProgress = loadOneVsOneProgress(progressKey);
   const [rawDraft, setDraft] = useState(() => createTeamDraft(generation));
@@ -76,18 +87,27 @@ export default function OneVsOneMode() {
   );
   const [isResultsSwapped, setIsResultsSwapped] = useState(false);
   const [isPlannerOpen, setIsPlannerOpen] = useState(false);
-  const [plannerActions, setPlannerActions] =   useState<BattlePlanAction[]>([]);
+  const [plannerActions, setPlannerActions] = useState<BattlePlanAction[]>([]);
+  const [plannerAttackerEdits, setPlannerAttackerEdits] = useState<
+    Record<string, PlannerAttackerEdit>
+  >({});
+  const [plannerAttackerPanelTargetId, setPlannerAttackerPanelTargetId] =
+    useState<string>();
   const [selectedImportedSetIds, setSelectedImportedSetIds] = useState<{
     attacker?: string;
     defender?: string;
-  }>(() => (isUserLibrarySelected ? { defender: initialProgress.defenderId } : {}));
+  }>(() =>
+    isUserLibrarySelected ? { defender: initialProgress.defenderId } : {},
+  );
   const [selectedPresetIds, setSelectedPresetIds] = useState<{
     attacker?: string;
     defender?: string;
-  }>(() => (!isUserLibrarySelected ? { defender: initialProgress.defenderId } : {}));
-  const [activeTrainerName, setActiveTrainerName] = useState<string | undefined>(
-    initialProgress.trainerName,
+  }>(() =>
+    !isUserLibrarySelected ? { defender: initialProgress.defenderId } : {},
   );
+  const [activeTrainerName, setActiveTrainerName] = useState<
+    string | undefined
+  >(initialProgress.trainerName);
   const previousGeneration = useRef(generation);
   const previousPresetLibraryId = useRef(presetLibraryId);
   const restoredProgressKey = useRef<string | undefined>(undefined);
@@ -106,7 +126,9 @@ export default function OneVsOneMode() {
   );
   const userLibrary = useUserPresetLibrary(presetRepository);
   const { openLibrary } = userLibrary;
-  const libraryBaseStats = isUserLibrarySelected ? userLibrary.baseStats : undefined;
+  const libraryBaseStats = isUserLibrarySelected
+    ? userLibrary.baseStats
+    : undefined;
   // Library base stat overrides are derived per render so they follow the species and library in use.
   const draft = useMemo(
     () => ({
@@ -124,7 +146,9 @@ export default function OneVsOneMode() {
   const selectableSets = useMemo(
     () =>
       isUserLibrarySelected
-        ? userLibrary.presets.filter((preset) => preset.generation === generation)
+        ? userLibrary.presets.filter(
+            (preset) => preset.generation === generation,
+          )
         : importedSets,
     [generation, importedSets, isUserLibrarySelected, userLibrary.presets],
   );
@@ -176,7 +200,9 @@ export default function OneVsOneMode() {
   const userTrainerGroups = useMemo(
     () =>
       groupPresetsByTrainer(
-        userLibrary.presets.filter((preset) => preset.generation === generation && preset.trainerName),
+        userLibrary.presets.filter(
+          (preset) => preset.generation === generation && preset.trainerName,
+        ),
       ),
     [generation, userLibrary.presets],
   );
@@ -186,13 +212,16 @@ export default function OneVsOneMode() {
 
   const plannerRosters = useMemo(() => {
     const partyIds = new Set(loadPartyPokemonSetIds());
-    const attackerInitialId = selectedImportedSetIds.attacker ?? 'current-attacker';
+    const attackerInitialId =
+      selectedImportedSetIds.attacker ?? 'current-attacker';
     const attackerRoster: BattlePlanRosterEntry[] = [
       {
         id: attackerInitialId,
         label: draft.attacker.name || draft.attacker.species,
         source: selectedImportedSetIds.attacker
-          ? partyIds.has(selectedImportedSetIds.attacker) ? 'party' : 'box'
+          ? partyIds.has(selectedImportedSetIds.attacker)
+            ? 'party'
+            : 'box'
           : 'current',
         combatant: draft.attacker,
         moves: attackerMoves.slots,
@@ -210,6 +239,20 @@ export default function OneVsOneMode() {
           moves: set.moves.map((name) => createMoveDraft(name)),
         })),
     ];
+    const resolvedAttackerRoster = attackerRoster.map((entry) => {
+      const edit = plannerAttackerEdits[entry.id];
+      if (entry.id === attackerInitialId || !edit) return entry;
+      const identityChanged =
+        edit.combatant.name !== entry.combatant.name ||
+        edit.combatant.species !== entry.combatant.species;
+      return {
+        ...entry,
+        ...edit,
+        label: identityChanged
+          ? edit.combatant.name || edit.combatant.species
+          : entry.label,
+      };
+    });
 
     const activeGroup = activeTrainerGroups.find(
       (group) => group.trainerName === activeTrainerName,
@@ -219,7 +262,9 @@ export default function OneVsOneMode() {
       {
         id: defenderInitialId,
         label: draft.defender.name || draft.defender.species,
-        source: selectedPresetIds.defender ? activeTrainerName ?? 'trainer' : 'current',
+        source: selectedPresetIds.defender
+          ? (activeTrainerName ?? 'trainer')
+          : 'current',
         combatant: draft.defender,
         moves: defenderMoves.slots,
       },
@@ -238,12 +283,25 @@ export default function OneVsOneMode() {
     ];
 
     return {
-      attackerRoster,
+      attackerRoster: resolvedAttackerRoster,
       defenderRoster,
       attackerInitialId,
       defenderInitialId,
     };
-  }, [activeTrainerGroups, activeTrainerName, attackerMoves.slots, availableSpecies, defenderMoves.slots, draft.attacker, draft.defender, importedSets, libraryBaseStats, selectedImportedSetIds.attacker, selectedPresetIds.defender]);
+  }, [
+    activeTrainerGroups,
+    activeTrainerName,
+    attackerMoves.slots,
+    availableSpecies,
+    defenderMoves.slots,
+    draft.attacker,
+    draft.defender,
+    importedSets,
+    libraryBaseStats,
+    plannerAttackerEdits,
+    selectedImportedSetIds.attacker,
+    selectedPresetIds.defender,
+  ]);
 
   const [matchupSettings, setMatchupSettings] = useState(() =>
     loadMatchupSettings(),
@@ -291,7 +349,53 @@ export default function OneVsOneMode() {
       if (matchup) results.set(set.id, matchup);
     }
     return results;
-  }, [availableSpecies, draft.attacker, field, generation, importedSets, libraryBaseStats, matchupDefender, matchupSettings]);
+  }, [
+    availableSpecies,
+    draft.attacker,
+    field,
+    generation,
+    importedSets,
+    libraryBaseStats,
+    matchupDefender,
+    matchupSettings,
+  ]);
+
+  const plannerAttackerPanelEntry =
+    plannerRosters.attackerRoster.find(
+      (entry) => entry.id === plannerAttackerPanelTargetId,
+    ) ??
+    plannerRosters.attackerRoster.find(
+      (entry) => entry.id === plannerRosters.attackerInitialId,
+    );
+  const isEditingOtherPlannerAttacker =
+    isPlannerOpen &&
+    plannerAttackerPanelEntry?.id !== plannerRosters.attackerInitialId;
+  const editedPlannerAttacker = isEditingOtherPlannerAttacker
+    ? plannerAttackerPanelEntry
+    : undefined;
+  const attackerPanelCombatant =
+    editedPlannerAttacker?.combatant ?? draft.attacker;
+  const attackerPanelMoves = editedPlannerAttacker
+    ? editedPlannerAttacker.moves.map((move) =>
+        createMoveDraft(move.name, move),
+      )
+    : attackerMoves.slots;
+
+  const updatePlannerAttackerEdit = (updates: Partial<PlannerAttackerEdit>) => {
+    if (!plannerAttackerPanelEntry) return;
+    setPlannerAttackerEdits((current) => {
+      const existing = current[plannerAttackerPanelEntry.id] ?? {
+        combatant: plannerAttackerPanelEntry.combatant,
+        moves: plannerAttackerPanelEntry.moves.map((move) =>
+          createMoveDraft(move.name, move),
+        ),
+      };
+      return {
+        ...current,
+        [plannerAttackerPanelEntry.id]: { ...existing, ...updates },
+      };
+    });
+  };
 
   useEffect(() => {
     setActiveTrainerName((current) =>
@@ -348,18 +452,12 @@ export default function OneVsOneMode() {
     [defenderMoves.slots, draft.attacker, draft.defender, field, generation],
   );
 
-  const displayedAttacker = isResultsSwapped
-    ? draft.defender
-    : draft.attacker;
-  const displayedDefender = isResultsSwapped
-    ? draft.attacker
-    : draft.defender;
+  const displayedAttacker = isResultsSwapped ? draft.defender : draft.attacker;
+  const displayedDefender = isResultsSwapped ? draft.attacker : draft.defender;
   const displayedMoves = isResultsSwapped
     ? defenderMoves.slots
     : attackerMoves.slots;
-  const displayedResults = isResultsSwapped
-    ? defenderResults
-    : attackerResults;
+  const displayedResults = isResultsSwapped ? defenderResults : attackerResults;
 
   const importSets = () => {
     const result = parsePokemonSets(importText, generation);
@@ -377,7 +475,10 @@ export default function OneVsOneMode() {
     setImportText('');
   };
 
-  const selectImportedSet = (role: 'attacker' | 'defender', set: ImportedPokemonSet) => {
+  const selectImportedSet = (
+    role: 'attacker' | 'defender',
+    set: ImportedPokemonSet,
+  ) => {
     setSelectedImportedSetIds((current) => ({ ...current, [role]: set.id }));
     setSelectedPresetIds((current) => ({ ...current, [role]: undefined }));
     if (role === 'defender' && set.trainerName) {
@@ -387,7 +488,9 @@ export default function OneVsOneMode() {
       ...current,
       [role]: applyImportedPokemonSet(current[role], set, availableSpecies),
     }));
-    const updateMoves = (current: ReturnType<typeof createCombatantMovesState>) => ({
+    const updateMoves = (
+      current: ReturnType<typeof createCombatantMovesState>,
+    ) => ({
       ...current,
       slots: current.slots.map((slot, index) =>
         setMoveName(slot, set.moves[index] || ''),
@@ -396,7 +499,10 @@ export default function OneVsOneMode() {
     (role === 'attacker' ? setAttackerMoves : setDefenderMoves)(updateMoves);
   };
 
-  const selectPreset = (role: 'attacker' | 'defender', preset: PokemonPreset) => {
+  const selectPreset = (
+    role: 'attacker' | 'defender',
+    preset: PokemonPreset,
+  ) => {
     setExportText('');
     setSelectedPresetIds((current) => ({ ...current, [role]: preset.id }));
     setSelectedImportedSetIds((current) => ({ ...current, [role]: undefined }));
@@ -407,7 +513,9 @@ export default function OneVsOneMode() {
       ...current,
       [role]: applyImportedPokemonSet(current[role], preset, availableSpecies),
     }));
-    const updateMoves = (current: ReturnType<typeof createCombatantMovesState>) => ({
+    const updateMoves = (
+      current: ReturnType<typeof createCombatantMovesState>,
+    ) => ({
       ...current,
       slots: current.slots.map((slot, index) =>
         setMoveName(slot, preset.moves[index] || ''),
@@ -434,8 +542,8 @@ export default function OneVsOneMode() {
     } else {
       selectPreset('defender', preset);
     }
-  // The restore guard makes these callbacks safe to omit from the dependency list.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // The restore guard makes these callbacks safe to omit from the dependency list.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     activeTrainerGroups,
     initialProgress.defenderId,
@@ -454,7 +562,8 @@ export default function OneVsOneMode() {
     if (userLibrary.presets.some((preset) => preset.id === setId)) {
       void userLibrary.updatePreset(setId, {
         species: combatant.species,
-        nickname: combatant.name !== combatant.species ? combatant.name : undefined,
+        nickname:
+          combatant.name !== combatant.species ? combatant.name : undefined,
         level: combatant.level,
         gender: combatant.gender,
         ability: combatant.ability,
@@ -475,7 +584,10 @@ export default function OneVsOneMode() {
           ? {
               ...set,
               species: combatant.species,
-              nickname: combatant.name !== combatant.species ? combatant.name : undefined,
+              nickname:
+                combatant.name !== combatant.species
+                  ? combatant.name
+                  : undefined,
               level: combatant.level,
               gender: combatant.gender,
               ability: combatant.ability,
@@ -498,7 +610,9 @@ export default function OneVsOneMode() {
     const attackerId = selectedImportedSetIds.attacker;
     if (!attackerId?.startsWith('nuzlocke-')) return;
     const combatant = draft.attacker;
-    const moves = attackerMoves.slots.map((slot) => slot.name.trim()).filter(Boolean);
+    const moves = attackerMoves.slots
+      .map((slot) => slot.name.trim())
+      .filter(Boolean);
     const fields = {
       species: combatant.species,
       level: combatant.level,
@@ -522,7 +636,12 @@ export default function OneVsOneMode() {
     );
     setImportedSets(updated);
     saveImportedPokemonSets(updated);
-  }, [attackerMoves.slots, draft.attacker, importedSets, selectedImportedSetIds.attacker]);
+  }, [
+    attackerMoves.slots,
+    draft.attacker,
+    importedSets,
+    selectedImportedSetIds.attacker,
+  ]);
 
   const clearSelectedImportedSet = (role: 'attacker' | 'defender') => {
     setSelectedImportedSetIds((current) => ({
@@ -539,6 +658,7 @@ export default function OneVsOneMode() {
   };
 
   const selectPartyAttacker = (set: ImportedPokemonSet) => {
+    if (isPlannerOpen) setPlannerAttackerPanelTargetId(set.id);
     const hasAttackerSwitch = plannerActions.some(
       (action) => action.actor === 'attacker' && action.type === 'switch',
     );
@@ -598,7 +718,9 @@ export default function OneVsOneMode() {
   };
 
   const exportSet = (role: 'attacker' | 'defender') => {
-    const text = serializePokemonSet(role === 'attacker' ? draft.attacker : draft.defender);
+    const text = serializePokemonSet(
+      role === 'attacker' ? draft.attacker : draft.defender,
+    );
     setExportText(text);
     void navigator.clipboard?.writeText(text);
   };
@@ -620,6 +742,7 @@ export default function OneVsOneMode() {
           defenderRosterId={plannerRosters.defenderInitialId}
           actions={plannerActions}
           onActionsChange={setPlannerActions}
+          onAttackerRosterSelectionChange={setPlannerAttackerPanelTargetId}
           onBack={() => setIsPlannerOpen(false)}
         />
       ) : (
@@ -647,30 +770,34 @@ export default function OneVsOneMode() {
               }))
             }
             onMoveNameChange={(slotIndex, moveName) =>
-              (isResultsSwapped ? setDefenderMoves : setAttackerMoves)((current) => {
-                const existing = current.slots[slotIndex];
-                if (!existing) {
-                  return current;
-                }
-                return setCombatantMoveSlot(
-                  current,
-                  slotIndex,
-                  setMoveName(existing, moveName),
-                );
-              })
+              (isResultsSwapped ? setDefenderMoves : setAttackerMoves)(
+                (current) => {
+                  const existing = current.slots[slotIndex];
+                  if (!existing) {
+                    return current;
+                  }
+                  return setCombatantMoveSlot(
+                    current,
+                    slotIndex,
+                    setMoveName(existing, moveName),
+                  );
+                },
+              )
             }
             onMoveCritChange={(slotIndex, isCrit) =>
-              (isResultsSwapped ? setDefenderMoves : setAttackerMoves)((current) => {
-                const existing = current.slots[slotIndex];
-                if (!existing) {
-                  return current;
-                }
-                return setCombatantMoveSlot(
-                  current,
-                  slotIndex,
-                  setMoveCrit(existing, isCrit),
-                );
-              })
+              (isResultsSwapped ? setDefenderMoves : setAttackerMoves)(
+                (current) => {
+                  const existing = current.slots[slotIndex];
+                  if (!existing) {
+                    return current;
+                  }
+                  return setCombatantMoveSlot(
+                    current,
+                    slotIndex,
+                    setMoveCrit(existing, isCrit),
+                  );
+                },
+              )
             }
           />
         </>
@@ -680,7 +807,8 @@ export default function OneVsOneMode() {
         <summary>Manage party and imported Pokemon</summary>
         {isPlannerOpen && (
           <p className="px-3 pt-3 mb-0 text-body-secondary">
-            Click a Pokemon below to replace the active Pokemon in this part of the plan.
+            Click a Pokemon below to replace the active Pokemon in this part of
+            the plan.
           </p>
         )}
         <Party
@@ -701,8 +829,12 @@ export default function OneVsOneMode() {
         <CombatantPanel
           title="Attacker panel"
           description="Edit the attacking combatant before calculating damage."
-          combatant={draft.attacker}
+          combatant={attackerPanelCombatant}
           onChange={(attacker) => {
+            if (isEditingOtherPlannerAttacker) {
+              updatePlannerAttackerEdit({ combatant: attacker });
+              return;
+            }
             if (attacker.item !== draft.attacker.item) {
               saveAttackerItem(attacker.item);
             }
@@ -712,95 +844,133 @@ export default function OneVsOneMode() {
             }));
           }}
           generation={generation}
-          moves={attackerMoves.slots}
+          moves={attackerPanelMoves}
+          availableMoves={availableMoves}
+          availableSpecies={availableSpecies}
+          importedSets={isEditingOtherPlannerAttacker ? [] : selectableSets}
+          onImportedSet={
+            isEditingOtherPlannerAttacker
+              ? undefined
+              : (set) => selectImportedSet('attacker', set)
+          }
+          onImportedSetCleared={
+            isEditingOtherPlannerAttacker
+              ? undefined
+              : () => clearSelectedImportedSet('attacker')
+          }
+          selectedImportedSetId={
+            isEditingOtherPlannerAttacker
+              ? undefined
+              : selectedImportedSetIds.attacker
+          }
+          onUpdateImportedSet={
+            isEditingOtherPlannerAttacker
+              ? undefined
+              : () => updateImportedSet('attacker')
+          }
+          itemAutoSaved={
+            !isEditingOtherPlannerAttacker &&
+            importedSets.some(
+              (set) => set.id === selectedImportedSetIds.attacker,
+            )
+          }
+          presets={isEditingOtherPlannerAttacker ? [] : presets}
+          onPreset={
+            isEditingOtherPlannerAttacker
+              ? undefined
+              : (preset) => selectPreset('attacker', preset)
+          }
+          onPresetCleared={
+            isEditingOtherPlannerAttacker
+              ? undefined
+              : () => clearSelectedPreset('attacker')
+          }
+          selectedPresetId={
+            isEditingOtherPlannerAttacker
+              ? undefined
+              : selectedPresetIds.attacker
+          }
+          onMovesChange={(moves) => {
+            if (isEditingOtherPlannerAttacker) {
+              updatePlannerAttackerEdit({ moves: [...moves] });
+              return;
+            }
+            setAttackerMoves((current) => ({
+              ...current,
+              slots: moves,
+            }));
+          }}
+        />
+        <CombatantPanel
+          title="Defender panel"
+          description="Edit the defending combatant before calculating damage."
+          combatant={draft.defender}
+          onChange={(defender) => {
+            setDraft((current) => ({
+              ...current,
+              defender,
+            }));
+            const matchingGroup = activeTrainerGroups.find((group) =>
+              group.presets.some(
+                (preset) => preset.species === defender.species,
+              ),
+            );
+            if (matchingGroup) {
+              setActiveTrainerName(matchingGroup.trainerName);
+            }
+          }}
+          generation={generation}
+          moves={defenderMoves.slots}
           availableMoves={availableMoves}
           availableSpecies={availableSpecies}
           importedSets={selectableSets}
-          onImportedSet={(set) => selectImportedSet('attacker', set)}
-          onImportedSetCleared={() => clearSelectedImportedSet('attacker')}
-          selectedImportedSetId={selectedImportedSetIds.attacker}
-          onUpdateImportedSet={() => updateImportedSet('attacker')}
-          itemAutoSaved={importedSets.some((set) => set.id === selectedImportedSetIds.attacker)}
+          onImportedSet={(set) => selectImportedSet('defender', set)}
+          onImportedSetCleared={() => clearSelectedImportedSet('defender')}
+          selectedImportedSetId={selectedImportedSetIds.defender}
+          onUpdateImportedSet={() => updateImportedSet('defender')}
           presets={presets}
-          onPreset={(preset) => selectPreset('attacker', preset)}
-          onPresetCleared={() => clearSelectedPreset('attacker')}
-          selectedPresetId={selectedPresetIds.attacker}
+          onPreset={(preset) => selectPreset('defender', preset)}
+          onPresetCleared={() => clearSelectedPreset('defender')}
+          selectedPresetId={selectedPresetIds.defender}
           onMovesChange={(moves) =>
-            setAttackerMoves((current) => ({
+            setDefenderMoves((current) => ({
               ...current,
               slots: moves,
             }))
           }
-        />
-          <CombatantPanel
-            title="Defender panel"
-            description="Edit the defending combatant before calculating damage."
-            combatant={draft.defender}
-            onChange={(defender) => {
-              setDraft((current) => ({
-                ...current,
-                defender,
-              }));
-              const matchingGroup = activeTrainerGroups.find((group) =>
-                group.presets.some((preset) => preset.species === defender.species),
-              );
-              if (matchingGroup) {
-                setActiveTrainerName(matchingGroup.trainerName);
+          presetRoster={
+            <DefenderPresetRoster
+              groups={activeTrainerGroups}
+              availableSpecies={availableSpecies}
+              activeTrainerName={activeTrainerName}
+              selectedPresetId={
+                isUserLibrarySelected
+                  ? selectedImportedSetIds.defender
+                  : selectedPresetIds.defender
               }
-            }}
-            generation={generation}
-            moves={defenderMoves.slots}
-            availableMoves={availableMoves}
-            availableSpecies={availableSpecies}
-            importedSets={selectableSets}
-            onImportedSet={(set) => selectImportedSet('defender', set)}
-            onImportedSetCleared={() => clearSelectedImportedSet('defender')}
-            selectedImportedSetId={selectedImportedSetIds.defender}
-            onUpdateImportedSet={() => updateImportedSet('defender')}
-            presets={presets}
-            onPreset={(preset) => selectPreset('defender', preset)}
-            onPresetCleared={() => clearSelectedPreset('defender')}
-            selectedPresetId={selectedPresetIds.defender}
-            onMovesChange={(moves) =>
-              setDefenderMoves((current) => ({
-                ...current,
-                slots: moves,
-              }))
-            }
-            presetRoster={(
-              <DefenderPresetRoster
-                groups={activeTrainerGroups}
-                availableSpecies={availableSpecies}
-                activeTrainerName={activeTrainerName}
-                selectedPresetId={
-                  isUserLibrarySelected
-                    ? selectedImportedSetIds.defender
-                    : selectedPresetIds.defender
-                }
-                onSelect={(presetId) => {
-                  if (isUserLibrarySelected) {
-                    const preset = userLibrary.presets.find((entry) => entry.id === presetId);
-                    if (preset) {
-                      selectImportedSet('defender', preset);
-                    }
-                  } else {
-                    const preset = presets.find((entry) => entry.id === presetId);
-                    if (preset) {
-                      selectPreset('defender', preset);
-                    }
+              onSelect={(presetId) => {
+                if (isUserLibrarySelected) {
+                  const preset = userLibrary.presets.find(
+                    (entry) => entry.id === presetId,
+                  );
+                  if (preset) {
+                    selectImportedSet('defender', preset);
                   }
-                }}
-                onPreviousFight={() => navigateFight(-1)}
-                onNextFight={() => navigateFight(1)}
-              />
-            )}
+                } else {
+                  const preset = presets.find((entry) => entry.id === presetId);
+                  if (preset) {
+                    selectPreset('defender', preset);
+                  }
+                }
+              }}
+              onPreviousFight={() => navigateFight(-1)}
+              onNextFight={() => navigateFight(1)}
             />
+          }
+        />
 
-          <div className="d-flex gap-3 flex-column">
-          <BattleFieldControls
-            field={field}
-            onChange={setField}
-          />
+        <div className="d-flex gap-3 flex-column">
+          <BattleFieldControls field={field} onChange={setField} />
           <PokemonSetTools
             importText={importText}
             onImportTextChange={setImportText}
@@ -814,7 +984,10 @@ export default function OneVsOneMode() {
             ]}
           />
           {presetRepository && (
-            <Link className="btn btn-outline-primary align-self-start" to="/presets">
+            <Link
+              className="btn btn-outline-primary align-self-start"
+              to="/presets"
+            >
               Manage user presets
             </Link>
           )}

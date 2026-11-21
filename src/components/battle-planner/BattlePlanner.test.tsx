@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   fireEvent,
   render,
@@ -234,6 +234,7 @@ describe('battle planner turn summary', () => {
 
   it('lets you compare starting items for roster Pokémon and recalculates the plan', async () => {
     const naturalGift = createMoveDraft('Natural Gift');
+    const onAttackerRosterSelectionChange = vi.fn();
     const reserve = {
       ...attacker,
       name: 'Reserve',
@@ -264,6 +265,7 @@ describe('battle planner turn summary', () => {
           defenderMoves={[]}
           actions={plan}
           onActionsChange={setPlan}
+          onAttackerRosterSelectionChange={onAttackerRosterSelectionChange}
           onBack={() => {}}
         />
       );
@@ -274,10 +276,14 @@ describe('battle planner turn summary', () => {
       screen.getByRole('textbox', { name: 'Attacker starting Pokémon' }),
     );
     fireEvent.click(screen.getByRole('option', { name: /Reserve/ }));
+    expect(onAttackerRosterSelectionChange).toHaveBeenCalledWith('reserve');
     const originalPreview = within(
       screen.getByLabelText('Move damage previews'),
     ).getByRole('button', { name: /Natural Gift/ }).textContent;
     fireEvent.click(screen.getByText("Compare my Pokémon's starting item"));
+    expect(
+      screen.getByRole('textbox', { name: 'Item comparison Pokémon' }),
+    ).toHaveAttribute('placeholder', 'Reserve');
     fireEvent.focus(
       screen.getByRole('textbox', { name: 'Item comparison Pokémon' }),
     );
