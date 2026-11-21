@@ -24,7 +24,7 @@ function inferMoveCategory(
 
 function getMoveHits(data: LegacyMoveData, input: LegacyMoveInput): number {
   if (!data.multihit) {
-    return input.hits || 1;
+    return 1;
   }
 
   if (data.multiaccuracy && typeof data.multihit === 'number') {
@@ -35,13 +35,11 @@ function getMoveHits(data: LegacyMoveData, input: LegacyMoveInput): number {
     return data.multihit;
   }
 
-  if (input.hits) {
+  if (input.hits && input.hits !== 1) {
     return input.hits;
   }
 
-  return input.ability === 'Skill Link'
-    ? data.multihit[1]
-    : data.multihit[0] + 1;
+  return 3;
 }
 
 export function mapLegacyMoveToBattleMove(

@@ -168,6 +168,18 @@ describe('legacy domain mappers', () => {
     );
   });
 
+  it('defaults random multi-hit moves to three hits', () => {
+    const move = mapLegacyMoveToBattleMove(generation, {
+      name: 'Rollout',
+      isCrit: false,
+      isStellarFirstUse: false,
+      timesUsed: 1,
+      hits: 1,
+    });
+
+    expect(move.hits).toBe(3);
+  });
+
   it('maps move state with legacy counters and transform defaults', () => {
     const move = mapLegacyMoveToBattleMove(generation7, {
       name: 'Thunderbolt',

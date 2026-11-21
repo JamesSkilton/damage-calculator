@@ -9,6 +9,8 @@ export interface MoveOption {
   category: string;
   /** True when the move hits multiple times per use (e.g. Bullet Seed). */
   isMultiHit?: boolean;
+  /** Default hit count assumed for planner damage calculations. */
+  defaultHits?: number;
   /** True when using the move repeatedly lowers the user's own stats (e.g. via self.boosts). */
   dropsStatsOnUse?: boolean;
 }

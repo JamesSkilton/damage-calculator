@@ -101,11 +101,9 @@ export function Move(
         if (typeof data.multihit === 'number') {
           hits = data.multihit;
         } else if (options.hits) {
-          hits = options.hits;
+          hits = options.hits === 1 ? 3 : options.hits;
         } else {
-          hits = (options.ability === 'Skill Link')
-            ? data.multihit[1]
-            : data.multihit[0] + 1;
+          hits = 3;
         }
       }
     }

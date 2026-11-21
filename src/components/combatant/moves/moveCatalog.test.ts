@@ -29,6 +29,7 @@ describe('buildMoveCatalog', () => {
     const moves = buildMoveCatalog(9);
     const bulletSeed = moves.find((move) => move.name === 'Bullet Seed');
     expect(bulletSeed?.isMultiHit).toBe(true);
+    expect(bulletSeed?.defaultHits).toBe(3);
   });
 
   it('flags moves that drop the user\'s own stats on use', () => {

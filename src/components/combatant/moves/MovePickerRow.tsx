@@ -43,11 +43,16 @@ export default function MovePickerRow({
   const isAdvanced = mode === 'advanced';
 
   // Ensure move state is valid for generation
-  const validatedMove = resolveMoveDraftForGeneration(move, generation);
+  const resolvedMove = resolveMoveDraftForGeneration(move, generation);
 
   const selectedMoveOption = availableMoves
-    ? resolveMoveOption(validatedMove.name, availableMoves)
+    ? resolveMoveOption(resolvedMove.name, availableMoves)
     : undefined;
+  const validatedMove =
+    selectedMoveOption?.defaultHits !== undefined &&
+    (resolvedMove.hits === 1 || resolvedMove.hits === 3)
+      ? { ...resolvedMove, hits: selectedMoveOption.defaultHits }
+      : resolvedMove;
   const showHits = isAdvanced
     ? (selectedMoveOption?.isMultiHit ?? true)
     : selectedMoveOption?.isMultiHit === true;
@@ -57,7 +62,16 @@ export default function MovePickerRow({
     isAdvanced && (attackerItem ?? '').trim().toLowerCase() === 'metronome';
 
   const handleMoveNameChange = (name: string) => {
-    onChange(setMoveName(validatedMove, name));
+    const selectedOption = availableMoves
+      ? resolveMoveOption(name, availableMoves)
+      : undefined;
+    onChange(
+      setMoveName(
+        validatedMove,
+        name,
+        selectedOption ? (selectedOption.defaultHits ?? 1) : undefined,
+      ),
+    );
   };
 
   const handleCritChange = (isCrit: boolean) => {

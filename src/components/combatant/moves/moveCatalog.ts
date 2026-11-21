@@ -27,6 +27,12 @@ export function buildMoveCatalog(generation: BattleGeneration): MoveOption[] {
       basePower: move.basePower,
       category: move.category ?? 'Status',
       isMultiHit: move.multihit !== undefined,
+      defaultHits:
+        move.multihit === undefined
+          ? undefined
+          : typeof move.multihit === 'number'
+            ? move.multihit
+            : 3,
       dropsStatsOnUse,
     });
   }

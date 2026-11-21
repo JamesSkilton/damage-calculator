@@ -1,4 +1,6 @@
 import type { BattleGeneration } from 'domain/index';
+import { Generations } from 'calc-runtime/core/data/index';
+import { toID } from 'calc-runtime/core/util';
 
 export interface MoveDraft {
   name: string;
@@ -28,7 +30,7 @@ export function createMoveDraft(
   return {
     name: name.trim(),
     isCrit: false,
-    hits: 1,
+    hits: 3,
     useZ: false,
     useMax: false,
     isStellarFirstUse: false,
@@ -48,10 +50,15 @@ export function updateMoveDraft(
   };
 }
 
-export function setMoveName(draft: MoveDraft, name: string): MoveDraft {
+export function setMoveName(
+  draft: MoveDraft,
+  name: string,
+  defaultHits?: number,
+): MoveDraft {
   return {
     ...draft,
     name: name.trim(),
+    hits: name.trim() ? (defaultHits ?? 3) : 3,
   };
 }
 
@@ -220,6 +227,19 @@ export function resolveMoveDraftForGeneration(
   generation: BattleGeneration,
 ): MoveDraft {
   let resolved = { ...draft };
+
+  if (resolved.name.trim() && (resolved.hits === 1 || resolved.hits === 3)) {
+    const move = Generations.get(generation).moves.get(
+      toID(resolved.name.trim()),
+    );
+
+    if (move?.multihit !== undefined) {
+      resolved.hits =
+        typeof move.multihit === 'number'
+          ? move.multihit
+          : 3;
+    }
+  }
 
   if (!isGenerationGated('z', generation) && resolved.useZ) {
     resolved = { ...resolved, useZ: false };
