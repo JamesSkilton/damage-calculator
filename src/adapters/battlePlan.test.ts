@@ -525,6 +525,123 @@ describe('battle plan adapter', () => {
     expect(result.error).toBeUndefined();
   });
 
+  it('makes a successful Fake Out prevent the target from moving that turn', () => {
+    const team = createTeamDraft(9);
+    const fakeOut = {
+      name: 'Fake Out',
+      isCrit: false,
+      hits: 1,
+      isStellarFirstUse: false,
+      timesUsed: 1,
+    };
+    const tackle = {
+      name: 'Tackle',
+      isCrit: false,
+      hits: 1,
+      isStellarFirstUse: false,
+      timesUsed: 1,
+    };
+    const results = buildBattlePlanResults({
+      generation: 9,
+      attacker: { ...team.attacker, currentHp: 100, moves: ['Fake Out'] },
+      defender: { ...team.defender, currentHp: 100, moves: ['Tackle'] },
+      field: createBattleFieldDraft(9),
+      actions: [
+        { id: 'fake-out', actor: 'attacker', type: 'move', move: fakeOut },
+        { id: 'tackle', actor: 'defender', type: 'move', move: tackle },
+      ],
+    });
+
+    expect(results[0].damage.max).toBeGreaterThan(0);
+    expect(
+      results[1].action.type === 'move' && results[1].action.move.skipped,
+    ).toBe(true);
+    expect(results[1].damage).toEqual({ min: 0, max: 0 });
+    expect(results[1].itemEvents).toContain(
+      'Defender: flinched and could not move',
+    );
+  });
+
+  it.each(['Inner Focus', 'Shield Dust'])(
+    'does not make Fake Out flinch a target with %s',
+    (ability) => {
+      const team = createTeamDraft(9);
+      const fakeOut = {
+        name: 'Fake Out',
+        isCrit: false,
+        hits: 1,
+        isStellarFirstUse: false,
+        timesUsed: 1,
+      };
+      const tackle = {
+        name: 'Tackle',
+        isCrit: false,
+        hits: 1,
+        isStellarFirstUse: false,
+        timesUsed: 1,
+      };
+      const results = buildBattlePlanResults({
+        generation: 9,
+        attacker: { ...team.attacker, currentHp: 100, moves: ['Fake Out'] },
+        defender: {
+          ...team.defender,
+          currentHp: 100,
+          ability,
+          moves: ['Tackle'],
+        },
+        field: createBattleFieldDraft(9),
+        actions: [
+          { id: 'fake-out', actor: 'attacker', type: 'move', move: fakeOut },
+          { id: 'tackle', actor: 'defender', type: 'move', move: tackle },
+        ],
+      });
+
+      expect(
+        results[1].action.type === 'move' && results[1].action.move.skipped,
+      ).not.toBe(true);
+      expect(results[1].damage.max).toBeGreaterThan(0);
+    },
+  );
+
+  it('clears Fake Out flinch at the end of the turn', () => {
+    const team = createTeamDraft(9);
+    const fakeOut = {
+      name: 'Fake Out',
+      isCrit: false,
+      hits: 1,
+      isStellarFirstUse: false,
+      timesUsed: 1,
+    };
+    const tackle = {
+      name: 'Tackle',
+      isCrit: false,
+      hits: 1,
+      isStellarFirstUse: false,
+      timesUsed: 1,
+    };
+    const results = buildBattlePlanResults({
+      generation: 9,
+      attacker: { ...team.attacker, currentHp: 100, moves: ['Fake Out'] },
+      defender: { ...team.defender, currentHp: 100, moves: ['Tackle'] },
+      field: createBattleFieldDraft(9),
+      actions: [
+        { id: 'fake-out', actor: 'attacker', type: 'move', move: fakeOut },
+        { id: 'end-turn', actor: 'attacker', type: 'end-turn' },
+        {
+          id: 'next-turn-tackle',
+          actor: 'defender',
+          type: 'move',
+          move: tackle,
+        },
+      ],
+    });
+
+    expect(
+    results[2].action.type === 'move' && results[2].action.move.skipped,
+    ).not.toBe(true);
+    expect(results[2].damage.max).toBeGreaterThan(0);
+  });
+
   it('applies status from moves like Thunder Wave and carries it into later steps', () => {
     const team = createTeamDraft(9);
     const attacker = { ...team.attacker, currentHp: 100, moves: ['Thunder Wave'] };
