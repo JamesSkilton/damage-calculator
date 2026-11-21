@@ -3,10 +3,198 @@ import {
   buildBattlePlanResults,
   replaceActivePokemonInPlanSegment,
 } from './battlePlan';
+import { buildBattleCalcBreakdowns } from './battleCalc';
 import { createBattleFieldDraft } from '../components/combatant/shared/battleFieldDraft';
 import { createTeamDraft } from '../components/combatant/shared/combatantDraft';
 
 describe('battle plan adapter', () => {
+  it.each([
+    ['Mega Drain', 1, 2],
+    ['Draining Kiss', 3, 4],
+  ])('heals the user of %s from actual damage', (name, numerator, denominator) => {
+    const team = createTeamDraft(9);
+    const [result] = buildBattlePlanResults({
+      generation: 9,
+      attacker: { ...team.attacker, currentHp: 50, item: undefined },
+      defender: { ...team.defender, currentHp: 3 },
+      field: createBattleFieldDraft(9),
+      actions: [{ id: 'drain', actor: 'attacker', type: 'move', move: {
+        name, isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1,
+      } }],
+    });
+    const heal = Math.round(3 * numerator / denominator);
+    expect(result.attackerHp).toEqual({ min: 50 + heal, max: 50 + heal });
+    expect(result.healing).toContainEqual({
+      pokemonId: 'initial-attacker', source: name, amount: { min: heal, max: heal },
+    });
+  });
+
+  it('handles Big Root, immunity, and Liquid Ooze for drain moves', () => {
+    const team = createTeamDraft(9);
+    const move = { name: 'Mega Drain', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const input = {
+      generation: 9 as const,
+      attacker: { ...team.attacker, currentHp: 50, item: 'Big Root' },
+      defender: { ...team.defender, currentHp: 3, ability: 'Liquid Ooze' },
+      field: createBattleFieldDraft(9),
+      actions: [{ id: 'drain', actor: 'attacker' as const, type: 'move' as const, move }],
+    };
+    const [ooze] = buildBattlePlanResults(input);
+    expect(ooze.attackerHp).toEqual({ min: 48, max: 48 });
+    expect(ooze.healing).toEqual([]);
+    const [immune] = buildBattlePlanResults({
+      ...input, defender: { ...input.defender, species: 'Bouffalant', ability: 'Sap Sipper' },
+    });
+    expect(immune.attackerHp).toEqual({ min: 50, max: 50 });
+    expect(immune.healing).toEqual([]);
+    const [protectedResult] = buildBattlePlanResults({
+      ...input, field: { ...input.field, defenderSide: { ...input.field.defenderSide, isProtected: true } },
+    });
+    expect(protectedResult.attackerHp).toEqual({ min: 50, max: 50 });
+    expect(protectedResult.healing).toEqual([]);
+  });
+
+  it('propagates drain damage rolls for the defending side and caps healing at full HP', () => {
+    const team = createTeamDraft(9);
+    const move = { name: 'Draining Kiss', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const base = {
+      generation: 9 as const,
+      attacker: { ...team.attacker, currentHp: 100 },
+      defender: { ...team.defender, currentHp: 50, item: undefined },
+      field: createBattleFieldDraft(9),
+      actions: [{ id: 'drain', actor: 'defender' as const, type: 'move' as const, move }],
+    };
+    const [result] = buildBattlePlanResults(base);
+    expect(result.defenderHp).toEqual({
+      min: 50 + Math.round(result.damage.min * 3 / 4),
+      max: 50 + Math.round(result.damage.max * 3 / 4),
+    });
+    const [capped] = buildBattlePlanResults({
+      ...base, defender: { ...base.defender, currentHp: result.maxHp.defender - 1 },
+    });
+    expect(capped.defenderHp).toEqual({ min: result.maxHp.defender, max: result.maxHp.defender });
+    expect(capped.healing).toContainEqual({
+      pokemonId: 'initial-defender', source: 'Draining Kiss', amount: { min: 1, max: 1 },
+    });
+  });
+
+  it('heals separately for each Parental Bond hit', () => {
+    const team = createTeamDraft(9);
+    const attacker = { ...team.attacker, currentHp: 50, ability: 'Parental Bond', item: undefined };
+    const defender = { ...team.defender, currentHp: 200 };
+    const field = createBattleFieldDraft(9);
+    const move = { name: 'Mega Drain', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const [calc] = buildBattleCalcBreakdowns({ generation: 9, attacker, defender, field, moves: [move] });
+    const hits = calc.details!.drainHitDamage!;
+    expect(hits).toHaveLength(2);
+    const [result] = buildBattlePlanResults({
+      generation: 9, attacker, defender, field,
+      actions: [{ id: 'drain', actor: 'attacker', type: 'move', move }],
+    });
+    expect(result.attackerHp).toEqual({
+      min: 50 + hits.reduce((sum, hit) => sum + Math.max(1, Math.round(hit.min / 2)), 0),
+      max: 50 + hits.reduce((sum, hit) => sum + Math.max(1, Math.round(hit.max / 2)), 0),
+    });
+  });
+
+  it('increases draining move and Leech Seed healing with Big Root', () => {
+    const team = createTeamDraft(9);
+    const attacker = { ...team.defender, currentHp: 50, item: 'Big Root' };
+    const defender = { ...team.attacker, currentHp: 200, item: undefined };
+    const field = createBattleFieldDraft(9);
+    const [hit, end] = buildBattlePlanResults({
+      generation: 9, attacker, defender,
+      field: { ...field, defenderSide: { ...field.defenderSide, isSeeded: true } },
+      actions: [
+        { id: 'hit', actor: 'attacker', type: 'move', move: {
+          name: 'Mega Drain', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1,
+        } },
+        { id: 'end', actor: 'attacker', type: 'end-turn' },
+      ],
+    });
+    const root = (amount: number) => Math.floor(amount * 5324 / 4096);
+    expect(hit.attackerHp).toEqual({
+      min: 50 + root(Math.round(hit.damage.min / 2)),
+      max: 50 + root(Math.round(hit.damage.max / 2)),
+    });
+    const seedHealing = root(Math.floor(end.maxHp.defender / 8));
+    expect(end.attackerHp).toEqual({
+      min: hit.attackerHp.min + seedHealing,
+      max: hit.attackerHp.max + seedHealing,
+    });
+  });
+
+  it('applies Leech Seed to the target, transfers HP each turn, and clears it on switching', () => {
+    const team = createTeamDraft(9);
+    const defender = { ...team.attacker, name: 'Target', currentHp: 100, item: undefined };
+    const replacement = { ...defender, name: 'Replacement' };
+    const [seed, end, switched, endAfterSwitch] = buildBattlePlanResults({
+      generation: 9,
+      attacker: { ...team.defender, currentHp: 50, item: undefined },
+      defender,
+      defenderRoster: [
+        { id: 'target', label: 'Target', source: 'current', combatant: defender, moves: [] },
+        { id: 'replacement', label: 'Replacement', source: 'party', combatant: replacement, moves: [] },
+      ],
+      field: createBattleFieldDraft(9),
+      actions: [
+        { id: 'seed', actor: 'attacker', type: 'move', move: {
+          name: 'Leech Seed', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1,
+        } },
+        { id: 'end', actor: 'attacker', type: 'end-turn' },
+        { id: 'switch', actor: 'defender', type: 'switch', targetPokemonId: 'replacement' },
+        { id: 'end2', actor: 'attacker', type: 'end-turn' },
+      ],
+    });
+    const amount = Math.floor(end.maxHp.defender / 8);
+    expect(seed.field.defenderSide.isSeeded).toBe(true);
+    expect(end.defenderHp).toEqual({ min: 100 - amount, max: 100 - amount });
+    expect(end.attackerHp).toEqual({ min: 50 + amount, max: 50 + amount });
+    expect(end.healing).toContainEqual({
+      pokemonId: 'initial-attacker', source: 'Leech Seed', amount: { min: amount, max: amount },
+    });
+    expect(switched.field.defenderSide.isSeeded).toBe(false);
+    expect(endAfterSwitch.healing).toEqual([]);
+  });
+
+  it('does not seed Grass types and applies Liquid Ooze to an existing seed', () => {
+    const team = createTeamDraft(9);
+    const field = createBattleFieldDraft(9);
+    const [seed] = buildBattlePlanResults({
+      generation: 9, attacker: team.attacker, defender: team.defender, field,
+      actions: [{ id: 'seed', actor: 'attacker', type: 'move', move: {
+        name: 'Leech Seed', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1,
+      } }],
+    });
+
+    expect(seed.field.defenderSide.isSeeded).toBe(false);
+    const [end] = buildBattlePlanResults({
+      generation: 9,
+      attacker: { ...team.attacker, currentHp: 50, item: 'Big Root' },
+      defender: { ...team.defender, currentHp: 1, ability: 'Liquid Ooze' },
+      field: { ...field, defenderSide: { ...field.defenderSide, isSeeded: true } },
+      actions: [{ id: 'end', actor: 'attacker', type: 'end-turn' }],
+    });
+    expect(end.attackerHp).toEqual({ min: 49, max: 49 });
+    expect(end.defenderHp).toEqual({ min: 0, max: 0 });
+    expect(end.healing).toEqual([]);
+  });
+
+  it.each([[1, 16], [2, 8]] as const)('uses generation %i Leech Seed damage', (generation, divisor) => {
+    const team = createTeamDraft(generation);
+    const field = createBattleFieldDraft(generation);
+    const [end] = buildBattlePlanResults({
+      generation,
+      attacker: { ...team.attacker, currentHp: 50, item: undefined },
+      defender: { ...team.defender, currentHp: 100, item: undefined },
+      field: { ...field, defenderSide: { ...field.defenderSide, isSeeded: true } },
+      actions: [{ id: 'end', actor: 'attacker', type: 'end-turn' }],
+    });
+    const amount = Math.floor(end.maxHp.defender / divisor);
+    expect(end.attackerHp).toEqual({ min: 50 + amount, max: 50 + amount });
+    expect(end.defenderHp).toEqual({ min: 100 - amount, max: 100 - amount });
+  });
+
   it('replaces the switched-in Pokemon and its actions without changing earlier actions', () => {
     const actions = [
       {

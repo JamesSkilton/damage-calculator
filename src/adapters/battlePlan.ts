@@ -367,6 +367,62 @@ export function buildBattlePlanResults({
 
     if (action.type === 'end-turn') {
       const residual = {} as Record<BattlePlanActor, BattlePlanResidual>;
+      const seedParts: Partial<Record<BattlePlanActor, BattlePlanResidual['parts']>> = {};
+      for (const side of ['attacker', 'defender'] as const) {
+        const entry = getActiveEntry(side)!;
+        if (!maxHpById.has(entry.id)) {
+          try {
+            const maxHp = calculateEndOfTurnResidual({
+              generation, combatant: entry.combatant, field: currentField, toxicCounter: 0,
+            }).maxHp;
+            maxHpById.set(entry.id, maxHp);
+            if (getHp(entry).max === 0) hpById.set(entry.id, createHpRange(maxHp, maxHp));
+          } catch (error) {
+            return {
+              action, damage: createHpRange(0, 0), cumulativeDamage, attackerHp, defenderHp,
+              targetHp: defenderHp, targetMaxHp: 0, isKo: false,
+              error: `Unable to determine HP for ${entry.label}: ${error instanceof Error ? error.message : String(error)}`,
+            };
+          }
+        }
+      }
+      for (const side of ['attacker', 'defender'] as const) {
+        const other = side === 'attacker' ? 'defender' : 'attacker';
+        const seeded = getActiveEntry(side)!;
+        const recipient = getActiveEntry(other)!;
+        const condition = side === 'attacker' ? currentField.attackerSide : currentField.defenderSide;
+        const seededHp = getHp(seeded);
+        const recipientHp = getHp(recipient);
+        if (!condition.isSeeded || seededHp.max === 0 || seeded.combatant.ability === 'Magic Guard') continue;
+        const amount = Math.max(1, Math.floor(maxHpById.get(seeded.id)! / (generation === 1 ? 16 : 8)));
+        const loss = { min: Math.min(amount, seededHp.min), max: Math.min(amount, seededHp.max) };
+        hpById.set(seeded.id, createHpRange(seededHp.min - amount, seededHp.max - amount));
+        (seedParts[side] ??= []).push({ source: 'Leech Seed', amount: loss.max });
+        const bigRoot = heldItem(recipient) === 'Big Root' && recipient.combatant.ability !== 'Klutz' && !currentField.isMagicRoom;
+        const gain = (value: number) => bigRoot ? Math.floor(value * 5324 / 4096) : value;
+        const minGain = recipientHp.min > 0 ? gain(loss.min) : 0;
+        const maxGain = recipientHp.max > 0 ? gain(loss.max) : 0;
+        if (seeded.combatant.ability === 'Liquid Ooze') {
+          if (recipient.combatant.ability !== 'Magic Guard') {
+            hpById.set(recipient.id, createHpRange(recipientHp.min - maxGain, recipientHp.max - minGain));
+            (seedParts[other] ??= []).push({ source: 'Liquid Ooze', amount: maxGain });
+          }
+        } else {
+          const maxHp = maxHpById.get(recipient.id)!;
+          hpById.set(recipient.id, createHpRange(
+            recipientHp.min > 0 ? Math.min(maxHp, recipientHp.min + minGain) : 0,
+            Math.min(maxHp, recipientHp.max + maxGain),
+          ));
+          const healed = {
+            min: Math.min(minGain, maxHp - recipientHp.max),
+            max: Math.min(maxGain, maxHp - recipientHp.min),
+          };
+          if (healed.max > 0 || healed.min > 0) {
+            stepHealing.push({ pokemonId: recipient.id, source: 'Leech Seed', amount: healed });
+          }
+          (seedParts[other] ??= []).push({ source: 'Leech Seed recovery', amount: -maxGain });
+        }
+      }
       for (const side of ['attacker', 'defender'] as const) {
         const entry = getActiveEntry(side);
         if (!entry) continue;
@@ -407,7 +463,7 @@ export function buildBattlePlanResults({
             applyCheekPouch(entry, true);
             hp = getHp(entry);
           }
-          const apply = (value: number) => Math.min(tick.maxHp, Math.max(0, value - tick.damage));
+          const apply = (value: number) => value > 0 ? Math.min(tick.maxHp, Math.max(0, value - tick.damage)) : 0;
           const next = createHpRange(apply(hp.min), apply(hp.max));
           hpById.set(entry.id, next);
           if (tick.parts.every((part) => part.amount < 0)) {
@@ -432,7 +488,14 @@ export function buildBattlePlanResults({
             tick.sources = [...tick.sources, entry.combatant.item!];
           }
         }
-        residual[side] = { label: entry.label, damage: tick.damage, maxHp: tick.maxHp, sources: tick.sources, parts: tick.parts };
+        const seededParts = seedParts[side] ?? [];
+        residual[side] = {
+          label: entry.label,
+          damage: tick.damage + seededParts.reduce((sum, part) => sum + part.amount, 0),
+          maxHp: tick.maxHp || maxHpById.get(entry.id) || 0,
+          sources: [...seededParts.map((part) => part.source), ...tick.sources],
+          parts: [...seededParts, ...tick.parts],
+        };
       }
       attackerHp = getHp(getActiveEntry('attacker')!);
       defenderHp = getHp(getActiveEntry('defender')!);
@@ -540,6 +603,8 @@ export function buildBattlePlanResults({
       toxicCounterById.set(activeEntry.id, 0);
       boostsById.set(activeEntry.id, { ...activeEntry.combatant.boosts });
       unburdenActive.delete(activeEntry.id);
+      const sideKey = actor === 'attacker' ? 'attackerSide' : 'defenderSide';
+      currentField = { ...currentField, [sideKey]: { ...currentField[sideKey], isSeeded: false } };
       activeIds[actor] = nextEntry.id;
       attackerHp = getHp(getActiveEntry('attacker')!);
       defenderHp = getHp(getActiveEntry('defender')!);
@@ -691,6 +756,52 @@ export function buildBattlePlanResults({
       attackerHp = nextTargetHp;
     }
     hpById.set(targetEntry.id, nextTargetHp);
+    if (details.drain && damage.max > 0) {
+      const [numerator, denominator] = details.drain;
+      const bigRoot = heldItem(activeEntry) === 'Big Root' && actingCombatant.ability !== 'Klutz' && !currentField.isMagicRoom;
+      const drain = (dealt: number) => {
+        if (dealt <= 0) return 0;
+        const amount = Math.max(1, Math.round(dealt * numerator / denominator));
+        return bigRoot ? Math.floor(amount * 5324 / 4096) : amount;
+      };
+      const totalDrain = (bound: 'min' | 'max', hp: number) => {
+        let remaining = hp;
+        let total = 0;
+        const hits = details.drainHitDamage ?? [damage];
+        for (const hit of hits) {
+          const dealt = Math.min(hit[bound], remaining);
+          total += drain(dealt);
+          remaining -= dealt;
+        }
+        return total;
+      };
+      const minDrain = damage.min === 0 ? 0 : totalDrain('min', hpBeforeDamage.min);
+      const maxDrain = totalDrain('max', hpBeforeDamage.max);
+      const current = getHp(activeEntry);
+      if (targetCombatant.ability === 'Liquid Ooze') {
+        if (actingCombatant.ability !== 'Magic Guard') {
+          hpById.set(activeEntry.id, createHpRange(current.min - maxDrain, current.max - minDrain));
+          stepEvents.push(`${activeEntry.label}: hurt by Liquid Ooze`);
+        }
+      } else {
+        const maxHp = details.attackerMaxHp;
+        hpById.set(activeEntry.id, createHpRange(
+          current.min > 0 ? Math.min(maxHp, current.min + minDrain) : 0,
+          Math.min(maxHp, current.max + maxDrain),
+        ));
+        const minHeal = current.min > 0 ? Math.min(minDrain, maxHp - current.max) : 0;
+        const maxHeal = current.max > 0 ? Math.min(maxDrain, maxHp - current.min) : 0;
+        if (maxHeal > 0) stepHealing.push({
+          pokemonId: activeEntry.id, source: action.move.name, amount: { min: minHeal, max: maxHeal },
+        });
+      }
+    }
+    if (action.move.name === 'Leech Seed' && !targetCombatant.types.includes('Grass')) {
+      const sideKey = targetActor === 'attacker' ? 'attackerSide' : 'defenderSide';
+      if (!currentField[sideKey].isProtected && nextTargetHp.max > 0) {
+        currentField = { ...currentField, [sideKey]: { ...currentField[sideKey], isSeeded: true } };
+      }
+    }
     cumulativeDamage = isAttackerAction
       ? createHpRange(
           cumulativeDamage.min + damage.min,
@@ -785,7 +896,9 @@ export function buildBattlePlanResults({
     }
 
     eatHpBerry(targetEntry);
-    if (hitBerry?.effect.kind === 'recoil') eatHpBerry(activeEntry);
+    if (hitBerry?.effect.kind === 'recoil' || (details.drain && targetCombatant.ability === 'Liquid Ooze')) {
+      eatHpBerry(activeEntry);
+    }
     if (isAttackerAction) {
       attackerHp = getHp(activeEntry);
       defenderHp = getHp(targetEntry);

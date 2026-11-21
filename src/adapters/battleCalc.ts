@@ -46,6 +46,8 @@ export interface BattleCalcDetails {
   defenderCurrentHp: number;
   /** Attacker's max HP stat, for recoil from berries like Jaboca and Rowap. */
   attackerMaxHp: number;
+  drain?: readonly [number, number];
+  drainHitDamage?: readonly { min: number; max: number }[];
   moveCategory: string;
   /** The move is more than neutral against the defender's types. */
   isSuperEffective: boolean;
@@ -252,6 +254,14 @@ function computeBattleCalcDetails({
     defenderMaxHp: maxHp,
     defenderCurrentHp: curHp,
     attackerMaxHp: coreResult.attacker.maxHP(),
+    drain: coreResult.move.drain,
+    drainHitDamage: coreResult.move.drain && Array.isArray(coreResult.damage) &&
+      Array.isArray(coreResult.damage[0])
+      ? (coreResult.damage as number[][]).map((hit) => ({
+          min: Math.min(...hit),
+          max: Math.max(...hit),
+        }))
+      : undefined,
     moveCategory: coreResult.move.category,
     isSuperEffective: coreResult.defender.types.reduce(
       (product, type) => product * getMoveEffectiveness(coreResult.gen, coreResult.move, type),
