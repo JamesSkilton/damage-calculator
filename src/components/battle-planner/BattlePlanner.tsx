@@ -61,12 +61,16 @@ type BattlePlannerProps = {
   onBack: () => void;
 };
 
+function createPlannerMove(): MoveDraft {
+  return createMoveDraft('', { hits: 3 });
+}
+
 function createAction(actor: BattlePlanActor): BattlePlanAction {
   return {
     id: `${actor}-${Date.now()}-${Math.random()}`,
     actor,
     type: 'move',
-    move: createMoveDraft(),
+    move: createPlannerMove(),
   };
 }
 
@@ -1717,7 +1721,7 @@ export default function BattlePlanner({
                       updateAction(action.id, {
                         actor: action.actor,
                         type: 'move',
-                        move: { ...createMoveDraft(), skipped: true },
+                        move: { ...createPlannerMove(), skipped: true },
                       });
                   } else if (action.type === 'move') {
                     updateMove(action.id, { skipped: false });
@@ -1725,7 +1729,7 @@ export default function BattlePlanner({
                     updateAction(action.id, {
                       actor: action.actor,
                       type: 'move',
-                      move: createMoveDraft(),
+                      move: createPlannerMove(),
                     });
                   }
                 }}
@@ -1888,7 +1892,7 @@ export default function BattlePlanner({
                     className="form-control form-control-sm"
                     type="number"
                     min="1"
-                    max="8"
+                    max="10"
                     value={action.move.hits}
                     onChange={(event) =>
                       updateMove(action.id, {

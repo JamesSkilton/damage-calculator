@@ -88,6 +88,40 @@ describe('battle planner turn summary', () => {
       />,
     );
 
+  it('defaults new planner moves to three hits while preserving edits', () => {
+    const Wrapper = () => {
+      const [actions, setActions] = useState<BattlePlanAction[]>([]);
+      return (
+        <BattlePlanner
+          {...base}
+          availableMoves={[createMoveOption('Tackle')]}
+          attackerMoves={[move]}
+          defenderMoves={[]}
+          actions={actions}
+          onActionsChange={setActions}
+          onBack={() => {}}
+        />
+      );
+    };
+    const { unmount } = render(<Wrapper />);
+    fireEvent.click(screen.getByRole('button', { name: '+ Add action' }));
+    const hits = screen.getAllByLabelText('Hits');
+    expect(hits).toHaveLength(2);
+    expect(hits[0]).toHaveValue(3);
+    expect(hits[1]).toHaveValue(3);
+    fireEvent.change(hits[0], { target: { value: '5' } });
+    expect(hits[0]).toHaveValue(5);
+    expect(hits[1]).toHaveValue(3);
+    fireEvent.change(screen.getAllByLabelText('Action')[0], {
+      target: { value: 'switch' },
+    });
+    fireEvent.change(screen.getAllByLabelText('Action')[0], {
+      target: { value: 'move' },
+    });
+    expect(screen.getAllByLabelText('Hits')[0]).toHaveValue(3);
+    unmount();
+  });
+
   it('shows a hit-triggered berry as a distinct healing segment in the turn summary', () => {
     const actions = [hit, end];
     const [result] = buildBattlePlanResults({ ...base, actions });
@@ -104,7 +138,11 @@ describe('battle planner turn summary', () => {
 
   it('shows Berry Juice healing only once when the holder might be knocked out', () => {
     const [probe] = buildBattlePlanResults({ ...base, actions: [hit] });
-    const juiceHolder = { ...defender, item: 'Berry Juice', currentHp: probe.damage.max };
+    const juiceHolder = {
+      ...defender,
+      item: 'Berry Juice',
+      currentHp: probe.damage.max,
+    };
     const markup = renderToStaticMarkup(
       <BattlePlanner
         {...base}

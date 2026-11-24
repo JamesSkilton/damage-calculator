@@ -101,7 +101,7 @@ export function Move(
         if (typeof data.multihit === 'number') {
           hits = data.multihit;
         } else if (options.hits) {
-          hits = options.hits === 1 ? 3 : options.hits;
+          hits = options.hits === 1 && data.multihit[0] > 1 ? 3 : options.hits;
         } else {
           hits = 3;
         }

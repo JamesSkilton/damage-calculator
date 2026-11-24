@@ -35,7 +35,7 @@ function getMoveHits(data: LegacyMoveData, input: LegacyMoveInput): number {
     return data.multihit;
   }
 
-  if (input.hits && input.hits !== 1) {
+  if (input.hits && (input.hits !== 1 || data.multihit[0] === 1)) {
     return input.hits;
   }
 

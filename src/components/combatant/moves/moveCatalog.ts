@@ -33,6 +33,12 @@ export function buildMoveCatalog(generation: BattleGeneration): MoveOption[] {
           : typeof move.multihit === 'number'
             ? move.multihit
             : 3,
+      hitRange:
+        move.multihit === undefined
+          ? undefined
+          : typeof move.multihit === 'number'
+            ? [move.multiaccuracy ? 1 : move.multihit, move.multihit]
+            : [move.multihit[0], move.multihit[1]],
       dropsStatsOnUse,
     });
   }

@@ -19,7 +19,7 @@ export interface MoveSlot {
 }
 
 const MIN_HITS = 1;
-const MAX_HITS = 8;
+const MAX_HITS = 10;
 const MIN_TIMES_USED = 1;
 const MAX_TIMES_USED = 255;
 
@@ -30,7 +30,7 @@ export function createMoveDraft(
   return {
     name: name.trim(),
     isCrit: false,
-    hits: 3,
+    hits: 1,
     useZ: false,
     useMax: false,
     isStellarFirstUse: false,
@@ -58,8 +58,27 @@ export function setMoveName(
   return {
     ...draft,
     name: name.trim(),
-    hits: name.trim() ? (defaultHits ?? 3) : 3,
+    hits: name.trim() ? (defaultHits ?? 1) : 1,
   };
+}
+
+export function getDefaultMoveHits(
+  name: string,
+  generation: BattleGeneration,
+): number {
+  const move = Generations.get(generation).moves.get(toID(name.trim()));
+  return move?.multihit === undefined
+    ? 1
+    : typeof move.multihit === 'number'
+      ? move.multihit
+      : 3;
+}
+
+export function createMoveDraftForGeneration(
+  name: string,
+  generation: BattleGeneration,
+): MoveDraft {
+  return createMoveDraft(name, { hits: getDefaultMoveHits(name, generation) });
 }
 
 export function setMoveCrit(draft: MoveDraft, isCrit: boolean): MoveDraft {
@@ -233,11 +252,15 @@ export function resolveMoveDraftForGeneration(
       toID(resolved.name.trim()),
     );
 
-    if (move?.multihit !== undefined) {
-      resolved.hits =
-        typeof move.multihit === 'number'
-          ? move.multihit
-          : 3;
+    if (
+      move?.multihit !== undefined &&
+      !(
+        resolved.hits === 1 &&
+        (move.multiaccuracy ||
+          (typeof move.multihit !== 'number' && move.multihit[0] === 1))
+      )
+    ) {
+      resolved.hits = typeof move.multihit === 'number' ? move.multihit : 3;
     }
   }
 

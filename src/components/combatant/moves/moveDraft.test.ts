@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   createMoveDraft,
+  createMoveDraftForGeneration,
   updateMoveDraft,
   setMoveName,
   setMoveCrit,
@@ -23,7 +24,7 @@ describe('moveDraft', () => {
       expect(draft).toEqual({
         name: '',
         isCrit: false,
-        hits: 3,
+        hits: 1,
         useZ: false,
         useMax: false,
         isStellarFirstUse: false,
@@ -44,9 +45,16 @@ describe('moveDraft', () => {
         isCrit: true,
         hits: 2,
       });
+
       expect(draft.name).toBe('Earthquake');
       expect(draft.isCrit).toBe(true);
       expect(draft.hits).toBe(2);
+    });
+
+    it('uses the move-specific hit count for a generation', () => {
+      expect(createMoveDraftForGeneration('Karate Chop', 9).hits).toBe(1);
+      expect(createMoveDraftForGeneration('Bullet Seed', 9).hits).toBe(3);
+      expect(createMoveDraftForGeneration('Double Kick', 9).hits).toBe(2);
     });
   });
 
@@ -92,8 +100,8 @@ describe('moveDraft', () => {
       const updated1 = setMoveHits(draft, 0);
       expect(updated1.hits).toBe(1);
 
-      const updated2 = setMoveHits(draft, 10);
-      expect(updated2.hits).toBe(8);
+      const updated2 = setMoveHits(draft, 99);
+      expect(updated2.hits).toBe(10);
 
       const updated3 = setMoveHits(draft, 3);
       expect(updated3.hits).toBe(3);
@@ -193,7 +201,7 @@ describe('moveDraft', () => {
     });
 
     it('rejects invalid hit count', () => {
-      const draft = createMoveDraft('Invalid', { hits: 10 });
+      const draft = createMoveDraft('Invalid', { hits: 11 });
       const result = validateMoveDraft(draft);
       expect(result.isValid).toBe(false);
     });
@@ -221,6 +229,21 @@ describe('moveDraft', () => {
   });
 
   describe('resolveMoveDraftForGeneration', () => {
+    it('preserves one-hit choices for moves that can stop after one hit', () => {
+      expect(
+        resolveMoveDraftForGeneration(
+          createMoveDraft('Triple Axel', { hits: 1 }),
+          9,
+        ).hits,
+      ).toBe(1);
+      expect(
+        resolveMoveDraftForGeneration(
+          createMoveDraft('Triple Kick', { hits: 1 }),
+          2,
+        ).hits,
+      ).toBe(1);
+    });
+
     it('defaults random multi-hit moves to 3 hits', () => {
       const draft = createMoveDraft('Bullet Seed');
       const resolved = resolveMoveDraftForGeneration(draft, 9);
