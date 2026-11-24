@@ -11,6 +11,8 @@ export interface MoveOption {
   isMultiHit?: boolean;
   /** Default hit count assumed for planner damage calculations. */
   defaultHits?: number;
+  /** Inclusive range of possible hits for multi-hit moves. */
+  hitRange?: readonly [number, number];
   /** True when using the move repeatedly lowers the user's own stats (e.g. via self.boosts). */
   dropsStatsOnUse?: boolean;
 }

@@ -30,9 +30,16 @@ describe('buildMoveCatalog', () => {
     const bulletSeed = moves.find((move) => move.name === 'Bullet Seed');
     expect(bulletSeed?.isMultiHit).toBe(true);
     expect(bulletSeed?.defaultHits).toBe(3);
+    expect(bulletSeed?.hitRange).toEqual([2, 5]);
+    expect(moves.find((move) => move.name === 'Double Kick')?.hitRange).toEqual(
+      [2, 2],
+    );
+    expect(
+      moves.find((move) => move.name === 'Population Bomb')?.hitRange,
+    ).toEqual([1, 10]);
   });
 
-  it('flags moves that drop the user\'s own stats on use', () => {
+  it("flags moves that drop the user's own stats on use", () => {
     const moves = buildMoveCatalog(9);
     const overheat = moves.find((move) => move.name === 'Overheat');
     expect(overheat?.dropsStatsOnUse).toBe(true);

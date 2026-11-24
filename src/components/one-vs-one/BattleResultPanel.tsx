@@ -19,6 +19,7 @@ import './BattleResultPanel.scss';
 
 type BattleResultPanelProps = {
   title?: string;
+  compactRole?: 'attacker' | 'defender';
   attacker: BattleCombatant;
   defender: BattleCombatant;
   moves: readonly MoveDraft[];
@@ -29,6 +30,7 @@ type BattleResultPanelProps = {
   onDefenderChange: (combatant: BattleCombatant) => void;
   onMoveNameChange: (slotIndex: number, moveName: string) => void;
   onMoveCritChange?: (slotIndex: number, isCrit: boolean) => void;
+  onMoveHitsChange?: (slotIndex: number, hits: number) => void;
   onSwapSides?: () => void;
   onTogglePlanner?: () => void;
 };
@@ -224,6 +226,7 @@ function CombatantCard({
 
 export default function BattleResultPanel({
   title = 'Damage results',
+  compactRole,
   attacker,
   defender,
   moves,
@@ -234,6 +237,7 @@ export default function BattleResultPanel({
   onDefenderChange,
   onMoveNameChange,
   onMoveCritChange,
+  onMoveHitsChange,
   onSwapSides,
   onTogglePlanner,
 }: BattleResultPanelProps) {
@@ -260,7 +264,10 @@ export default function BattleResultPanel({
   } as CSSProperties;
 
   return (
-    <section className="battle-results" aria-label={title}>
+    <section
+      className={`battle-results${compactRole ? ` battle-results-compact battle-results-${compactRole}` : ''}`}
+      aria-label={title}
+    >
       <div className="calc-results-header">
         <div className="calc-results-heading">
           <h2 className="calc-results-title">{title}</h2>
@@ -297,7 +304,7 @@ export default function BattleResultPanel({
         <div className="calc-grid" style={gridStyle}>
           <CombatantCard
             combatant={attacker}
-            accent="attacker"
+            accent={compactRole ?? 'attacker'}
             statId={attackerStat}
             isEditing={editingAttacker}
             onToggleEdit={() => setEditingAttacker((current) => !current)}
@@ -310,144 +317,185 @@ export default function BattleResultPanel({
             }}
           />
 
-          <div className="calc-arrow calc-arrow-in" aria-hidden="true">
-            →
-          </div>
+          {!compactRole && (
+            <div className="calc-arrow calc-arrow-in" aria-hidden="true">
+              →
+            </div>
+          )}
 
           <div className="calc-attack-grid">
             {rows.map((row) => {
-            const moveDraft = moves[row.slotIndex];
-            const moveOption = resolveMoveOption(
-              moveDraft?.name ?? '',
-              availableMoves,
-            );
-            const isEditingMove = editingMoveSlot === row.slotIndex;
-            const details = row.details;
+              const moveDraft = moves[row.slotIndex];
+              const moveOption = resolveMoveOption(
+                moveDraft?.name ?? '',
+                availableMoves,
+              );
+              const isEditingMove = editingMoveSlot === row.slotIndex;
+              const details = row.details;
+              const hitRange = moveOption?.hitRange;
+              const showHitControl =
+                hitRange && moveDraft && !moveDraft.useZ && !moveDraft.useMax;
+              const moveLabel = showHitControl
+                ? row.label.replace(/ · \d+ hits(?= · |$)/, '')
+                : row.label;
 
-            return (
-              <div
-                key={row.slotIndex}
-                className="calc-attack-row"
-              >
-                <div className="calc-node calc-move">
-                  <div className="calc-move-header">
-                    {!isEditingMove && (
-                      <p className="calc-move-name">{row.label}</p>
-                    )}
-                    <label className="calc-crit-toggle">
-                      <input
-                        type="checkbox"
-                        checked={moveDraft?.isCrit ?? false}
-                        onChange={(event) =>
-                          onMoveCritChange?.(
-                            row.slotIndex,
-                            event.target.checked,
-                          )
-                        }
-                        aria-label={`Move ${row.slotIndex + 1} critical hit`}
-                      />
-                      <span>Crit</span>
-                    </label>
+              return (
+                <div key={row.slotIndex} className="calc-attack-row">
+                  <div className="calc-node calc-move">
+                    <div
+                      className={`calc-move-header${isEditingMove ? ' is-editing' : ''}`}
+                    >
+                      {!isEditingMove && (
+                        <p className="calc-move-name">{moveLabel}</p>
+                      )}
+                      {isEditingMove ? (
+                        <div className="calc-move-detail-line">
+                          <SearchableMovePicker
+                            value={moveDraft?.name ?? ''}
+                            options={availableMoves}
+                            onSelect={(moveName) => {
+                              onMoveNameChange(row.slotIndex, moveName);
+                              setEditingMoveSlot(null);
+                            }}
+                            ariaLabel={`Move ${row.slotIndex + 1}`}
+                            placeholder="— Select move —"
+                          />
+                        </div>
+                      ) : (
+                        <div className="calc-move-detail-line">
+                          <p className="calc-move-meta">
+                            {moveOption
+                              ? `${moveOption.category} · ${moveOption.type}${moveOption.basePower > 0 ? ` · ${moveOption.basePower} BP` : ''}`
+                              : '—'}
+                          </p>
+                        </div>
+                      )}
+                      <label className="calc-crit-toggle">
+                        <span>Crit</span>
+                        <input
+                          type="checkbox"
+                          checked={moveDraft?.isCrit ?? false}
+                          onChange={(event) =>
+                            onMoveCritChange?.(
+                              row.slotIndex,
+                              event.target.checked,
+                            )
+                          }
+                          aria-label={`Move ${row.slotIndex + 1} critical hit`}
+                        />
+                      </label>
+                      {showHitControl && (
+                        <label className="calc-hits">
+                          <span>Hits</span>
+                          <select
+                            aria-label={`Move ${row.slotIndex + 1} hits`}
+                            value={Math.max(
+                              hitRange[0],
+                              Math.min(hitRange[1], moveDraft.hits),
+                            )}
+                            title={
+                              hitRange[0] === hitRange[1]
+                                ? `Always ${hitRange[0]} hits`
+                                : undefined
+                            }
+                            disabled={
+                              !onMoveHitsChange || hitRange[0] === hitRange[1]
+                            }
+                            onChange={(event) =>
+                              onMoveHitsChange?.(
+                                row.slotIndex,
+                                Number(event.target.value),
+                              )
+                            }
+                          >
+                            {Array.from(
+                              { length: hitRange[1] - hitRange[0] + 1 },
+                              (_, index) => hitRange[0] + index,
+                            ).map((hits) => (
+                              <option key={hits} value={hits}>
+                                {hits}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      className="calc-change-link calc-move-action"
+                      onClick={() =>
+                        setEditingMoveSlot(isEditingMove ? null : row.slotIndex)
+                      }
+                    >
+                      {isEditingMove ? 'Done' : 'Change'}
+                    </button>
                   </div>
 
-                  {isEditingMove ? (
-                    <div className="calc-move-detail-line">
-                      <SearchableMovePicker
-                        value={moveDraft?.name ?? ''}
-                        options={availableMoves}
-                        onSelect={(moveName) => {
-                          onMoveNameChange(row.slotIndex, moveName);
-                          setEditingMoveSlot(null);
-                        }}
-                        ariaLabel={`Move ${row.slotIndex + 1}`}
-                        placeholder="— Select move —"
+                  <div className="calc-arrow calc-arrow-mid" aria-hidden="true">
+                    →
+                  </div>
+
+                  <div className="calc-node calc-damage">
+                    {details ? (
+                      <HpRemainingBar
+                        details={details}
+                        rangeText={row.result.rangeText}
                       />
-                    </div>
-                  ) : (
-                    <div className="calc-move-detail-line">
-                      <p className="calc-move-meta">
-                        {moveOption
-                          ? `${moveOption.category} · ${moveOption.type}${moveOption.basePower > 0 ? ` · ${moveOption.basePower} BP` : ''}`
-                          : '—'}
-                      </p>
-                    </div>
-                  )}
+                    ) : (
+                      <strong className="calc-damage-range">
+                        {row.result.rangeText}
+                      </strong>
+                    )}
 
-                  <button
-                    type="button"
-                    className="calc-change-link calc-move-action"
-                    onClick={() =>
-                      setEditingMoveSlot(isEditingMove ? null : row.slotIndex)
-                    }
-                  >
-                    {isEditingMove ? 'Done' : 'Change'}
-                  </button>
+                    {details && details.damageRollFrequency.length > 1 && (
+                      <div className="calc-roll-odds">
+                        <p className="calc-roll-odds-label">Chance per roll</p>
+                        <ul className="calc-roll-odds-list">
+                          {details.damageRollFrequency.map(
+                            ({ damage, count }) => (
+                              <li key={damage} className="calc-roll-odds-item">
+                                <span className="calc-roll-odds-damage">
+                                  {damage}
+                                </span>
+                                <span className="calc-roll-odds-chance">
+                                  {formatPercent(
+                                    count / details.allDamageRolls.length,
+                                  )}
+                                </span>
+                              </li>
+                            ),
+                          )}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
                 </div>
-
-                <div
-                  className="calc-arrow calc-arrow-mid"
-                  aria-hidden="true"
-                >
-                  →
-                </div>
-
-                <div className="calc-node calc-damage">
-                  {details ? (
-                    <HpRemainingBar
-                      details={details}
-                      rangeText={row.result.rangeText}
-                    />
-                  ) : (
-                    <strong className="calc-damage-range">
-                      {row.result.rangeText}
-                    </strong>
-                  )}
-
-                  {details && details.damageRollFrequency.length > 1 && (
-                    <div className="calc-roll-odds">
-                      <p className="calc-roll-odds-label">Chance per roll</p>
-                      <ul className="calc-roll-odds-list">
-                        {details.damageRollFrequency.map(
-                          ({ damage, count }) => (
-                            <li key={damage} className="calc-roll-odds-item">
-                              <span className="calc-roll-odds-damage">
-                                {damage}
-                              </span>
-                              <span className="calc-roll-odds-chance">
-                                {formatPercent(
-                                  count / details.allDamageRolls.length,
-                                )}
-                              </span>
-                            </li>
-                          ),
-                        )}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
+              );
             })}
           </div>
 
-          <div className="calc-arrow calc-arrow-out" aria-hidden="true">
-            →
-          </div>
-
-          <CombatantCard
-            combatant={defender}
-            accent="defender"
-            statId={defenderStat}
-            isEditing={editingDefender}
-            onToggleEdit={() => setEditingDefender((current) => !current)}
-            availableSpecies={availableSpecies}
-            onSelect={(species) => {
-              onDefenderChange(
-                setCombatantSpecies(defender, species, availableSpecies),
-              );
-              setEditingDefender(false);
-            }}
-          />
+          {!compactRole && (
+            <>
+              <div className="calc-arrow calc-arrow-out" aria-hidden="true">
+                →
+              </div>
+              <CombatantCard
+                combatant={defender}
+                accent="defender"
+                statId={defenderStat}
+                isEditing={editingDefender}
+                onToggleEdit={() => setEditingDefender((current) => !current)}
+                availableSpecies={availableSpecies}
+                onSelect={(species) => {
+                  onDefenderChange(
+                    setCombatantSpecies(defender, species, availableSpecies),
+                  );
+                  setEditingDefender(false);
+                }}
+              />
+            </>
+          )}
         </div>
       )}
 

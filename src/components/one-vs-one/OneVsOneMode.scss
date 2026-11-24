@@ -3,6 +3,18 @@
   gap: 0.75rem;
 }
 
+.one-vs-one-results {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+@media (max-width: 1199px) {
+  .one-vs-one-results {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .defender-preset-roster {
   display: grid;
   gap: 0.5rem;

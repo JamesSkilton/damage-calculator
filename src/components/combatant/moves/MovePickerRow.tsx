@@ -13,6 +13,7 @@ import {
   setMoveTimesUsedWithMetronome,
   isGenerationGated,
   resolveMoveDraftForGeneration,
+  getDefaultMoveHits,
 } from './moveDraft';
 import SearchableMovePicker from './SearchableMovePicker';
 import './MovePickerRow.css';
@@ -50,7 +51,8 @@ export default function MovePickerRow({
     : undefined;
   const validatedMove =
     selectedMoveOption?.defaultHits !== undefined &&
-    (resolvedMove.hits === 1 || resolvedMove.hits === 3)
+    (resolvedMove.hits === 3 ||
+      (resolvedMove.hits === 1 && selectedMoveOption.hitRange?.[0] !== 1))
       ? { ...resolvedMove, hits: selectedMoveOption.defaultHits }
       : resolvedMove;
   const showHits = isAdvanced
@@ -69,7 +71,9 @@ export default function MovePickerRow({
       setMoveName(
         validatedMove,
         name,
-        selectedOption ? (selectedOption.defaultHits ?? 1) : undefined,
+        selectedOption
+          ? (selectedOption.defaultHits ?? 1)
+          : getDefaultMoveHits(name, generation),
       ),
     );
   };
@@ -145,7 +149,7 @@ export default function MovePickerRow({
             <input
               type="number"
               min={1}
-              max={8}
+              max={10}
               value={validatedMove.hits}
               onChange={(event) => handleHitsChange(event.target.value)}
               aria-label={`Move ${slotNumber} hits`}

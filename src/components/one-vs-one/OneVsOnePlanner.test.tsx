@@ -25,6 +25,125 @@ afterEach(() => {
 });
 
 describe('one-vs-one battle planner', () => {
+  it('shows both sides of the matchup and edits their critical hits independently', () => {
+    saveImportedPokemonSets([
+      {
+        id: 'pikachu',
+        generation: 9,
+        species: 'Pikachu',
+        level: 50,
+        nature: 'Serious',
+        evs: emptyStats(0),
+        ivs: emptyStats(31),
+        moves: ['Thunderbolt', 'Karate Chop', 'Bullet Seed', 'Double Kick'],
+      },
+      {
+        id: 'eevee',
+        generation: 9,
+        species: 'Eevee',
+        level: 50,
+        nature: 'Serious',
+        evs: emptyStats(0),
+        ivs: emptyStats(31),
+        moves: ['Tackle', 'Bullet Seed', 'Triple Axel', 'Population Bomb'],
+      },
+    ]);
+
+    render(
+      <MemoryRouter initialEntries={['/one-vs-one']}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByText('Manage party and imported Pokemon'));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Load Pikachu into attacker' }),
+    );
+    const defenderPanel = screen.getByRole('article', {
+      name: /Defender panel/,
+    });
+    fireEvent.click(
+      within(defenderPanel).getByRole('button', { name: 'Change Pokémon' }),
+    );
+    const picker = within(defenderPanel).getByRole('textbox', {
+      name: 'Pokémon',
+    });
+    fireEvent.focus(picker);
+    fireEvent.change(picker, { target: { value: 'Eevee' } });
+    fireEvent.click(
+      within(defenderPanel).getByRole('option', { name: /Eevee \[Imported\]/ }),
+    );
+
+    const attacker = screen.getByRole('region', { name: 'Attacker damage' });
+    const defender = screen.getByRole('region', { name: 'Defender damage' });
+    expect(within(attacker).getByText(/^Thunderbolt/)).toBeVisible();
+    expect(within(attacker).getByText('Karate Chop')).toBeVisible();
+    expect(within(attacker).getByText('Bullet Seed')).toBeVisible();
+    expect(within(attacker).getByText('Double Kick')).toBeVisible();
+    expect(
+      within(attacker).queryByLabelText('Move 1 hits'),
+    ).not.toBeInTheDocument();
+    expect(within(attacker).getByLabelText('Move 4 hits')).toBeDisabled();
+    const attackerHits = within(attacker).getByLabelText('Move 3 hits');
+    const defenderHits = within(defender).getByLabelText('Move 2 hits');
+    const attackerBullet = within(attacker)
+      .getByText('Bullet Seed')
+      .closest<HTMLElement>('.calc-attack-row')!;
+    const initialDamage =
+      attackerBullet.querySelector('.calc-damage-range')!.textContent;
+    fireEvent.change(attackerHits, { target: { value: '5' } });
+    expect(attackerHits).toHaveValue('5');
+    expect(
+      within(attacker).queryByText(/Bullet Seed · \d+ hits/),
+    ).not.toBeInTheDocument();
+    expect(
+      attackerBullet.querySelector('.calc-damage-range')!.textContent,
+    ).not.toBe(initialDamage);
+    expect(defenderHits).toHaveValue('3');
+    fireEvent.change(defenderHits, { target: { value: '2' } });
+    expect(defenderHits).toHaveValue('2');
+    expect(attackerHits).toHaveValue('5');
+    fireEvent.change(within(defender).getByLabelText('Move 3 hits'), {
+      target: { value: '1' },
+    });
+    expect(within(defender).getByText('Triple Axel')).toBeVisible();
+    fireEvent.change(within(defender).getByLabelText('Move 4 hits'), {
+      target: { value: '10' },
+    });
+    expect(within(defender).getByLabelText('Move 4 hits')).toHaveValue('10');
+    const karateRow = within(attacker)
+      .getByText('Karate Chop')
+      .closest<HTMLElement>('.calc-attack-row')!;
+    fireEvent.click(within(karateRow).getByRole('button', { name: 'Change' }));
+    const movePicker = within(karateRow).getByRole('textbox', {
+      name: 'Move 2',
+    });
+    fireEvent.focus(movePicker);
+    fireEvent.change(movePicker, { target: { value: 'Double Hit' } });
+    fireEvent.click(
+      within(karateRow).getByRole('option', { name: /Double Hit/ }),
+    );
+    expect(within(attacker).getByText('Double Hit')).toBeVisible();
+    expect(within(defender).getByText(/^Tackle/)).toBeVisible();
+    const defenderDamage = defender.querySelector('.calc-damage-range')!;
+    const damageBeforeReflect = defenderDamage.textContent;
+    const attackerSide = screen.getByRole('group', {
+      name: 'Screens and hazards: Attacker side',
+    });
+    fireEvent.click(within(attackerSide).getByLabelText('Reflect'));
+    expect(defenderDamage.textContent).not.toBe(damageBeforeReflect);
+    const attackerCrit = within(attacker).getByLabelText('Move 1 critical hit');
+    const defenderCrit = within(defender).getByLabelText('Move 1 critical hit');
+    fireEvent.click(defenderCrit);
+    expect(defenderCrit).toBeChecked();
+    expect(attackerCrit).not.toBeChecked();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Plan battle' }));
+    expect(
+      screen.getByRole('region', { name: 'Battle planner' }),
+    ).toBeVisible();
+  });
+
   it('opens matchup settings from the box and preserves changes', () => {
     const app = () => (
       <MemoryRouter initialEntries={['/one-vs-one']}>

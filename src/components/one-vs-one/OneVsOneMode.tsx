@@ -14,8 +14,11 @@ import {
 } from '../combatant/moves/combatantMovesState';
 import {
   createMoveDraft,
+  createMoveDraftForGeneration,
+  getDefaultMoveHits,
   setMoveName,
   setMoveCrit,
+  setMoveHits,
 } from '../combatant/moves/moveDraft';
 import type { MoveDraft } from '../combatant/moves/moveDraft';
 import { applyImportedPokemonSet } from '../combatant/shared/combatantDraft';
@@ -85,7 +88,6 @@ export default function OneVsOneMode() {
   const [defenderMoves, setDefenderMoves] = useState(() =>
     createCombatantMovesState(),
   );
-  const [isResultsSwapped, setIsResultsSwapped] = useState(false);
   const [isPlannerOpen, setIsPlannerOpen] = useState(false);
   const [plannerActions, setPlannerActions] = useState<BattlePlanAction[]>([]);
   const [plannerAttackerEdits, setPlannerAttackerEdits] = useState<
@@ -236,7 +238,9 @@ export default function OneVsOneMode() {
             applyImportedPokemonSet(draft.attacker, set, availableSpecies),
             libraryBaseStats,
           ),
-          moves: set.moves.map((name) => createMoveDraft(name)),
+          moves: set.moves.map((name) =>
+            createMoveDraftForGeneration(name, generation),
+          ),
         })),
     ];
     const resolvedAttackerRoster = attackerRoster.map((entry) => {
@@ -278,7 +282,9 @@ export default function OneVsOneMode() {
             applyImportedPokemonSet(draft.defender, preset, availableSpecies),
             libraryBaseStats,
           ),
-          moves: preset.moves.map((name) => createMoveDraft(name)),
+          moves: preset.moves.map((name) =>
+            createMoveDraftForGeneration(name, generation),
+          ),
         })),
     ];
 
@@ -296,6 +302,7 @@ export default function OneVsOneMode() {
     defenderMoves.slots,
     draft.attacker,
     draft.defender,
+    generation,
     importedSets,
     libraryBaseStats,
     plannerAttackerEdits,
@@ -342,7 +349,9 @@ export default function OneVsOneMode() {
             applyImportedPokemonSet(draft.attacker, set, availableSpecies),
             libraryBaseStats,
           ),
-          moves: set.moves.map((name) => createMoveDraft(name)),
+          moves: set.moves.map((name) =>
+            createMoveDraftForGeneration(name, generation),
+          ),
         },
         matchupSettings,
       );
@@ -446,18 +455,15 @@ export default function OneVsOneMode() {
         generation,
         attacker: draft.defender,
         defender: draft.attacker,
-        field,
+        field: {
+          ...field,
+          attackerSide: field.defenderSide,
+          defenderSide: field.attackerSide,
+        },
         moves: defenderMoves.slots,
       }),
     [defenderMoves.slots, draft.attacker, draft.defender, field, generation],
   );
-
-  const displayedAttacker = isResultsSwapped ? draft.defender : draft.attacker;
-  const displayedDefender = isResultsSwapped ? draft.attacker : draft.defender;
-  const displayedMoves = isResultsSwapped
-    ? defenderMoves.slots
-    : attackerMoves.slots;
-  const displayedResults = isResultsSwapped ? defenderResults : attackerResults;
 
   const importSets = () => {
     const result = parsePokemonSets(importText, generation);
@@ -493,7 +499,11 @@ export default function OneVsOneMode() {
     ) => ({
       ...current,
       slots: current.slots.map((slot, index) =>
-        setMoveName(slot, set.moves[index] || ''),
+        setMoveName(
+          slot,
+          set.moves[index] || '',
+          getDefaultMoveHits(set.moves[index] || '', generation),
+        ),
       ),
     });
     (role === 'attacker' ? setAttackerMoves : setDefenderMoves)(updateMoves);
@@ -518,7 +528,11 @@ export default function OneVsOneMode() {
     ) => ({
       ...current,
       slots: current.slots.map((slot, index) =>
-        setMoveName(slot, preset.moves[index] || ''),
+        setMoveName(
+          slot,
+          preset.moves[index] || '',
+          getDefaultMoveHits(preset.moves[index] || '', generation),
+        ),
       ),
     });
     (role === 'attacker' ? setAttackerMoves : setDefenderMoves)(updateMoves);
@@ -747,59 +761,68 @@ export default function OneVsOneMode() {
         />
       ) : (
         <>
-          <BattleResultPanel
-            title={isResultsSwapped ? 'Defender damage' : 'Attacker damage'}
-            attacker={displayedAttacker}
-            defender={displayedDefender}
-            moves={displayedMoves}
-            results={displayedResults}
-            availableMoves={availableMoves}
-            availableSpecies={availableSpecies}
-            onSwapSides={() => setIsResultsSwapped((current) => !current)}
-            onTogglePlanner={() => setIsPlannerOpen(true)}
-            onAttackerChange={(combatant) =>
-              setDraft((current) => ({
-                ...current,
-                [isResultsSwapped ? 'defender' : 'attacker']: combatant,
-              }))
-            }
-            onDefenderChange={(combatant) =>
-              setDraft((current) => ({
-                ...current,
-                [isResultsSwapped ? 'attacker' : 'defender']: combatant,
-              }))
-            }
-            onMoveNameChange={(slotIndex, moveName) =>
-              (isResultsSwapped ? setDefenderMoves : setAttackerMoves)(
-                (current) => {
+          <div className="d-flex justify-content-end">
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => setIsPlannerOpen(true)}
+            >
+              Plan battle
+            </button>
+          </div>
+          <div className="one-vs-one-results">
+            {(['attacker', 'defender'] as const).map((role) => {
+              const isAttacker = role === 'attacker';
+              const setMoves = isAttacker ? setAttackerMoves : setDefenderMoves;
+              const updateMove = (
+                slotIndex: number,
+                update: (move: MoveDraft) => MoveDraft,
+              ) =>
+                setMoves((current) => {
                   const existing = current.slots[slotIndex];
-                  if (!existing) {
-                    return current;
+                  return existing
+                    ? setCombatantMoveSlot(current, slotIndex, update(existing))
+                    : current;
+                });
+              return (
+                <BattleResultPanel
+                  key={role}
+                  title={isAttacker ? 'Attacker damage' : 'Defender damage'}
+                  compactRole={role}
+                  attacker={draft[role]}
+                  defender={draft[isAttacker ? 'defender' : 'attacker']}
+                  moves={isAttacker ? attackerMoves.slots : defenderMoves.slots}
+                  results={isAttacker ? attackerResults : defenderResults}
+                  availableMoves={availableMoves}
+                  availableSpecies={availableSpecies}
+                  onAttackerChange={(combatant) =>
+                    setDraft((current) => ({ ...current, [role]: combatant }))
                   }
-                  return setCombatantMoveSlot(
-                    current,
-                    slotIndex,
-                    setMoveName(existing, moveName),
-                  );
-                },
-              )
-            }
-            onMoveCritChange={(slotIndex, isCrit) =>
-              (isResultsSwapped ? setDefenderMoves : setAttackerMoves)(
-                (current) => {
-                  const existing = current.slots[slotIndex];
-                  if (!existing) {
-                    return current;
+                  onDefenderChange={(combatant) =>
+                    setDraft((current) => ({
+                      ...current,
+                      [isAttacker ? 'defender' : 'attacker']: combatant,
+                    }))
                   }
-                  return setCombatantMoveSlot(
-                    current,
-                    slotIndex,
-                    setMoveCrit(existing, isCrit),
-                  );
-                },
-              )
-            }
-          />
+                  onMoveNameChange={(slotIndex, moveName) =>
+                    updateMove(slotIndex, (move) =>
+                      setMoveName(
+                        move,
+                        moveName,
+                        getDefaultMoveHits(moveName, generation),
+                      ),
+                    )
+                  }
+                  onMoveCritChange={(slotIndex, isCrit) =>
+                    updateMove(slotIndex, (move) => setMoveCrit(move, isCrit))
+                  }
+                  onMoveHitsChange={(slotIndex, hits) =>
+                    updateMove(slotIndex, (move) => setMoveHits(move, hits))
+                  }
+                />
+              );
+            })}
+          </div>
         </>
       )}
 
