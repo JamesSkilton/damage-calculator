@@ -102,6 +102,26 @@ describe('battle planner turn summary', () => {
     expect(markup).toContain('Oran Berry healed 10 HP');
   });
 
+  it('shows Berry Juice healing only once when the holder might be knocked out', () => {
+    const [probe] = buildBattlePlanResults({ ...base, actions: [hit] });
+    const juiceHolder = { ...defender, item: 'Berry Juice', currentHp: probe.damage.max };
+    const markup = renderToStaticMarkup(
+      <BattlePlanner
+        {...base}
+        defender={juiceHolder}
+        defenderRoster={[{ ...defenderRoster[0], combatant: juiceHolder }]}
+        availableMoves={[]}
+        attackerMoves={[move]}
+        defenderMoves={[]}
+        actions={[hit, end]}
+        onActionsChange={() => {}}
+        onBack={() => {}}
+      />,
+    );
+
+    expect(markup.match(/Berry Juice \(possibly\) restored/g)).toHaveLength(1);
+  });
+
   it('does not attribute old healing to a later HP correction', () => {
     const actions: BattlePlanAction[] = [
       hit,

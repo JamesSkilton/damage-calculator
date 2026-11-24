@@ -45,6 +45,8 @@ export function getHpBerry(
   switch (item) {
     case 'Oran Berry':
       return { threshold: 1 / 2, effect: { kind: 'heal', amount: () => 10 * ripen } };
+    case 'Berry Juice':
+      return { threshold: 1 / 2, effect: { kind: 'heal', amount: () => 20 } };
     case 'Sitrus Berry':
       return { threshold: 1 / 2, effect: { kind: 'heal', amount: (maxHp) => Math.floor(maxHp / 4) * ripen } };
     case 'Figy Berry':
