@@ -882,6 +882,123 @@ describe('battle plan adapter', () => {
     expect(results[1].healing).toEqual([]);
   });
 
+  it('records healing and consumption from Berry Juice', () => {
+    const team = createTeamDraft(9);
+    const attacker = { ...team.attacker, currentHp: 100 };
+    const defender = { ...team.defender, currentHp: 100, item: 'Berry Juice' };
+    const move = { name: 'Tackle', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const results = buildBattlePlanResults({
+      generation: 9,
+      attacker,
+      defender,
+      field: createBattleFieldDraft(9),
+      actions: [
+        { id: 'hit', actor: 'attacker', type: 'move', move },
+        { id: 'end', actor: 'attacker', type: 'end-turn' },
+        { id: 'another-hit', actor: 'attacker', type: 'move', move },
+      ],
+    });
+
+    expect(results[0].healing).toContainEqual({
+      pokemonId: 'initial-defender',
+      source: 'Berry Juice',
+      amount: { min: 20, max: 20 },
+    });
+    expect(results[0].items['initial-defender']).toBe('consumed');
+    expect(results[0].eatenBerries['initial-defender']).toBeUndefined();
+    expect(results[1].items['initial-defender']).toBe('consumed');
+    expect(results[2].items['initial-defender']).toBe('consumed');
+    expect(results[1].healing).toEqual([]);
+    expect(results[2].healing).toEqual([]);
+  });
+
+  it('can consume Berry Juice on a later hit if an earlier hit only possibly triggered it', () => {
+    const team = createTeamDraft(9);
+    const attacker = { ...team.attacker, currentHp: 0 };
+    const defender = { ...team.defender, currentHp: 0, item: 'Berry Juice' };
+    const move = { name: 'Thunderbolt', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const base = { generation: 9 as const, attacker, defender, field: createBattleFieldDraft(9) };
+    const [probe] = buildBattlePlanResults({
+      ...base,
+      actions: [{ id: 'probe', actor: 'attacker', type: 'move', move }],
+    });
+    const results = buildBattlePlanResults({
+      ...base,
+      actions: [
+        { id: 'set-hp', actor: 'defender', type: 'state', hp: Math.floor(probe.maxHp.defender / 2) + probe.damage.max },
+        { id: 'first-hit', actor: 'attacker', type: 'move', move },
+        { id: 'second-hit', actor: 'attacker', type: 'move', move },
+        { id: 'end', actor: 'attacker', type: 'end-turn' },
+      ],
+    });
+
+    expect(results[1].items['initial-defender']).toBe('maybe-consumed');
+    expect(results[2].healing).toContainEqual(expect.objectContaining({ source: 'Berry Juice' }));
+    expect(results[3].healing).toEqual([]);
+    expect(results[3].itemEvents).toEqual([]);
+  });
+
+  it('does not consume Berry Juice twice when a hit may knock out its holder', () => {
+    const team = createTeamDraft(9);
+    const attacker = { ...team.attacker, currentHp: 0 };
+    const defender = { ...team.defender, currentHp: 0, item: 'Berry Juice' };
+    const move = { name: 'Tackle', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const base = { generation: 9 as const, attacker, defender, field: createBattleFieldDraft(9) };
+    const [probe] = buildBattlePlanResults({
+      ...base,
+      actions: [{ id: 'probe', actor: 'attacker', type: 'move', move }],
+    });
+    const results = buildBattlePlanResults({
+      ...base,
+      actions: [
+        { id: 'set-hp', actor: 'defender', type: 'state', hp: probe.damage.max },
+        { id: 'hit', actor: 'attacker', type: 'move', move },
+        { id: 'end', actor: 'attacker', type: 'end-turn' },
+      ],
+    });
+
+    expect(results[1].defenderHp.min).toBe(0);
+    expect(results[1].items['initial-defender']).toBe('maybe-consumed');
+    expect(results[1].healing).toContainEqual(expect.objectContaining({ source: 'Berry Juice' }));
+    expect(results[2].healing).toEqual([]);
+    expect(results[2].itemEvents).toEqual([]);
+  });
+
+  it('does not apply berry-specific effects to Berry Juice', () => {
+    const team = createTeamDraft(9);
+    const move = { name: 'Tackle', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    for (const ability of ['Ripen', 'Cheek Pouch']) {
+      const [result] = buildBattlePlanResults({
+        generation: 9,
+        attacker: { ...team.attacker, currentHp: 100, ability: 'Unnerve' },
+        defender: { ...team.defender, currentHp: 100, item: 'Berry Juice', ability },
+        field: createBattleFieldDraft(9),
+        actions: [{ id: 'hit', actor: 'attacker', type: 'move', move }],
+      });
+      expect(result.items['initial-defender']).toBe('consumed');
+      expect(result.healing).toEqual([{
+        pokemonId: 'initial-defender',
+        source: 'Berry Juice',
+        amount: { min: 20, max: 20 },
+      }]);
+      expect(result.eatenBerries['initial-defender']).toBeUndefined();
+    }
+  });
+
+  it.each(['Klutz', 'Magic Room'])('does not consume Berry Juice under %s', (blocker) => {
+    const team = createTeamDraft(9);
+    const move = { name: 'Tackle', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const [result] = buildBattlePlanResults({
+      generation: 9,
+      attacker: { ...team.attacker, currentHp: 100 },
+      defender: { ...team.defender, currentHp: 100, item: 'Berry Juice', ability: blocker === 'Klutz' ? blocker : undefined },
+      field: { ...createBattleFieldDraft(9), isMagicRoom: blocker === 'Magic Room' },
+      actions: [{ id: 'hit', actor: 'attacker', type: 'move', move }],
+    });
+    expect(result.items['initial-defender']).toBe('held');
+    expect(result.healing).toEqual([]);
+  });
+
   it('records capped end-of-turn recovery', () => {
     const team = createTeamDraft(9);
     const base = {

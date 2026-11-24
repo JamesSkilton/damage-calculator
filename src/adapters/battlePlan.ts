@@ -115,6 +115,8 @@ export function buildBattlePlanResults({
   const consumedItems = new Set<string>();
   // Items eaten on some damage rolls but not all of them.
   const maybeConsumedItems = new Set<string>();
+  // Keep the still-held outcomes separate so a previous heal cannot trigger again.
+  const unconsumedHp = new Map<string, { alive?: BattlePlanHpRange; fainted: boolean }>();
   const eatenBerries = new Set<string>();
   const maybeEatenBerries = new Set<string>();
   const recyclableItems = new Map<string, string>();
@@ -135,6 +137,18 @@ export function buildBattlePlanResults({
     rosters[actor].find((entry) => entry.id === activeIds[actor]);
   const getHp = (entry: BattlePlanRosterEntry) =>
     hpById.get(entry.id) ?? createHpRange(entry.combatant.currentHp, entry.combatant.currentHp);
+  const updateUnconsumedHp = (
+    entry: BattlePlanRosterEntry,
+    update: (hp: BattlePlanHpRange) => BattlePlanHpRange,
+  ) => {
+    const state = unconsumedHp.get(entry.id);
+    if (!state?.alive) return;
+    const next = update(state.alive);
+    unconsumedHp.set(entry.id, {
+      alive: next.max > 0 ? createHpRange(Math.max(1, next.min), next.max) : undefined,
+      fainted: state.fainted || next.min === 0,
+    });
+  };
 
   let attackerHp = getHp(getActiveEntry('attacker')!);
   let defenderHp = getHp(getActiveEntry('defender')!);
@@ -183,6 +197,7 @@ export function buildBattlePlanResults({
     if (certain) {
       consumedItems.add(entry.id);
       maybeConsumedItems.delete(entry.id);
+      unconsumedHp.delete(entry.id);
       if (entry.combatant.ability === 'Unburden') {
         unburdenActive.add(entry.id);
         stepEvents.push(`${entry.label}: Unburden activated`);
@@ -268,33 +283,49 @@ export function buildBattlePlanResults({
     applyCheekPouch(eater, certain);
   };
 
-  /** Eats the active Pokémon's low-HP berry if its HP is at or below the berry's threshold. Returns the HP healed. */
+  /** Consumes the active Pokémon's low-HP item if its HP is at or below its threshold. Returns the HP healed. */
   const eatHpBerry = (entry: BattlePlanRosterEntry): number => {
     const item = heldItem(entry);
     const berry = getHpBerry(item, generation, entry.combatant.ability);
     const maxHp = maxHpById.get(entry.id) ?? 0;
     const hp = getHp(entry);
-    if (!item || !berry || maxHp <= 0 || hp.max <= 0 || !canEat(entry)) return 0;
+    if (!item || !berry || maxHp <= 0 || hp.max <= 0) return 0;
+    if (item === 'Berry Juice'
+      ? entry.combatant.ability === 'Klutz' || currentField.isMagicRoom
+      : !canEat(entry)) return 0;
 
     const triggers = (value: number) => value > 0 && value <= maxHp * berry.threshold;
-    if (!triggers(Math.max(1, hp.min))) return 0;
-    const certain = hp.min > 0 && triggers(hp.max);
-    const label = certain ? item : `${item} (possibly)`;
+    const previous = unconsumedHp.get(entry.id);
+    const eligible = previous ? previous.alive : hp;
+    if (!eligible || !triggers(Math.max(1, eligible.min))) return 0;
+    const wasMaybe = maybeConsumedItems.has(entry.id);
+    const certain = hp.min > 0 && eligible.min > 0 && triggers(eligible.max) && !previous?.fainted;
+    const label = certain && !wasMaybe ? item : `${item} (possibly)`;
+    const threshold = Math.floor(maxHp * berry.threshold);
+    const remaining = {
+      alive: eligible.max > threshold
+        ? createHpRange(Math.max(eligible.min, threshold + 1), eligible.max)
+        : undefined,
+      fainted: previous?.fainted ?? eligible.min === 0,
+    };
     markConsumed(entry, certain);
+    if (!certain) unconsumedHp.set(entry.id, remaining);
 
     const { effect } = berry;
     if (effect.kind === 'heal') {
-      const threshold = Math.floor(maxHp * berry.threshold);
-      const candidates = [hp.min, hp.max, 1, threshold, threshold + 1]
-        .filter((value) => value >= hp.min && value <= hp.max);
+      const candidates = [eligible.min, eligible.max, 1, threshold, threshold + 1]
+        .filter((value) => value >= eligible.min && value <= eligible.max);
       const gain = (value: number) => triggers(value) ? Math.min(maxHp - value, effect.amount(maxHp)) : 0;
-      const pouchGain = (value: number) => entry.combatant.ability === 'Cheek Pouch' && triggers(value)
+      const pouchGain = (value: number) => isBerry(item) && entry.combatant.ability === 'Cheek Pouch' && triggers(value)
         ? Math.min(maxHp - value - gain(value), Math.max(1, Math.floor(maxHp / 3)))
         : 0;
       const healedHp = candidates.map((value) => value + gain(value) + pouchGain(value));
       const gains = candidates.map(gain);
-      hpById.set(entry.id, createHpRange(Math.min(...healedHp), Math.max(...healedHp)));
-      const healMin = Math.min(...gains);
+      hpById.set(entry.id, createHpRange(
+        Math.min(...healedHp, ...(wasMaybe ? [hp.min] : [])),
+        Math.max(...healedHp, ...(wasMaybe ? [hp.max] : [])),
+      ));
+      const healMin = wasMaybe ? 0 : Math.min(...gains);
       const healMax = Math.max(...gains);
       stepEvents.push(`${entry.label}: ${label} restored ${healMax === healMin ? healMax : `${healMin}-${healMax}`} HP`);
       if (healMax > 0) {
@@ -304,7 +335,7 @@ export function buildBattlePlanResults({
           amount: { min: healMin, max: healMax },
         });
       }
-      recordCheekPouch(entry, certain, candidates.map(pouchGain));
+      recordCheekPouch(entry, certain && !wasMaybe, [...(wasMaybe ? [0] : []), ...candidates.map(pouchGain)]);
       return healMax;
     }
     if (effect.kind === 'boost') {
@@ -397,6 +428,7 @@ export function buildBattlePlanResults({
         const amount = Math.max(1, Math.floor(maxHpById.get(seeded.id)! / (generation === 1 ? 16 : 8)));
         const loss = { min: Math.min(amount, seededHp.min), max: Math.min(amount, seededHp.max) };
         hpById.set(seeded.id, createHpRange(seededHp.min - amount, seededHp.max - amount));
+        updateUnconsumedHp(seeded, (hp) => createHpRange(hp.min - amount, hp.max - amount));
         (seedParts[side] ??= []).push({ source: 'Leech Seed', amount: loss.max });
         const bigRoot = heldItem(recipient) === 'Big Root' && recipient.combatant.ability !== 'Klutz' && !currentField.isMagicRoom;
         const gain = (value: number) => bigRoot ? Math.floor(value * 5324 / 4096) : value;
@@ -405,6 +437,7 @@ export function buildBattlePlanResults({
         if (seeded.combatant.ability === 'Liquid Ooze') {
           if (recipient.combatant.ability !== 'Magic Guard') {
             hpById.set(recipient.id, createHpRange(recipientHp.min - maxGain, recipientHp.max - minGain));
+            updateUnconsumedHp(recipient, (hp) => createHpRange(hp.min - maxGain, hp.max - minGain));
             (seedParts[other] ??= []).push({ source: 'Liquid Ooze', amount: maxGain });
           }
         } else {
@@ -412,6 +445,10 @@ export function buildBattlePlanResults({
           hpById.set(recipient.id, createHpRange(
             recipientHp.min > 0 ? Math.min(maxHp, recipientHp.min + minGain) : 0,
             Math.min(maxHp, recipientHp.max + maxGain),
+          ));
+          updateUnconsumedHp(recipient, (hp) => createHpRange(
+            Math.min(maxHp, hp.min + minGain),
+            Math.min(maxHp, hp.max + maxGain),
           ));
           const healed = {
             min: Math.min(minGain, maxHp - recipientHp.max),
@@ -466,6 +503,7 @@ export function buildBattlePlanResults({
           const apply = (value: number) => value > 0 ? Math.min(tick.maxHp, Math.max(0, value - tick.damage)) : 0;
           const next = createHpRange(apply(hp.min), apply(hp.max));
           hpById.set(entry.id, next);
+          updateUnconsumedHp(entry, (heldHp) => createHpRange(apply(heldHp.min), apply(heldHp.max)));
           if (tick.parts.every((part) => part.amount < 0)) {
             let recoveryHp = hp;
             for (const part of tick.parts) {
@@ -484,7 +522,7 @@ export function buildBattlePlanResults({
           }
           const healed = eatHpBerry(entry);
           if (healed > 0) {
-            tick.parts = [...tick.parts, { source: entry.combatant.item!, amount: -healed, berry: true }];
+            tick.parts = [...tick.parts, { source: entry.combatant.item!, amount: -healed, berry: isBerry(entry.combatant.item) }];
             tick.sources = [...tick.sources, entry.combatant.item!];
           }
         }
@@ -536,6 +574,13 @@ export function buildBattlePlanResults({
         const known = maxHpById.get(activeEntry.id);
         const hp = Math.max(0, known ? Math.min(known, action.hp) : action.hp);
         hpById.set(activeEntry.id, createHpRange(hp, hp));
+        const heldState = unconsumedHp.get(activeEntry.id);
+        if (heldState) {
+          unconsumedHp.set(activeEntry.id, {
+            alive: hp > 0 ? createHpRange(hp, hp) : undefined,
+            fainted: hp === 0,
+          });
+        }
       }
       attackerHp = getHp(getActiveEntry('attacker')!);
       defenderHp = getHp(getActiveEntry('defender')!);
@@ -756,6 +801,7 @@ export function buildBattlePlanResults({
       attackerHp = nextTargetHp;
     }
     hpById.set(targetEntry.id, nextTargetHp);
+    updateUnconsumedHp(targetEntry, (hp) => createHpRange(hp.min - damage.max, hp.max - damage.min));
     if (details.drain && damage.max > 0) {
       const [numerator, denominator] = details.drain;
       const bigRoot = heldItem(activeEntry) === 'Big Root' && actingCombatant.ability !== 'Klutz' && !currentField.isMagicRoom;
@@ -781,6 +827,7 @@ export function buildBattlePlanResults({
       if (targetCombatant.ability === 'Liquid Ooze') {
         if (actingCombatant.ability !== 'Magic Guard') {
           hpById.set(activeEntry.id, createHpRange(current.min - maxDrain, current.max - minDrain));
+          updateUnconsumedHp(activeEntry, (hp) => createHpRange(hp.min - maxDrain, hp.max - minDrain));
           stepEvents.push(`${activeEntry.label}: hurt by Liquid Ooze`);
         }
       } else {
@@ -788,6 +835,10 @@ export function buildBattlePlanResults({
         hpById.set(activeEntry.id, createHpRange(
           current.min > 0 ? Math.min(maxHp, current.min + minDrain) : 0,
           Math.min(maxHp, current.max + maxDrain),
+        ));
+        updateUnconsumedHp(activeEntry, (hp) => createHpRange(
+          Math.min(maxHp, hp.min + minDrain),
+          Math.min(maxHp, hp.max + maxDrain),
         ));
         const minHeal = current.min > 0 ? Math.min(minDrain, maxHp - current.max) : 0;
         const maxHeal = current.max > 0 ? Math.min(maxDrain, maxHp - current.min) : 0;
@@ -848,6 +899,7 @@ export function buildBattlePlanResults({
           ? createHpRange(details.attackerMaxHp, details.attackerMaxHp)
           : actingHp;
         hpById.set(activeEntry.id, createHpRange(current.min - amount, certain ? current.max - amount : current.max));
+        updateUnconsumedHp(activeEntry, (hp) => createHpRange(hp.min - amount, certain ? hp.max - amount : hp.max));
         stepEvents.push(`${activeEntry.label}: lost ${amount} HP to ${berryName}`);
       }
       applyCheekPouch(targetEntry, certain);
@@ -890,6 +942,7 @@ export function buildBattlePlanResults({
       if (item) {
         consumedItems.delete(activeEntry.id);
         maybeConsumedItems.delete(activeEntry.id);
+        unconsumedHp.delete(activeEntry.id);
         recyclableItems.delete(activeEntry.id);
         stepEvents.push(`${activeEntry.label}: recycled ${item}`);
       }
