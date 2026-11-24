@@ -135,6 +135,8 @@ export interface BattlePlanStepResult {
   maxHp: Readonly<Record<BattlePlanActor, number>>;
   activePokemonId?: string;
   activePokemonLabel?: string;
+  /** This action was prevented by flinching. */
+  flinched?: boolean;
   error?: string;
 }
 

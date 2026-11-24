@@ -117,6 +117,7 @@ export function buildBattlePlanResults({
   const maybeConsumedItems = new Set<string>();
   // Keep the still-held outcomes separate so a previous heal cannot trigger again.
   const unconsumedHp = new Map<string, { alive?: BattlePlanHpRange; fainted: boolean }>();
+  const flinchedIds = new Set<string>();
   const eatenBerries = new Set<string>();
   const maybeEatenBerries = new Set<string>();
   const recyclableItems = new Map<string, string>();
@@ -382,6 +383,7 @@ export function buildBattlePlanResults({
     }
 
     if (action.type === 'end-turn' && action.replacement) {
+      flinchedIds.clear();
       return {
         action,
         damage: createHpRange(0, 0),
@@ -397,6 +399,7 @@ export function buildBattlePlanResults({
     }
 
     if (action.type === 'end-turn') {
+      flinchedIds.clear();
       const residual = {} as Record<BattlePlanActor, BattlePlanResidual>;
       const seedParts: Partial<Record<BattlePlanActor, BattlePlanResidual['parts']>> = {};
       for (const side of ['attacker', 'defender'] as const) {
@@ -644,6 +647,7 @@ export function buildBattlePlanResults({
           };
         }
       }
+      flinchedIds.delete(activeEntry.id);
       hpById.set(activeEntry.id, getHp(activeEntry));
       toxicCounterById.set(activeEntry.id, 0);
       boostsById.set(activeEntry.id, { ...activeEntry.combatant.boosts });
@@ -692,8 +696,11 @@ export function buildBattlePlanResults({
                     (activeItem && !maybeConsumedItems.has(activeEntry.id)))
                 ? 'Recycle failed because there is no consumed item to restore'
                 : undefined;
-    if (action.move.skipped || moveFailure) {
-      if (!action.move.skipped && moveFailure) {
+    const wasFlinched = flinchedIds.delete(activeEntry.id);
+    if (action.move.skipped || moveFailure || wasFlinched) {
+      if (wasFlinched) {
+        stepEvents.push(`${activeEntry.label}: flinched and could not move`);
+      } else if (!action.move.skipped && moveFailure) {
         stepEvents.push(`${activeEntry.label}: ${moveFailure}`);
       }
       // No damage calc runs for these moves, so probe once to learn each side's max HP.
@@ -717,7 +724,10 @@ export function buildBattlePlanResults({
       attackerHp = getHp(getActiveEntry('attacker')!);
       defenderHp = getHp(getActiveEntry('defender')!);
       return {
-        action,
+        action: wasFlinched
+          ? { ...action, move: { ...action.move, skipped: true } }
+          : action,
+        flinched: wasFlinched || undefined,
         damage: createHpRange(0, 0),
         cumulativeDamage,
         attackerHp,
@@ -802,6 +812,15 @@ export function buildBattlePlanResults({
     }
     hpById.set(targetEntry.id, nextTargetHp);
     updateUnconsumedHp(targetEntry, (hp) => createHpRange(hp.min - damage.max, hp.max - damage.min));
+    if (
+      action.move.name === 'Fake Out' &&
+      generation >= 3 &&
+      damage.max > 0 &&
+      nextTargetHp.max > 0 &&
+      !['Inner Focus', 'Shield Dust'].includes(targetCombatant.ability ?? '')
+    ) {
+      flinchedIds.add(targetEntry.id);
+    }
     if (details.drain && damage.max > 0) {
       const [numerator, denominator] = details.drain;
       const bigRoot = heldItem(activeEntry) === 'Big Root' && actingCombatant.ability !== 'Klutz' && !currentField.isMagicRoom;

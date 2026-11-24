@@ -23,7 +23,7 @@ describe('moveDraft', () => {
       expect(draft).toEqual({
         name: '',
         isCrit: false,
-        hits: 1,
+        hits: 3,
         useZ: false,
         useMax: false,
         isStellarFirstUse: false,
@@ -68,6 +68,12 @@ describe('moveDraft', () => {
       const draft = createMoveDraft('Tackle');
       const updated = setMoveName(draft, '  Earthquake  ');
       expect(updated.name).toBe('Earthquake');
+    });
+
+    it('sets a move-specific default hit count', () => {
+      const draft = createMoveDraft('Earthquake', { hits: 1 });
+      expect(setMoveName(draft, 'Bullet Seed', 3).hits).toBe(3);
+      expect(setMoveName(draft, 'Earthquake', 1).hits).toBe(1);
     });
   });
 
@@ -215,6 +221,12 @@ describe('moveDraft', () => {
   });
 
   describe('resolveMoveDraftForGeneration', () => {
+    it('defaults random multi-hit moves to 3 hits', () => {
+      const draft = createMoveDraft('Bullet Seed');
+      const resolved = resolveMoveDraftForGeneration(draft, 9);
+      expect(resolved.hits).toBe(3);
+    });
+
     it('clears Z flag for generation < 7', () => {
       const draft = createMoveDraft('Earthquake', { useZ: true });
       const resolved = resolveMoveDraftForGeneration(draft, 6);
