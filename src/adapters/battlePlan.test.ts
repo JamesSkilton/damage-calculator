@@ -525,6 +525,30 @@ describe('battle plan adapter', () => {
     expect(result.error).toBeUndefined();
   });
 
+  it('prevents a knocked-out Pokémon from dealing damage later in the turn', () => {
+    const team = createTeamDraft(9);
+    const move = (name: string) => ({
+      name, isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1,
+    });
+    const results = buildBattlePlanResults({
+      generation: 9,
+      attacker: { ...team.attacker, currentHp: 100, moves: ['Tackle'] },
+      defender: { ...team.defender, currentHp: 1, moves: ['Tackle'] },
+      field: createBattleFieldDraft(9),
+      actions: [
+        { id: 'ohko', actor: 'attacker', type: 'move', move: move('Tackle') },
+        { id: 'fainted-move', actor: 'defender', type: 'move', move: move('Tackle') },
+      ],
+    });
+
+    expect(results[0].isKo).toBe(true);
+    expect(results[1].damage).toEqual({ min: 0, max: 0 });
+    expect(results[1].attackerHp).toEqual(results[0].attackerHp);
+    expect(
+      results[1].action.type === 'move' && results[1].action.move.skipped,
+    ).toBe(true);
+  });
+
   it('makes a successful Fake Out prevent the target from moving that turn', () => {
     const team = createTeamDraft(9);
     const fakeOut = {
