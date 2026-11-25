@@ -67,6 +67,29 @@ describe('typed battle calc runtime', () => {
     });
   });
 
+  it('applies Intimidate on switch-in without requiring the ability-active toggle', () => {
+    const { input } = legacyParityFixtures.find(
+      ({ input: fixture }) => fixture.generation === 9,
+    )!;
+    const move = createMoveDraft('Tackle');
+    const withoutIntimidate = calculateBattleCalcResult({
+      generation: input.generation,
+      attacker: input.attacker,
+      defender: { ...input.defender, ability: undefined, abilityOn: false },
+      field: input.field,
+      move,
+    });
+    const withIntimidate = calculateBattleCalcResult({
+      generation: input.generation,
+      attacker: input.attacker,
+      defender: { ...input.defender, ability: 'Intimidate', abilityOn: false },
+      field: input.field,
+      move,
+    });
+
+    expect(withIntimidate.range.max).toBeLessThan(withoutIntimidate.range.max);
+  });
+
   it('recreates every representative legacy mechanic through the typed runtime', () => {
     for (const { input, expected } of legacyParityFixtures) {
       expect(
