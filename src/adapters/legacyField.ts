@@ -15,6 +15,7 @@ export interface LegacySideInput {
   cannonade?: boolean;
   volcalith?: boolean;
   isSR?: boolean;
+  isStickyWeb?: boolean;
   isReflect?: boolean;
   isLightScreen?: boolean;
   isProtected?: boolean;
@@ -60,6 +61,7 @@ function normalizeFieldSide(side: LegacySideInput): BattleSideConditions {
     cannonade: !!side.cannonade,
     volcalith: !!side.volcalith,
     isSR: !!side.isSR,
+    isStickyWeb: !!side.isStickyWeb,
     isReflect: !!side.isReflect,
     isLightScreen: !!side.isLightScreen,
     isProtected: !!side.isProtected,

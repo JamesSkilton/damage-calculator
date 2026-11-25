@@ -30,6 +30,7 @@ const advancedFieldToggles = [
 ] as const;
 
 const screenToggles = [
+  { key: 'isStickyWeb', label: 'Sticky Web' },
   { key: 'isReflect', label: 'Reflect' },
   { key: 'isLightScreen', label: 'Light Screen' },
   { key: 'isAuroraVeil', label: 'Aurora Veil' },
@@ -128,7 +129,7 @@ function BattleSideControls({
           <input
             className="form-check-input mt-0"
             type="checkbox"
-            checked={side[toggle.key]}
+            checked={Boolean(side[toggle.key])}
             onChange={(event) =>
               onChange(
                 setBattleFieldSideCondition(

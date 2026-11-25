@@ -51,6 +51,7 @@ export function createBattleSideConditions(): BattleSideConditions {
     cannonade: false,
     volcalith: false,
     isSR: false,
+    isStickyWeb: false,
     isReflect: false,
     isLightScreen: false,
     isProtected: false,

@@ -14,6 +14,7 @@ export interface BattleSideConditions {
   cannonade: boolean;
   volcalith: boolean;
   isSR: boolean;
+  isStickyWeb: boolean;
   isReflect: boolean;
   isLightScreen: boolean;
   isProtected: boolean;
