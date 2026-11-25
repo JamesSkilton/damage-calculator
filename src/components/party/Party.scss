@@ -143,6 +143,12 @@
   gap: 0.4rem;
 }
 
+.party-speed-context {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
 .party-card {
   display: grid;
   gap: 0.3rem;
@@ -164,9 +170,26 @@
   cursor: grabbing;
 }
 
-.party-card.selected {
-  border-color: #2f7d4a;
-  box-shadow: 0 0 0 2px #bbf7d0;
+.party-card.matchup-ohko,
+.party-card.matchup-ohko-fast {
+  border: 2px solid #15803d;
+}
+
+.party-card.matchup-ohko-fast {
+  background: #dcfce7;
+}
+
+.party-card.matchup-two-hko,
+.party-card.matchup-two-hko-fast {
+  border: 2px solid #2563eb;
+}
+
+.party-card.matchup-two-hko-fast {
+  background: #dbeafe;
+}
+
+.party-card.matchup-danger {
+  background: #fee2e2;
 }
 
 .party-card-select {

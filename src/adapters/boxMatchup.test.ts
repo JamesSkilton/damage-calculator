@@ -49,4 +49,27 @@ describe('boxMatchup', () => {
     expect(matchup!.survivesHits).toBeGreaterThanOrEqual(0);
     expect(describeMatchupBadges(matchup!, DEFAULT_MATCHUP_SETTINGS).length).toBeGreaterThan(0);
   });
+
+  it('uses the candidate side defensive screens for incoming damage', () => {
+    const team = createTeamDraft(9);
+    const field = createBattleFieldDraft(9);
+    const evaluate = (candidateReflect: boolean, targetReflect: boolean) =>
+      evaluateBoxMatchup(
+        {
+          generation: 9,
+          defender: team.defender,
+          defenderMoves: [createMoveDraft('Tackle')],
+          field: {
+            ...field,
+            attackerSide: { ...field.attackerSide, isReflect: candidateReflect },
+            defenderSide: { ...field.defenderSide, isReflect: targetReflect },
+          },
+        },
+        { combatant: team.attacker, moves: [] },
+        DEFAULT_MATCHUP_SETTINGS,
+      )!.survivesHits;
+
+    expect(evaluate(true, false)).toBeGreaterThan(evaluate(false, false)!);
+    expect(evaluate(false, true)).toBe(evaluate(false, false));
+  });
 });
