@@ -132,7 +132,11 @@ export function evaluateBoxMatchup(
       generation,
       attacker: defender,
       defender: candidate.combatant,
-      field,
+      field: {
+        ...field,
+        attackerSide: field.defenderSide,
+        defenderSide: field.attackerSide,
+      },
       moves: target.defenderMoves,
     })) {
       const details = breakdown.details;

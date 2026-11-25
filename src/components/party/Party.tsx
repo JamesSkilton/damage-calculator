@@ -14,7 +14,6 @@ import {
   describeMatchupBadges,
   type BoxMatchup,
   type MatchupSettings,
-  type MatchupTier,
   type SpeedRelation,
 } from 'adapters/boxMatchup';
 
@@ -31,23 +30,34 @@ type PartyProps = {
   onMatchupSettingsChange?: (settings: MatchupSettings) => void;
 };
 
-const TIER_BACKGROUND: Record<MatchupTier, string> = {
-  excellent: 'bg-success-subtle',
-  good: 'bg-info-subtle',
-  neutral: '',
-  poor: 'bg-danger-subtle',
-  unknown: '',
+const SPEED_LABEL: Record<SpeedRelation, string> = {
+  faster: 'Faster',
+  tie: 'Speed tie',
+  slower: 'Slower',
 };
 
-const SPEED_LABEL: Record<SpeedRelation, string> = {
-  faster: 'Outspeeds',
-  tie: 'Does not outspeed',
-  slower: 'Does not outspeed',
+function matchupHighlight(matchup: BoxMatchup): string {
+  if (matchup.speed === 'slower' && matchup.survivesHits === 0) return 'danger';
+  if (matchup.hitsToKo === 1) {
+    return matchup.speed === 'faster' ? 'ohko-fast' : 'ohko';
+  }
+  if (matchup.hitsToKo === 2) {
+    return matchup.speed === 'faster' ? 'two-hko-fast' : 'two-hko';
+  }
+  return '';
+}
+
+const HIGHLIGHT_LABEL: Record<string, string> = {
+  danger: 'Opponent is faster and can KO in one hit',
+  'ohko-fast': 'OHKO and faster',
+  ohko: 'OHKO without outspeeding',
+  'two-hko-fast': '2HKO and faster',
+  'two-hko': '2HKO without outspeeding',
 };
 
 function matchupTitle(matchup: BoxMatchup, target?: string): string {
   const parts = [
-    `${SPEED_LABEL[matchup.speed]} ${target ?? 'target'} (${matchup.candidateSpeed} vs ${matchup.targetSpeed})`,
+    `${SPEED_LABEL[matchup.speed]} vs ${target ?? 'target'} (${matchup.candidateSpeed} vs ${matchup.targetSpeed})`,
   ];
   if (matchup.bestMove && matchup.hitsToKo !== undefined) {
     parts.push(`Best move: ${matchup.bestMove} (${matchup.hitsToKo}HKO)`);
@@ -210,8 +220,8 @@ export default function Party({
               <button
                 type="button"
                 className="btn btn-sm btn-outline-secondary"
-                aria-label="Matchup settings"
-                title="Matchup settings"
+                aria-label="Matchup badge settings"
+                title="Matchup badge settings"
                 onClick={() => setMatchupSettingsOpen(true)}
               >
                 <span aria-hidden="true">⚙</span>
@@ -219,6 +229,11 @@ export default function Party({
             )}
           </div>
         </div>
+        {matchups && (
+          <p className="party-speed-context">
+            Matchups vs {matchupTargetLabel ?? 'current defender'}: green border = OHKO; blue border = 2HKO; matching fill = also outspeeds; red = opponent can OHKO and outspeeds.
+          </p>
+        )}
         {matchups && matchupSettings && onMatchupSettingsChange && (
           <Modal
             show={matchupSettingsOpen}
@@ -233,15 +248,14 @@ export default function Party({
             </Modal.Header>
             <Modal.Body>
               <p>
-                A green border means it outspeeds; no green border means it
-                doesn’t. Fill: green is excellent, blue is good, red is poor.
+                Speed compares battle stats before move priority. KO highlights
+                use guaranteed damage; red means the opponent can KO with a
+                high damage roll.
               </p>
               <div className="d-flex flex-wrap gap-2">
                 {(
                   [
-                    ['surviveHits', 'Good if survives hits'],
-                    ['comboSurviveHits', 'Excellent: survives hits'],
-                    ['comboKoHits', 'Excellent: KOs in hits'],
+                    ['surviveHits', 'Lives badge threshold'],
                   ] as const
                 ).map(([key, label]) => (
                   <label key={key} className="d-flex align-items-center gap-1">
@@ -282,6 +296,7 @@ export default function Party({
               const isSelected = partyIds.includes(set.id);
               const types = typesBySpecies.get(set.species) ?? [];
               const matchup = matchups?.get(set.id);
+              const highlight = matchup ? matchupHighlight(matchup) : '';
               const badges =
                 matchup && matchupSettings
                   ? describeMatchupBadges(matchup, matchupSettings)
@@ -289,16 +304,18 @@ export default function Party({
               return (
                 <article
                   key={set.id}
-                  className={`party-card${isSelected ? ' selected' : ''}${
-                    matchup
-                      ? `${matchup.speed === 'faster' ? ' border-success border-2' : ''} ${TIER_BACKGROUND[matchup.tier]}`
-                      : ''
-                  }`}
+                  className={`party-card${highlight ? ` matchup-${highlight}` : ''}`}
                   title={matchup ? matchupTitle(matchup, matchupTargetLabel) : undefined}
                   draggable
                   role="button"
                   tabIndex={0}
-                  aria-label={`Load ${displayName(set)} into attacker`}
+                  aria-label={`Load ${displayName(set)} into attacker${
+                    matchups
+                      ? matchup
+                        ? `; ${SPEED_LABEL[matchup.speed]} vs ${matchupTargetLabel ?? 'current defender'}${highlight ? `; ${HIGHLIGHT_LABEL[highlight]}` : ''}`
+                        : '; Speed unavailable'
+                      : ''
+                  }`}
                   onClick={(event) => {
                     if ((event.target as HTMLElement).closest('button')) return;
                     onSelectSet(set);
