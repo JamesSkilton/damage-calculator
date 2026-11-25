@@ -105,6 +105,117 @@ describe('battle plan adapter', () => {
   });
 
   it.each([
+    [4, 'Wrap', undefined, 16, 2, 5],
+    [5, 'Fire Spin', 'Binding Band', 8, 4, 5],
+    [9, 'Fire Spin', undefined, 8, 4, 5],
+    [9, 'Fire Spin', 'Binding Band', 6, 4, 5],
+    [9, 'Fire Spin', 'Grip Claw', 8, 7, 7],
+  ] as const)(
+    'tracks %s trapping damage and duration for %s with %s',
+    (generation, name, item, divisor, guaranteedTurns, maximumTurns) => {
+      const team = createTeamDraft(generation);
+      const results = buildBattlePlanResults({
+        generation,
+        attacker: { ...team.attacker, level: 1, item },
+        defender: { ...team.defender, item: undefined },
+        field: createBattleFieldDraft(generation),
+        actions: [
+          { id: 'trap', actor: 'attacker', type: 'move', move: {
+            name, isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1,
+          } },
+          ...Array.from({ length: maximumTurns + 1 }, (_, index) => ({
+            id: `end-${index}`, actor: 'attacker' as const, type: 'end-turn' as const,
+          })),
+        ],
+      });
+      const amount = Math.max(1, Math.floor(results[0].maxHp.defender / divisor));
+      expect(results[0].damage.min).toBeGreaterThan(0);
+      for (let turn = 1; turn <= maximumTurns; turn++) {
+        const previous = results[turn - 1].defenderHp;
+        const end = results[turn];
+        const certain = turn <= guaranteedTurns;
+        expect(end.defenderHp).toEqual({
+          min: previous.min - amount,
+          max: previous.max - (certain ? amount : 0),
+        });
+        expect(end.residual?.defender.parts).toContainEqual({
+          source: certain ? name : `${name} (possibly)`, amount,
+        });
+      }
+      expect(results[maximumTurns + 1].defenderHp).toEqual(results[maximumTurns].defenderHp);
+      expect(results[maximumTurns + 1].residual?.defender.parts).toEqual([]);
+    },
+  );
+
+  it('does not apply trapping damage on an immune hit, a protected hit, or to Magic Guard', () => {
+    const team = createTeamDraft(9);
+    const field = createBattleFieldDraft(9);
+    const base = {
+      generation: 9 as const,
+      attacker: { ...team.attacker, item: undefined },
+      defender: { ...team.defender, item: undefined },
+      field,
+      actions: [
+        { id: 'trap', actor: 'attacker' as const, type: 'move' as const, move: {
+          name: 'Fire Spin', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1,
+        } },
+        { id: 'end', actor: 'attacker' as const, type: 'end-turn' as const },
+      ],
+    };
+    for (const input of [
+      { ...base, defender: { ...base.defender, ability: 'Flash Fire' } },
+      { ...base, field: { ...field, defenderSide: { ...field.defenderSide, isProtected: true } } },
+      { ...base, defender: { ...base.defender, ability: 'Magic Guard' } },
+    ]) {
+      const [hit, end] = buildBattlePlanResults(input);
+      expect(end.defenderHp).toEqual(hit.defenderHp);
+      expect(end.residual?.defender.parts).toEqual([]);
+    }
+  });
+
+  it('applies trapping damage to the attacking side when the defender uses a trapping move', () => {
+    const team = createTeamDraft(9);
+    const [hit, end] = buildBattlePlanResults({
+      generation: 9,
+      attacker: { ...team.attacker, item: undefined },
+      defender: { ...team.defender, level: 1, item: undefined },
+      field: createBattleFieldDraft(9),
+      actions: [
+        { id: 'trap', actor: 'defender', type: 'move', move: {
+          name: 'Wrap', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1,
+        } },
+        { id: 'end', actor: 'attacker', type: 'end-turn' },
+      ],
+    });
+    const amount = Math.floor(end.maxHp.attacker / 8);
+    expect(end.attackerHp).toEqual({ min: hit.attackerHp.min - amount, max: hit.attackerHp.max - amount });
+    expect(end.residual?.attacker.parts).toContainEqual({ source: 'Wrap', amount });
+  });
+
+  it.each(['attacker', 'defender'] as const)('ends trapping when the %s switches', (side) => {
+    const team = createTeamDraft(9);
+    const attacker = { ...team.attacker, level: 1, item: undefined };
+    const defender = { ...team.defender, item: undefined };
+    const replacement = { ...(side === 'attacker' ? attacker : defender), name: 'Replacement' };
+    const roster = [
+      { id: side, label: side, source: 'current' as const, combatant: side === 'attacker' ? attacker : defender, moves: [] },
+      { id: 'replacement', label: 'Replacement', source: 'party' as const, combatant: replacement, moves: [] },
+    ];
+    const results = buildBattlePlanResults({
+      generation: 9, attacker, defender, field: createBattleFieldDraft(9),
+      ...(side === 'attacker' ? { attackerRoster: roster } : { defenderRoster: roster }),
+      actions: [
+        { id: 'trap', actor: 'attacker', type: 'move', move: {
+          name: 'Fire Spin', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1,
+        } },
+        { id: 'switch', actor: side, type: 'switch', targetPokemonId: 'replacement' },
+        { id: 'end', actor: 'attacker', type: 'end-turn' },
+      ],
+    });
+    expect(results[2].residual?.defender.parts).toEqual([]);
+  });
+
+  it.each([
     ['Mega Drain', 1, 2],
     ['Draining Kiss', 3, 4],
   ])('heals the user of %s from actual damage', (name, numerator, denominator) => {
