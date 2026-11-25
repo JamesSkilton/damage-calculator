@@ -137,6 +137,20 @@ export function calculateBattleSpeed({
   );
 }
 
+export function isBattleGrounded({
+  generation: generationNumber,
+  combatant,
+  field,
+}: {
+  generation: BattleCombatant['generation'];
+  combatant: BattleCombatant;
+  field: BattleField;
+}): boolean {
+  const generation = getGeneration(generationNumber);
+  const item = field.isMagicRoom || combatant.ability === 'Klutz' ? undefined : combatant.item;
+  return isGrounded(createPokemon(generation, { ...combatant, item }), createField(field));
+}
+
 export interface EndOfTurnResidual {
   maxHp: number;
   /** HP lost at end of turn; negative when the Pokémon heals. */

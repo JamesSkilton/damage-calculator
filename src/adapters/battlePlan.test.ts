@@ -6,8 +6,104 @@ import {
 import { buildBattleCalcBreakdowns } from './battleCalc';
 import { createBattleFieldDraft } from '../components/combatant/shared/battleFieldDraft';
 import { createTeamDraft } from '../components/combatant/shared/combatantDraft';
+import { calculateBattleSpeed } from 'calc-runtime';
 
 describe('battle plan adapter', () => {
+  it('sets Sticky Web on the opposing side and applies it on each switch-in', () => {
+    const team = createTeamDraft(9);
+    const field = createBattleFieldDraft(9);
+    const replacement = { ...team.defender, name: 'Replacement', item: undefined };
+    const [web, switched, returned, switchedAgain] = buildBattlePlanResults({
+      generation: 9,
+      ...team,
+      field,
+      defenderRoster: [
+        { id: 'initial', label: 'Initial', source: 'current', combatant: team.defender, moves: [] },
+        { id: 'replacement', label: 'Replacement', source: 'party', combatant: replacement, moves: [] },
+      ],
+      actions: [
+        { id: 'web', actor: 'attacker', type: 'move', move: {
+          name: 'Sticky Web', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1,
+        } },
+        { id: 'switch', actor: 'defender', type: 'switch', targetPokemonId: 'replacement' },
+        { id: 'return', actor: 'defender', type: 'switch', targetPokemonId: 'initial' },
+        { id: 'again', actor: 'defender', type: 'switch', targetPokemonId: 'replacement' },
+      ],
+    });
+    expect(web.field.defenderSide.isStickyWeb).toBe(true);
+    expect(web.boosts.initial.spe).toBe(0);
+    expect(switched.boosts.replacement.spe).toBe(-1);
+    expect(returned.boosts.initial.spe).toBe(-1);
+    expect(switchedAgain.boosts.replacement.spe).toBe(-1);
+    const speed = (boosts: typeof replacement.boosts) => calculateBattleSpeed({
+      generation: 9, combatant: { ...replacement, boosts }, field, side: 'defender',
+    });
+    expect(speed(switched.boosts.replacement)).toBeLessThan(speed(replacement.boosts));
+    expect(switched.itemEvents).toContain('Replacement: Sticky Web changed Speed -1');
+  });
+
+  it.each([
+    ['Flying', 'Pidgeot', 'Keen Eye', undefined, false, 0],
+    ['Levitate', 'Gengar', 'Levitate', undefined, false, 0],
+    ['Air Balloon', 'Bulbasaur', 'Overgrow', 'Air Balloon', false, 0],
+    ['Gravity', 'Pidgeot', 'Keen Eye', undefined, true, -1],
+    ['Iron Ball', 'Pidgeot', 'Keen Eye', 'Iron Ball', false, -1],
+    ['Heavy-Duty Boots', 'Bulbasaur', 'Overgrow', 'Heavy-Duty Boots', false, 0],
+    ['Clear Body', 'Bulbasaur', 'Clear Body', undefined, false, 0],
+    ['Contrary', 'Bulbasaur', 'Contrary', undefined, false, 1],
+    ['Simple', 'Bulbasaur', 'Simple', undefined, false, -2],
+  ])('handles Sticky Web with %s', (_label, species, ability, item, gravity, stage) => {
+    const team = createTeamDraft(9);
+    const field = createBattleFieldDraft(9);
+    const replacement = { ...team.defender, species, ability, item };
+    const [result] = buildBattlePlanResults({
+      generation: 9,
+      ...team,
+      field: { ...field, isGravity: gravity, defenderSide: { ...field.defenderSide, isStickyWeb: true } },
+      defenderRoster: [
+        { id: 'initial', label: 'Initial', source: 'current', combatant: team.defender, moves: [] },
+        { id: 'replacement', label: 'Replacement', source: 'party', combatant: replacement, moves: [] },
+      ],
+      actions: [{ id: 'switch', actor: 'defender', type: 'switch', targetPokemonId: 'replacement' }],
+    });
+    expect(result.boosts.replacement.spe).toBe(stage);
+  });
+
+  it('does not set Sticky Web when its move is skipped and reflects it with Magic Bounce', () => {
+    const team = createTeamDraft(9);
+    const field = createBattleFieldDraft(9);
+    const move = { name: 'Sticky Web', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const [skipped] = buildBattlePlanResults({
+      generation: 9, ...team, field,
+      actions: [{ id: 'web', actor: 'attacker', type: 'move', move: { ...move, skipped: true } }],
+    });
+    expect(skipped.field.defenderSide.isStickyWeb).toBe(false);
+    const [bounced] = buildBattlePlanResults({
+      generation: 9, ...team, defender: { ...team.defender, ability: 'Magic Bounce' }, field,
+      actions: [{ id: 'web', actor: 'attacker', type: 'move', move }],
+    });
+    expect(bounced.field.attackerSide.isStickyWeb).toBe(true);
+    expect(bounced.field.defenderSide.isStickyWeb).toBe(false);
+  });
+
+  it('consumes White Herb after Sticky Web lowers Speed', () => {
+    const team = createTeamDraft(9);
+    const field = createBattleFieldDraft(9);
+    const replacement = { ...team.defender, ability: 'Unburden', item: 'White Herb' };
+    const [result] = buildBattlePlanResults({
+      generation: 9, ...team,
+      field: { ...field, defenderSide: { ...field.defenderSide, isStickyWeb: true } },
+      defenderRoster: [
+        { id: 'initial', label: 'Initial', source: 'current', combatant: team.defender, moves: [] },
+        { id: 'replacement', label: 'Replacement', source: 'party', combatant: replacement, moves: [] },
+      ],
+      actions: [{ id: 'switch', actor: 'defender', type: 'switch', targetPokemonId: 'replacement' }],
+    });
+    expect(result.boosts.replacement.spe).toBe(0);
+    expect(result.items.replacement).toBe('consumed');
+    expect(result.unburdenActive.replacement).toBe(true);
+  });
+
   it.each([
     ['Mega Drain', 1, 2],
     ['Draining Kiss', 3, 4],

@@ -9,7 +9,7 @@ import type {
   BattlePlanRosterEntry,
 } from 'domain/battlePlan';
 import type { BattleStatBoosts, BattleStatusName } from 'domain/shared';
-import { calculateEndOfTurnResidual, type EndOfTurnResidual } from 'calc-runtime';
+import { calculateEndOfTurnResidual, isBattleGrounded, type EndOfTurnResidual } from 'calc-runtime';
 import { buildBattleCalcBreakdowns } from './battleCalc';
 import { getInflictedStatus, inflictsConfusion } from './moveStatus';
 import { canEatBerry, curesConfusion, curesStatus, getHitBerry, getHpBerry } from './berries';
@@ -655,6 +655,40 @@ export function buildBattlePlanResults({
       const sideKey = actor === 'attacker' ? 'attackerSide' : 'defenderSide';
       currentField = { ...currentField, [sideKey]: { ...currentField[sideKey], isSeeded: false } };
       activeIds[actor] = nextEntry.id;
+      const incoming = liveCombatant(nextEntry, getHp(nextEntry));
+      const itemActive = !currentField.isMagicRoom && incoming.ability !== 'Klutz';
+      if (
+        generation >= 6 &&
+        nextEntry.id !== activeEntry.id &&
+        currentField[sideKey].isStickyWeb &&
+        !(generation >= 8 && itemActive && incoming.item === 'Heavy-Duty Boots') &&
+        isBattleGrounded({ generation, combatant: incoming, field: currentField })
+      ) {
+        const ability = incoming.ability;
+        const blocked = ['Clear Body', 'White Smoke', 'Full Metal Body'].includes(ability ?? '') ||
+          (ability === 'Flower Veil' && incoming.types.includes('Grass')) ||
+          (generation >= 9 && itemActive && incoming.item === 'Clear Amulet');
+        if (!blocked || ability === 'Contrary') {
+          const stages = ability === 'Contrary' ? 1 : ability === 'Simple' ? -2 : -1;
+          const previous = getBoosts(nextEntry).spe ?? 0;
+          boostStat(nextEntry, 'spe', stages);
+          const change = (getBoosts(nextEntry).spe ?? 0) - previous;
+          if (change !== 0) {
+            stepEvents.push(`${nextEntry.label}: Sticky Web changed Speed ${signed(change)}`);
+            if (change < 0 && ability === 'Defiant') boostStat(nextEntry, 'atk', 2);
+            if (change < 0 && ability === 'Competitive') boostStat(nextEntry, 'spa', 2);
+            if (change < 0 && itemActive && incoming.item === 'White Herb') {
+              const restored = { ...getBoosts(nextEntry) };
+              for (const stat of Object.keys(restored) as (keyof BattleStatBoosts)[]) {
+                if ((restored[stat] ?? 0) < 0) restored[stat] = 0;
+              }
+              boostsById.set(nextEntry.id, restored);
+              markConsumed(nextEntry, true);
+              stepEvents.push(`${nextEntry.label}: White Herb restored lowered stats`);
+            }
+          }
+        }
+      }
       attackerHp = getHp(getActiveEntry('attacker')!);
       defenderHp = getHp(getActiveEntry('defender')!);
       const switchedHp = getHp(nextEntry);
@@ -886,6 +920,13 @@ export function buildBattlePlanResults({
       if (!currentField[sideKey].isProtected && nextTargetHp.max > 0) {
         currentField = { ...currentField, [sideKey]: { ...currentField[sideKey], isSeeded: true } };
       }
+    }
+    if (action.move.name === 'Sticky Web' && generation >= 6) {
+      const bounced = targetCombatant.ability === 'Magic Bounce' &&
+        !['Mold Breaker', 'Teravolt', 'Turboblaze'].includes(actingCombatant.ability ?? '');
+      const affectedActor = bounced ? actor : targetActor;
+      const sideKey = affectedActor === 'attacker' ? 'attackerSide' : 'defenderSide';
+      currentField = { ...currentField, [sideKey]: { ...currentField[sideKey], isStickyWeb: true } };
     }
     cumulativeDamage = isAttackerAction
       ? createHpRange(
