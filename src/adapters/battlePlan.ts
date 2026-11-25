@@ -677,6 +677,21 @@ export function buildBattlePlanResults({
     const targetHp = getHp(targetEntry);
     const actingHp = getHp(activeEntry);
 
+    if (maxHpById.has(activeEntry.id) && actingHp.max === 0) {
+      return {
+        action: { ...action, move: { ...action.move, skipped: true } },
+        damage: createHpRange(0, 0),
+        cumulativeDamage,
+        attackerHp,
+        defenderHp,
+        targetHp,
+        targetMaxHp: maxHpById.get(targetEntry.id) ?? 0,
+        isKo: false,
+        activePokemonId: activeEntry.id,
+        activePokemonLabel: activeEntry.label,
+      };
+    }
+
     const activeItem = heldItem(activeEntry);
     const moveFailure =
       action.move.name === 'Belch' &&
