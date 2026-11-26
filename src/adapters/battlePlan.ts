@@ -9,13 +9,23 @@ import type {
   BattlePlanRosterEntry,
 } from 'domain/battlePlan';
 import type { BattleStatBoosts, BattleStatusName } from 'domain/shared';
-import { calculateEndOfTurnResidual, type EndOfTurnResidual } from 'calc-runtime';
+import {
+  calculateEndOfTurnResidual,
+  type EndOfTurnResidual,
+} from 'calc-runtime';
 import { buildBattleCalcBreakdowns } from './battleCalc';
 import { getInflictedStatus, inflictsConfusion } from './moveStatus';
-import { canEatBerry, curesConfusion, curesStatus, getHitBerry, getHpBerry } from './berries';
+import {
+  canEatBerry,
+  curesConfusion,
+  curesStatus,
+  getHitBerry,
+  getHpBerry,
+} from './berries';
 import { getBerryResistType, getFlingPower } from 'calc-runtime/core/items';
 import { Generations } from 'calc-runtime/core/data';
 import { toID } from 'calc-runtime/core/util';
+import { intimidateBoosts } from 'calc-runtime/core/mechanics/intimidate';
 
 export function replaceActivePokemonInPlanSegment(
   actions: readonly BattlePlanAction[],
@@ -29,7 +39,8 @@ export function replaceActivePokemonInPlanSegment(
     -1,
   );
   const firstIndex = lastSwitchIndex >= 0 ? lastSwitchIndex + 1 : 0;
-  const lastSwitch = lastSwitchIndex >= 0 ? actions[lastSwitchIndex] : undefined;
+  const lastSwitch =
+    lastSwitchIndex >= 0 ? actions[lastSwitchIndex] : undefined;
   const switchPokemonId =
     lastSwitch?.type === 'switch'
       ? lastSwitch.targetPokemonId
@@ -92,20 +103,30 @@ export function buildBattlePlanResults({
   defenderRosterId,
 }: BattlePlanInput): BattlePlanStepResult[] {
   const rosters: Record<'attacker' | 'defender', BattlePlanRosterEntry[]> = {
-    attacker: attackerRoster.length > 0 ? [...attackerRoster] : [{
-      id: 'initial-attacker',
-      label: attacker.name || attacker.species,
-      source: 'current',
-      combatant: attacker,
-      moves: [],
-    }],
-    defender: defenderRoster.length > 0 ? [...defenderRoster] : [{
-      id: 'initial-defender',
-      label: defender.name || defender.species,
-      source: 'current',
-      combatant: defender,
-      moves: [],
-    }],
+    attacker:
+      attackerRoster.length > 0
+        ? [...attackerRoster]
+        : [
+            {
+              id: 'initial-attacker',
+              label: attacker.name || attacker.species,
+              source: 'current',
+              combatant: attacker,
+              moves: [],
+            },
+          ],
+    defender:
+      defenderRoster.length > 0
+        ? [...defenderRoster]
+        : [
+            {
+              id: 'initial-defender',
+              label: defender.name || defender.species,
+              source: 'current',
+              combatant: defender,
+              moves: [],
+            },
+          ],
   };
   const activeIds = {
     attacker: attackerRosterId ?? rosters.attacker[0].id,
@@ -116,7 +137,10 @@ export function buildBattlePlanResults({
   // Items eaten on some damage rolls but not all of them.
   const maybeConsumedItems = new Set<string>();
   // Keep the still-held outcomes separate so a previous heal cannot trigger again.
-  const unconsumedHp = new Map<string, { alive?: BattlePlanHpRange; fainted: boolean }>();
+  const unconsumedHp = new Map<
+    string,
+    { alive?: BattlePlanHpRange; fainted: boolean }
+  >();
   const flinchedIds = new Set<string>();
   const eatenBerries = new Set<string>();
   const maybeEatenBerries = new Set<string>();
@@ -124,20 +148,29 @@ export function buildBattlePlanResults({
   const items = Generations.get(generation)?.items;
   const unburdenActive = new Set(
     [...rosters.attacker, ...rosters.defender]
-      .filter((entry) => (entry.id === activeIds.attacker || entry.id === activeIds.defender) &&
-        entry.combatant.ability === 'Unburden' && entry.combatant.abilityOn)
+      .filter(
+        (entry) =>
+          (entry.id === activeIds.attacker ||
+            entry.id === activeIds.defender) &&
+          entry.combatant.ability === 'Unburden' &&
+          entry.combatant.abilityOn,
+      )
       .map((entry) => entry.id),
   );
   let stepEvents: string[] = [];
   let stepHealing: BattlePlanHealing[] = [];
   const maxHpById = new Map<string, number>();
   for (const entry of [...rosters.attacker, ...rosters.defender]) {
-    hpById.set(entry.id, createHpRange(entry.combatant.currentHp, entry.combatant.currentHp));
+    hpById.set(
+      entry.id,
+      createHpRange(entry.combatant.currentHp, entry.combatant.currentHp),
+    );
   }
   const getActiveEntry = (actor: 'attacker' | 'defender') =>
     rosters[actor].find((entry) => entry.id === activeIds[actor]);
   const getHp = (entry: BattlePlanRosterEntry) =>
-    hpById.get(entry.id) ?? createHpRange(entry.combatant.currentHp, entry.combatant.currentHp);
+    hpById.get(entry.id) ??
+    createHpRange(entry.combatant.currentHp, entry.combatant.currentHp);
   const updateUnconsumedHp = (
     entry: BattlePlanRosterEntry,
     update: (hp: BattlePlanHpRange) => BattlePlanHpRange,
@@ -146,7 +179,10 @@ export function buildBattlePlanResults({
     if (!state?.alive) return;
     const next = update(state.alive);
     unconsumedHp.set(entry.id, {
-      alive: next.max > 0 ? createHpRange(Math.max(1, next.min), next.max) : undefined,
+      alive:
+        next.max > 0
+          ? createHpRange(Math.max(1, next.min), next.max)
+          : undefined,
       fainted: state.fainted || next.min === 0,
     });
   };
@@ -167,16 +203,21 @@ export function buildBattlePlanResults({
   for (const entry of [...rosters.attacker, ...rosters.defender]) {
     boostsById.set(entry.id, { ...entry.combatant.boosts });
   }
-  const getBoosts = (entry: BattlePlanRosterEntry) => boostsById.get(entry.id) ?? entry.combatant.boosts;
+  const getBoosts = (entry: BattlePlanRosterEntry) =>
+    boostsById.get(entry.id) ?? entry.combatant.boosts;
 
   const heldItem = (entry: BattlePlanRosterEntry) =>
     consumedItems.has(entry.id) ? undefined : entry.combatant.item;
   const isBerry = (item: string | undefined) =>
     Boolean(item && items?.get(toID(item))?.isBerry);
   const sideOf = (entry: BattlePlanRosterEntry): BattlePlanActor =>
-    rosters.attacker.some((candidate) => candidate.id === entry.id) ? 'attacker' : 'defender';
+    rosters.attacker.some((candidate) => candidate.id === entry.id)
+      ? 'attacker'
+      : 'defender';
   const canEat = (entry: BattlePlanRosterEntry) => {
-    const opponent = getActiveEntry(sideOf(entry) === 'attacker' ? 'defender' : 'attacker');
+    const opponent = getActiveEntry(
+      sideOf(entry) === 'attacker' ? 'defender' : 'attacker',
+    );
     return canEatBerry(entry.combatant.ability, opponent?.combatant.ability);
   };
   const markConsumed = (
@@ -207,51 +248,121 @@ export function buildBattlePlanResults({
       maybeConsumedItems.add(entry.id);
     }
   };
-  const boostStat = (entry: BattlePlanRosterEntry, stat: keyof BattleStatBoosts, stages: number) => {
+  const boostStat = (
+    entry: BattlePlanRosterEntry,
+    stat: keyof BattleStatBoosts,
+    stages: number,
+  ) => {
     const next = { ...getBoosts(entry) };
     next[stat] = Math.max(-6, Math.min(6, (next[stat] ?? 0) + stages));
     boostsById.set(entry.id, next);
   };
+  const effectiveAbility = (entry: BattlePlanRosterEntry) =>
+    entry.combatant.ability ||
+    Generations.get(generation)?.species.get(toID(entry.combatant.species))
+      ?.abilities?.[0];
+  const applyIntimidate = (
+    source: BattlePlanRosterEntry,
+    target: BattlePlanRosterEntry,
+  ) => {
+    if (
+      (generation !== 0 && generation < 3) ||
+      effectiveAbility(source) !== 'Intimidate'
+    )
+      return;
+    if (maxHpById.has(target.id) && getHp(target).max === 0) return;
+    const ability = effectiveAbility(target);
+    const item =
+      (generation >= 4 && ability === 'Klutz') ||
+      ((generation === 0 || generation >= 5) && currentField.isMagicRoom)
+        ? undefined
+        : heldItem(target);
+    boostsById.set(
+      target.id,
+      intimidateBoosts(generation, ability, item, getBoosts(target)),
+    );
+  };
+  applyIntimidate(getActiveEntry('attacker')!, getActiveEntry('defender')!);
+  applyIntimidate(getActiveEntry('defender')!, getActiveEntry('attacker')!);
   const signed = (value: number) => (value > 0 ? `+${value}` : `${value}`);
 
-  const recordCheekPouch = (entry: BattlePlanRosterEntry, certain: boolean, gains: number[]) => {
+  const recordCheekPouch = (
+    entry: BattlePlanRosterEntry,
+    certain: boolean,
+    gains: number[],
+  ) => {
     const min = Math.min(...gains);
     const max = Math.max(...gains);
     if (max > 0) {
-      stepEvents.push(`${entry.label}: Cheek Pouch ${certain ? 'restored' : 'possibly restored'} ${min === max ? max : `${min}-${max}`} HP`);
-      stepHealing.push({ pokemonId: entry.id, source: 'Cheek Pouch', amount: { min, max } });
+      stepEvents.push(
+        `${entry.label}: Cheek Pouch ${certain ? 'restored' : 'possibly restored'} ${min === max ? max : `${min}-${max}`} HP`,
+      );
+      stepHealing.push({
+        pokemonId: entry.id,
+        source: 'Cheek Pouch',
+        amount: { min, max },
+      });
     }
   };
 
-  const applyCheekPouch = (entry: BattlePlanRosterEntry, certain: boolean, threshold?: number) => {
+  const applyCheekPouch = (
+    entry: BattlePlanRosterEntry,
+    certain: boolean,
+    threshold?: number,
+  ) => {
     if (entry.combatant.ability !== 'Cheek Pouch') return;
     const maxHp = maxHpById.get(entry.id) ?? 0;
     const hp = getHp(entry);
     if (maxHp <= 0 || hp.max <= 0) return;
     const amount = Math.max(1, Math.floor(maxHp / 3));
-    const candidates = [hp.min, hp.max, 1, ...(threshold === undefined ? [] : [threshold, threshold + 1])]
-      .filter((value) => value >= hp.min && value <= hp.max);
-    const gain = (value: number) => value > 0 && (threshold === undefined || value <= threshold)
-      ? Math.min(maxHp - value, amount)
-      : 0;
+    const candidates = [
+      hp.min,
+      hp.max,
+      1,
+      ...(threshold === undefined ? [] : [threshold, threshold + 1]),
+    ].filter((value) => value >= hp.min && value <= hp.max);
+    const gain = (value: number) =>
+      value > 0 && (threshold === undefined || value <= threshold)
+        ? Math.min(maxHp - value, amount)
+        : 0;
     const healed = candidates.map((value) => value + gain(value));
-    hpById.set(entry.id, createHpRange(certain || threshold !== undefined ? Math.min(...healed) : hp.min, Math.max(...healed)));
-    recordCheekPouch(entry, certain, certain || threshold !== undefined ? candidates.map(gain) : [0, ...candidates.map(gain)]);
+    hpById.set(
+      entry.id,
+      createHpRange(
+        certain || threshold !== undefined ? Math.min(...healed) : hp.min,
+        Math.max(...healed),
+      ),
+    );
+    recordCheekPouch(
+      entry,
+      certain,
+      certain || threshold !== undefined
+        ? candidates.map(gain)
+        : [0, ...candidates.map(gain)],
+    );
   };
 
-  const applyEatenBerry = (item: string, eater: BattlePlanRosterEntry, certain = true) => {
-    stepEvents.push(`${eater.label}: ${certain ? 'ate' : 'possibly ate'} ${item}`);
+  const applyEatenBerry = (
+    item: string,
+    eater: BattlePlanRosterEntry,
+    certain = true,
+  ) => {
+    stepEvents.push(
+      `${eater.label}: ${certain ? 'ate' : 'possibly ate'} ${item}`,
+    );
     const berry = getHpBerry(item, generation, eater.combatant.ability);
     const effect = berry?.effect;
     const maxHp = maxHpById.get(eater.id) ?? 0;
     const hp = getHp(eater);
     if (effect?.kind === 'heal' && maxHp > 0) {
-      const candidates = [hp.min, hp.max, 1]
-        .filter((value) => value >= hp.min && value <= hp.max);
-      const heal = (value: number) => value > 0
-        ? Math.min(maxHp - value, effect.amount(maxHp))
-        : 0;
-      const healed = candidates.map((value) => value + (certain ? heal(value) : 0));
+      const candidates = [hp.min, hp.max, 1].filter(
+        (value) => value >= hp.min && value <= hp.max,
+      );
+      const heal = (value: number) =>
+        value > 0 ? Math.min(maxHp - value, effect.amount(maxHp)) : 0;
+      const healed = candidates.map(
+        (value) => value + (certain ? heal(value) : 0),
+      );
       const possibleHealed = candidates.map((value) => value + heal(value));
       hpById.set(
         eater.id,
@@ -263,12 +374,20 @@ export function buildBattlePlanResults({
       const minHeal = certain ? Math.min(...candidates.map(heal)) : 0;
       const maxHeal = Math.max(...candidates.map(heal));
       if (maxHeal > 0) {
-        stepEvents.push(`${eater.label}: ${item} restored ${maxHeal === minHeal ? maxHeal : `${minHeal}-${maxHeal}`} HP`);
-        stepHealing.push({ pokemonId: eater.id, source: item, amount: { min: minHeal, max: maxHeal } });
+        stepEvents.push(
+          `${eater.label}: ${item} restored ${maxHeal === minHeal ? maxHeal : `${minHeal}-${maxHeal}`} HP`,
+        );
+        stepHealing.push({
+          pokemonId: eater.id,
+          source: item,
+          amount: { min: minHeal, max: maxHeal },
+        });
       }
     } else if (effect?.kind === 'boost') {
       if (certain) boostStat(eater, effect.stat, effect.stages);
-      stepEvents.push(`${eater.label}: ${item} ${certain ? 'raised' : 'may raise'} ${effect.stat.toUpperCase()} ${signed(effect.stages)}`);
+      stepEvents.push(
+        `${eater.label}: ${item} ${certain ? 'raised' : 'may raise'} ${effect.stat.toUpperCase()} ${signed(effect.stages)}`,
+      );
     } else if (effect?.kind === 'random-boost') {
       stepEvents.push(`${eater.label}: ${item} sharply raised a random stat`);
     }
@@ -279,7 +398,9 @@ export function buildBattlePlanResults({
         statusById.set(eater.id, undefined);
         toxicCounterById.set(eater.id, 0);
       }
-      stepEvents.push(`${eater.label}: ${item} ${certain ? 'cured' : 'may cure'} ${status}`);
+      stepEvents.push(
+        `${eater.label}: ${item} ${certain ? 'cured' : 'may cure'} ${status}`,
+      );
     }
     applyCheekPouch(eater, certain);
   };
@@ -291,22 +412,31 @@ export function buildBattlePlanResults({
     const maxHp = maxHpById.get(entry.id) ?? 0;
     const hp = getHp(entry);
     if (!item || !berry || maxHp <= 0 || hp.max <= 0) return 0;
-    if (item === 'Berry Juice'
-      ? entry.combatant.ability === 'Klutz' || currentField.isMagicRoom
-      : !canEat(entry)) return 0;
+    if (
+      item === 'Berry Juice'
+        ? entry.combatant.ability === 'Klutz' || currentField.isMagicRoom
+        : !canEat(entry)
+    )
+      return 0;
 
-    const triggers = (value: number) => value > 0 && value <= maxHp * berry.threshold;
+    const triggers = (value: number) =>
+      value > 0 && value <= maxHp * berry.threshold;
     const previous = unconsumedHp.get(entry.id);
     const eligible = previous ? previous.alive : hp;
     if (!eligible || !triggers(Math.max(1, eligible.min))) return 0;
     const wasMaybe = maybeConsumedItems.has(entry.id);
-    const certain = hp.min > 0 && eligible.min > 0 && triggers(eligible.max) && !previous?.fainted;
+    const certain =
+      hp.min > 0 &&
+      eligible.min > 0 &&
+      triggers(eligible.max) &&
+      !previous?.fainted;
     const label = certain && !wasMaybe ? item : `${item} (possibly)`;
     const threshold = Math.floor(maxHp * berry.threshold);
     const remaining = {
-      alive: eligible.max > threshold
-        ? createHpRange(Math.max(eligible.min, threshold + 1), eligible.max)
-        : undefined,
+      alive:
+        eligible.max > threshold
+          ? createHpRange(Math.max(eligible.min, threshold + 1), eligible.max)
+          : undefined,
       fainted: previous?.fainted ?? eligible.min === 0,
     };
     markConsumed(entry, certain);
@@ -314,21 +444,40 @@ export function buildBattlePlanResults({
 
     const { effect } = berry;
     if (effect.kind === 'heal') {
-      const candidates = [eligible.min, eligible.max, 1, threshold, threshold + 1]
-        .filter((value) => value >= eligible.min && value <= eligible.max);
-      const gain = (value: number) => triggers(value) ? Math.min(maxHp - value, effect.amount(maxHp)) : 0;
-      const pouchGain = (value: number) => isBerry(item) && entry.combatant.ability === 'Cheek Pouch' && triggers(value)
-        ? Math.min(maxHp - value - gain(value), Math.max(1, Math.floor(maxHp / 3)))
-        : 0;
-      const healedHp = candidates.map((value) => value + gain(value) + pouchGain(value));
+      const candidates = [
+        eligible.min,
+        eligible.max,
+        1,
+        threshold,
+        threshold + 1,
+      ].filter((value) => value >= eligible.min && value <= eligible.max);
+      const gain = (value: number) =>
+        triggers(value) ? Math.min(maxHp - value, effect.amount(maxHp)) : 0;
+      const pouchGain = (value: number) =>
+        isBerry(item) &&
+        entry.combatant.ability === 'Cheek Pouch' &&
+        triggers(value)
+          ? Math.min(
+              maxHp - value - gain(value),
+              Math.max(1, Math.floor(maxHp / 3)),
+            )
+          : 0;
+      const healedHp = candidates.map(
+        (value) => value + gain(value) + pouchGain(value),
+      );
       const gains = candidates.map(gain);
-      hpById.set(entry.id, createHpRange(
-        Math.min(...healedHp, ...(wasMaybe ? [hp.min] : [])),
-        Math.max(...healedHp, ...(wasMaybe ? [hp.max] : [])),
-      ));
+      hpById.set(
+        entry.id,
+        createHpRange(
+          Math.min(...healedHp, ...(wasMaybe ? [hp.min] : [])),
+          Math.max(...healedHp, ...(wasMaybe ? [hp.max] : [])),
+        ),
+      );
       const healMin = wasMaybe ? 0 : Math.min(...gains);
       const healMax = Math.max(...gains);
-      stepEvents.push(`${entry.label}: ${label} restored ${healMax === healMin ? healMax : `${healMin}-${healMax}`} HP`);
+      stepEvents.push(
+        `${entry.label}: ${label} restored ${healMax === healMin ? healMax : `${healMin}-${healMax}`} HP`,
+      );
       if (healMax > 0) {
         stepHealing.push({
           pokemonId: entry.id,
@@ -336,12 +485,17 @@ export function buildBattlePlanResults({
           amount: { min: healMin, max: healMax },
         });
       }
-      recordCheekPouch(entry, certain && !wasMaybe, [...(wasMaybe ? [0] : []), ...candidates.map(pouchGain)]);
+      recordCheekPouch(entry, certain && !wasMaybe, [
+        ...(wasMaybe ? [0] : []),
+        ...candidates.map(pouchGain),
+      ]);
       return healMax;
     }
     if (effect.kind === 'boost') {
       if (certain) boostStat(entry, effect.stat, effect.stages);
-      stepEvents.push(`${entry.label}: ${label} ${certain ? 'raised' : 'may raise'} ${effect.stat.toUpperCase()} ${signed(effect.stages)}`);
+      stepEvents.push(
+        `${entry.label}: ${label} ${certain ? 'raised' : 'may raise'} ${effect.stat.toUpperCase()} ${signed(effect.stages)}`,
+      );
     } else if (effect.kind === 'random-boost') {
       stepEvents.push(`${entry.label}: ${label} sharply raised a random stat`);
     } else {
@@ -352,16 +506,35 @@ export function buildBattlePlanResults({
   };
 
   /** Combatant as the damage calc should see it right now (status, stat stages, consumed item). */
-  const liveCombatant = (entry: BattlePlanRosterEntry, hp: BattlePlanHpRange) => ({
+  const liveCombatant = (
+    entry: BattlePlanRosterEntry,
+    hp: BattlePlanHpRange,
+  ) => ({
     ...entry.combatant,
     item: heldItem(entry),
-    abilityOn: entry.combatant.ability === 'Unburden' ? unburdenActive.has(entry.id) : entry.combatant.abilityOn,
+    abilityOn:
+      entry.combatant.ability === 'Unburden'
+        ? unburdenActive.has(entry.id)
+        : entry.combatant.abilityOn,
     status: statusById.get(entry.id),
     boosts: getBoosts(entry),
     currentHp: hp.max,
   });
 
-  const resolve = (action: BattlePlanAction): Omit<BattlePlanStepResult, 'field' | 'statuses' | 'items' | 'eatenBerries' | 'unburdenActive' | 'boosts' | 'maxHp' | 'itemEvents' | 'healing'> => {
+  const resolve = (
+    action: BattlePlanAction,
+  ): Omit<
+    BattlePlanStepResult,
+    | 'field'
+    | 'statuses'
+    | 'items'
+    | 'eatenBerries'
+    | 'unburdenActive'
+    | 'boosts'
+    | 'maxHp'
+    | 'itemEvents'
+    | 'healing'
+  > => {
     const isAttackerAction = action.actor === 'attacker';
     const actor = action.actor;
     const activeEntry = getActiveEntry(actor);
@@ -401,20 +574,32 @@ export function buildBattlePlanResults({
     if (action.type === 'end-turn') {
       flinchedIds.clear();
       const residual = {} as Record<BattlePlanActor, BattlePlanResidual>;
-      const seedParts: Partial<Record<BattlePlanActor, BattlePlanResidual['parts']>> = {};
+      const seedParts: Partial<
+        Record<BattlePlanActor, BattlePlanResidual['parts']>
+      > = {};
       for (const side of ['attacker', 'defender'] as const) {
         const entry = getActiveEntry(side)!;
         if (!maxHpById.has(entry.id)) {
           try {
             const maxHp = calculateEndOfTurnResidual({
-              generation, combatant: entry.combatant, field: currentField, toxicCounter: 0,
+              generation,
+              combatant: entry.combatant,
+              field: currentField,
+              toxicCounter: 0,
             }).maxHp;
             maxHpById.set(entry.id, maxHp);
-            if (getHp(entry).max === 0) hpById.set(entry.id, createHpRange(maxHp, maxHp));
+            if (getHp(entry).max === 0)
+              hpById.set(entry.id, createHpRange(maxHp, maxHp));
           } catch (error) {
             return {
-              action, damage: createHpRange(0, 0), cumulativeDamage, attackerHp, defenderHp,
-              targetHp: defenderHp, targetMaxHp: 0, isKo: false,
+              action,
+              damage: createHpRange(0, 0),
+              cumulativeDamage,
+              attackerHp,
+              defenderHp,
+              targetHp: defenderHp,
+              targetMaxHp: 0,
+              isKo: false,
               error: `Unable to determine HP for ${entry.label}: ${error instanceof Error ? error.message : String(error)}`,
             };
           }
@@ -424,55 +609,115 @@ export function buildBattlePlanResults({
         const other = side === 'attacker' ? 'defender' : 'attacker';
         const seeded = getActiveEntry(side)!;
         const recipient = getActiveEntry(other)!;
-        const condition = side === 'attacker' ? currentField.attackerSide : currentField.defenderSide;
+        const condition =
+          side === 'attacker'
+            ? currentField.attackerSide
+            : currentField.defenderSide;
         const seededHp = getHp(seeded);
         const recipientHp = getHp(recipient);
-        if (!condition.isSeeded || seededHp.max === 0 || seeded.combatant.ability === 'Magic Guard') continue;
-        const amount = Math.max(1, Math.floor(maxHpById.get(seeded.id)! / (generation === 1 ? 16 : 8)));
-        const loss = { min: Math.min(amount, seededHp.min), max: Math.min(amount, seededHp.max) };
-        hpById.set(seeded.id, createHpRange(seededHp.min - amount, seededHp.max - amount));
-        updateUnconsumedHp(seeded, (hp) => createHpRange(hp.min - amount, hp.max - amount));
-        (seedParts[side] ??= []).push({ source: 'Leech Seed', amount: loss.max });
-        const bigRoot = heldItem(recipient) === 'Big Root' && recipient.combatant.ability !== 'Klutz' && !currentField.isMagicRoom;
-        const gain = (value: number) => bigRoot ? Math.floor(value * 5324 / 4096) : value;
+        if (
+          !condition.isSeeded ||
+          seededHp.max === 0 ||
+          seeded.combatant.ability === 'Magic Guard'
+        )
+          continue;
+        const amount = Math.max(
+          1,
+          Math.floor(maxHpById.get(seeded.id)! / (generation === 1 ? 16 : 8)),
+        );
+        const loss = {
+          min: Math.min(amount, seededHp.min),
+          max: Math.min(amount, seededHp.max),
+        };
+        hpById.set(
+          seeded.id,
+          createHpRange(seededHp.min - amount, seededHp.max - amount),
+        );
+        updateUnconsumedHp(seeded, (hp) =>
+          createHpRange(hp.min - amount, hp.max - amount),
+        );
+        (seedParts[side] ??= []).push({
+          source: 'Leech Seed',
+          amount: loss.max,
+        });
+        const bigRoot =
+          heldItem(recipient) === 'Big Root' &&
+          recipient.combatant.ability !== 'Klutz' &&
+          !currentField.isMagicRoom;
+        const gain = (value: number) =>
+          bigRoot ? Math.floor((value * 5324) / 4096) : value;
         const minGain = recipientHp.min > 0 ? gain(loss.min) : 0;
         const maxGain = recipientHp.max > 0 ? gain(loss.max) : 0;
         if (seeded.combatant.ability === 'Liquid Ooze') {
           if (recipient.combatant.ability !== 'Magic Guard') {
-            hpById.set(recipient.id, createHpRange(recipientHp.min - maxGain, recipientHp.max - minGain));
-            updateUnconsumedHp(recipient, (hp) => createHpRange(hp.min - maxGain, hp.max - minGain));
-            (seedParts[other] ??= []).push({ source: 'Liquid Ooze', amount: maxGain });
+            hpById.set(
+              recipient.id,
+              createHpRange(
+                recipientHp.min - maxGain,
+                recipientHp.max - minGain,
+              ),
+            );
+            updateUnconsumedHp(recipient, (hp) =>
+              createHpRange(hp.min - maxGain, hp.max - minGain),
+            );
+            (seedParts[other] ??= []).push({
+              source: 'Liquid Ooze',
+              amount: maxGain,
+            });
           }
         } else {
           const maxHp = maxHpById.get(recipient.id)!;
-          hpById.set(recipient.id, createHpRange(
-            recipientHp.min > 0 ? Math.min(maxHp, recipientHp.min + minGain) : 0,
-            Math.min(maxHp, recipientHp.max + maxGain),
-          ));
-          updateUnconsumedHp(recipient, (hp) => createHpRange(
-            Math.min(maxHp, hp.min + minGain),
-            Math.min(maxHp, hp.max + maxGain),
-          ));
+          hpById.set(
+            recipient.id,
+            createHpRange(
+              recipientHp.min > 0
+                ? Math.min(maxHp, recipientHp.min + minGain)
+                : 0,
+              Math.min(maxHp, recipientHp.max + maxGain),
+            ),
+          );
+          updateUnconsumedHp(recipient, (hp) =>
+            createHpRange(
+              Math.min(maxHp, hp.min + minGain),
+              Math.min(maxHp, hp.max + maxGain),
+            ),
+          );
           const healed = {
             min: Math.min(minGain, maxHp - recipientHp.max),
             max: Math.min(maxGain, maxHp - recipientHp.min),
           };
           if (healed.max > 0 || healed.min > 0) {
-            stepHealing.push({ pokemonId: recipient.id, source: 'Leech Seed', amount: healed });
+            stepHealing.push({
+              pokemonId: recipient.id,
+              source: 'Leech Seed',
+              amount: healed,
+            });
           }
-          (seedParts[other] ??= []).push({ source: 'Leech Seed recovery', amount: -maxGain });
+          (seedParts[other] ??= []).push({
+            source: 'Leech Seed recovery',
+            amount: -maxGain,
+          });
         }
       }
       for (const side of ['attacker', 'defender'] as const) {
         const entry = getActiveEntry(side);
         if (!entry) continue;
         let hp = getHp(entry);
-        let tick: EndOfTurnResidual = { maxHp: maxHpById.get(entry.id) ?? 0, damage: 0, sources: [], parts: [] };
+        let tick: EndOfTurnResidual = {
+          maxHp: maxHpById.get(entry.id) ?? 0,
+          damage: 0,
+          sources: [],
+          parts: [],
+        };
         if (hp.max > 0) {
           const counter = toxicCounterById.get(entry.id) ?? 0;
           let curedBy: string | undefined;
           const currentStatus = statusById.get(entry.id);
-          if (currentStatus && canEat(entry) && curesStatus(heldItem(entry), currentStatus)) {
+          if (
+            currentStatus &&
+            canEat(entry) &&
+            curesStatus(heldItem(entry), currentStatus)
+          ) {
             curedBy = `${entry.combatant.item} (cures ${currentStatus})`;
             statusById.set(entry.id, undefined);
             toxicCounterById.set(entry.id, 0);
@@ -493,7 +738,8 @@ export function buildBattlePlanResults({
             // Unknown species etc.: leave HP untouched.
           }
           if (curedBy) tick.sources = [...tick.sources, curedBy];
-          if (statusById.get(entry.id) === 'tox') toxicCounterById.set(entry.id, counter + 1);
+          if (statusById.get(entry.id) === 'tox')
+            toxicCounterById.set(entry.id, counter + 1);
           if (tick.inflictedStatus) {
             statusById.set(entry.id, tick.inflictedStatus);
             toxicCounterById.set(entry.id, 0);
@@ -503,36 +749,65 @@ export function buildBattlePlanResults({
             applyCheekPouch(entry, true);
             hp = getHp(entry);
           }
-          const apply = (value: number) => value > 0 ? Math.min(tick.maxHp, Math.max(0, value - tick.damage)) : 0;
+          const apply = (value: number) =>
+            value > 0
+              ? Math.min(tick.maxHp, Math.max(0, value - tick.damage))
+              : 0;
           const next = createHpRange(apply(hp.min), apply(hp.max));
           hpById.set(entry.id, next);
-          updateUnconsumedHp(entry, (heldHp) => createHpRange(apply(heldHp.min), apply(heldHp.max)));
+          updateUnconsumedHp(entry, (heldHp) =>
+            createHpRange(apply(heldHp.min), apply(heldHp.max)),
+          );
           if (tick.parts.every((part) => part.amount < 0)) {
             let recoveryHp = hp;
             for (const part of tick.parts) {
               const amount = {
-                min: recoveryHp.min > 0 ? Math.max(0, Math.min(-part.amount, tick.maxHp - recoveryHp.max)) : 0,
-                max: Math.max(0, Math.min(-part.amount, tick.maxHp - recoveryHp.min)),
+                min:
+                  recoveryHp.min > 0
+                    ? Math.max(
+                        0,
+                        Math.min(-part.amount, tick.maxHp - recoveryHp.max),
+                      )
+                    : 0,
+                max: Math.max(
+                  0,
+                  Math.min(-part.amount, tick.maxHp - recoveryHp.min),
+                ),
               };
               if (amount.max > 0) {
-                stepHealing.push({ pokemonId: entry.id, source: part.source, amount });
+                stepHealing.push({
+                  pokemonId: entry.id,
+                  source: part.source,
+                  amount,
+                });
               }
               recoveryHp = createHpRange(
-                recoveryHp.min > 0 ? Math.min(tick.maxHp, recoveryHp.min - part.amount) : 0,
+                recoveryHp.min > 0
+                  ? Math.min(tick.maxHp, recoveryHp.min - part.amount)
+                  : 0,
                 Math.min(tick.maxHp, recoveryHp.max - part.amount),
               );
             }
           }
           const healed = eatHpBerry(entry);
           if (healed > 0) {
-            tick.parts = [...tick.parts, { source: entry.combatant.item!, amount: -healed, berry: isBerry(entry.combatant.item) }];
+            tick.parts = [
+              ...tick.parts,
+              {
+                source: entry.combatant.item!,
+                amount: -healed,
+                berry: isBerry(entry.combatant.item),
+              },
+            ];
             tick.sources = [...tick.sources, entry.combatant.item!];
           }
         }
         const seededParts = seedParts[side] ?? [];
         residual[side] = {
           label: entry.label,
-          damage: tick.damage + seededParts.reduce((sum, part) => sum + part.amount, 0),
+          damage:
+            tick.damage +
+            seededParts.reduce((sum, part) => sum + part.amount, 0),
           maxHp: tick.maxHp || maxHpById.get(entry.id) || 0,
           sources: [...seededParts.map((part) => part.source), ...tick.sources],
           parts: [...seededParts, ...tick.parts],
@@ -557,19 +832,32 @@ export function buildBattlePlanResults({
 
     if (action.type === 'state') {
       if (action.weather) {
-        currentField = { ...currentField, weather: action.weather === 'none' ? undefined : action.weather };
+        currentField = {
+          ...currentField,
+          weather: action.weather === 'none' ? undefined : action.weather,
+        };
       }
       if (action.terrain) {
-        currentField = { ...currentField, terrain: action.terrain === 'none' ? undefined : action.terrain };
+        currentField = {
+          ...currentField,
+          terrain: action.terrain === 'none' ? undefined : action.terrain,
+        };
       }
       if (action.status) {
-        statusById.set(activeEntry.id, action.status === 'none' ? undefined : action.status);
+        statusById.set(
+          activeEntry.id,
+          action.status === 'none' ? undefined : action.status,
+        );
         toxicCounterById.set(activeEntry.id, 0);
       }
       if (action.boosts) {
         const next = { ...getBoosts(activeEntry) };
         for (const [stat, stage] of Object.entries(action.boosts)) {
-          if (stage !== undefined) next[stat as keyof BattleStatBoosts] = Math.max(-6, Math.min(6, stage));
+          if (stage !== undefined)
+            next[stat as keyof BattleStatBoosts] = Math.max(
+              -6,
+              Math.min(6, stage),
+            );
         }
         boostsById.set(activeEntry.id, next);
       }
@@ -603,7 +891,9 @@ export function buildBattlePlanResults({
     }
 
     if (action.type === 'switch') {
-      const nextEntry = rosters[actor].find((entry) => entry.id === action.targetPokemonId);
+      const nextEntry = rosters[actor].find(
+        (entry) => entry.id === action.targetPokemonId,
+      );
       if (!nextEntry) {
         return {
           action,
@@ -653,8 +943,13 @@ export function buildBattlePlanResults({
       boostsById.set(activeEntry.id, { ...activeEntry.combatant.boosts });
       unburdenActive.delete(activeEntry.id);
       const sideKey = actor === 'attacker' ? 'attackerSide' : 'defenderSide';
-      currentField = { ...currentField, [sideKey]: { ...currentField[sideKey], isSeeded: false } };
+      currentField = {
+        ...currentField,
+        [sideKey]: { ...currentField[sideKey], isSeeded: false },
+      };
       activeIds[actor] = nextEntry.id;
+      if (nextEntry.id !== activeEntry.id)
+        applyIntimidate(nextEntry, targetEntry);
       attackerHp = getHp(getActiveEntry('attacker')!);
       defenderHp = getHp(getActiveEntry('defender')!);
       const switchedHp = getHp(nextEntry);
@@ -719,20 +1014,34 @@ export function buildBattlePlanResults({
         stepEvents.push(`${activeEntry.label}: ${moveFailure}`);
       }
       // No damage calc runs for these moves, so probe once to learn each side's max HP.
-      for (const [entry, opponent] of [[activeEntry, targetEntry], [targetEntry, activeEntry]] as const) {
+      for (const [entry, opponent] of [
+        [activeEntry, targetEntry],
+        [targetEntry, activeEntry],
+      ] as const) {
         if (maxHpById.has(entry.id)) continue;
         const probe = buildBattleCalcBreakdowns({
           generation,
           attacker: opponent.combatant,
           defender: { ...entry.combatant, currentHp: getHp(entry).max },
           field: currentField,
-          moves: [{ ...action.move, name: opponent.moves[0]?.name || action.move.name || 'Tackle' }],
+          moves: [
+            {
+              ...action.move,
+              name: opponent.moves[0]?.name || action.move.name || 'Tackle',
+            },
+          ],
         })[0];
         if (probe?.details) {
           maxHpById.set(entry.id, probe.details.defenderMaxHp);
           // An unset (0) HP means full health; resolve it to real HP so it doesn't display as 0.
           if (getHp(entry).max === 0) {
-            hpById.set(entry.id, createHpRange(probe.details.defenderCurrentHp, probe.details.defenderCurrentHp));
+            hpById.set(
+              entry.id,
+              createHpRange(
+                probe.details.defenderCurrentHp,
+                probe.details.defenderCurrentHp,
+              ),
+            );
           }
         }
       }
@@ -760,6 +1069,7 @@ export function buildBattlePlanResults({
       defender: liveCombatant(targetEntry, targetHp),
       field: currentField,
       moves: [action.move],
+      skipIntimidate: true,
     })[0];
 
     if (!result || result.error || !result.details) {
@@ -780,13 +1090,17 @@ export function buildBattlePlanResults({
     const belchMayFail =
       action.move.name === 'Belch' && maybeEatenBerries.has(activeEntry.id);
     if (belchMayFail) {
-      stepEvents.push(`${activeEntry.label}: Belch may fail because the Berry may not have been eaten`);
+      stepEvents.push(
+        `${activeEntry.label}: Belch may fail because the Berry may not have been eaten`,
+      );
     }
     const itemMoveMayFail =
       maybeConsumedItems.has(activeEntry.id) &&
       (action.move.name === 'Natural Gift' || action.move.name === 'Fling');
     if (itemMoveMayFail) {
-      stepEvents.push(`${activeEntry.label}: ${action.move.name} may fail because the item may already be consumed`);
+      stepEvents.push(
+        `${activeEntry.label}: ${action.move.name} may fail because the item may already be consumed`,
+      );
     }
     const resolvedTargetHp =
       targetHp.max === 0
@@ -794,7 +1108,7 @@ export function buildBattlePlanResults({
         : targetHp;
 
     const damage = createHpRange(
-      belchMayFail || itemMoveMayFail ? 0 : details.possibleDamage[0] ?? 0,
+      belchMayFail || itemMoveMayFail ? 0 : (details.possibleDamage[0] ?? 0),
       details.possibleDamage[details.possibleDamage.length - 1] ?? 0,
     );
     hpById.set(targetEntry.id, resolvedTargetHp);
@@ -803,13 +1117,20 @@ export function buildBattlePlanResults({
       maxHpById.set(activeEntry.id, details.attackerMaxHp);
       // An unset (0) HP means full health; resolve it so it isn't mistaken for a KO.
       if (getHp(activeEntry).max === 0) {
-        hpById.set(activeEntry.id, createHpRange(details.attackerMaxHp, details.attackerMaxHp));
+        hpById.set(
+          activeEntry.id,
+          createHpRange(details.attackerMaxHp, details.attackerMaxHp),
+        );
       }
     }
 
     // Resist berries are eaten while the incoming damage is being calculated.
     const targetItem = heldItem(targetEntry);
-    if (targetItem && details.defenderItemUsed === targetItem && getBerryResistType(targetItem)) {
+    if (
+      targetItem &&
+      details.defenderItemUsed === targetItem &&
+      getBerryResistType(targetItem)
+    ) {
       markConsumed(targetEntry, true);
       stepEvents.push(`${targetEntry.label}: ${targetItem} weakened the hit`);
       applyCheekPouch(targetEntry, true);
@@ -826,7 +1147,9 @@ export function buildBattlePlanResults({
       attackerHp = nextTargetHp;
     }
     hpById.set(targetEntry.id, nextTargetHp);
-    updateUnconsumedHp(targetEntry, (hp) => createHpRange(hp.min - damage.max, hp.max - damage.min));
+    updateUnconsumedHp(targetEntry, (hp) =>
+      createHpRange(hp.min - damage.max, hp.max - damage.min),
+    );
     if (
       action.move.name === 'Fake Out' &&
       generation >= 3 &&
@@ -838,11 +1161,17 @@ export function buildBattlePlanResults({
     }
     if (details.drain && damage.max > 0) {
       const [numerator, denominator] = details.drain;
-      const bigRoot = heldItem(activeEntry) === 'Big Root' && actingCombatant.ability !== 'Klutz' && !currentField.isMagicRoom;
+      const bigRoot =
+        heldItem(activeEntry) === 'Big Root' &&
+        actingCombatant.ability !== 'Klutz' &&
+        !currentField.isMagicRoom;
       const drain = (dealt: number) => {
         if (dealt <= 0) return 0;
-        const amount = Math.max(1, Math.round(dealt * numerator / denominator));
-        return bigRoot ? Math.floor(amount * 5324 / 4096) : amount;
+        const amount = Math.max(
+          1,
+          Math.round((dealt * numerator) / denominator),
+        );
+        return bigRoot ? Math.floor((amount * 5324) / 4096) : amount;
       };
       const totalDrain = (bound: 'min' | 'max', hp: number) => {
         let remaining = hp;
@@ -855,36 +1184,59 @@ export function buildBattlePlanResults({
         }
         return total;
       };
-      const minDrain = damage.min === 0 ? 0 : totalDrain('min', hpBeforeDamage.min);
+      const minDrain =
+        damage.min === 0 ? 0 : totalDrain('min', hpBeforeDamage.min);
       const maxDrain = totalDrain('max', hpBeforeDamage.max);
       const current = getHp(activeEntry);
       if (targetCombatant.ability === 'Liquid Ooze') {
         if (actingCombatant.ability !== 'Magic Guard') {
-          hpById.set(activeEntry.id, createHpRange(current.min - maxDrain, current.max - minDrain));
-          updateUnconsumedHp(activeEntry, (hp) => createHpRange(hp.min - maxDrain, hp.max - minDrain));
+          hpById.set(
+            activeEntry.id,
+            createHpRange(current.min - maxDrain, current.max - minDrain),
+          );
+          updateUnconsumedHp(activeEntry, (hp) =>
+            createHpRange(hp.min - maxDrain, hp.max - minDrain),
+          );
           stepEvents.push(`${activeEntry.label}: hurt by Liquid Ooze`);
         }
       } else {
         const maxHp = details.attackerMaxHp;
-        hpById.set(activeEntry.id, createHpRange(
-          current.min > 0 ? Math.min(maxHp, current.min + minDrain) : 0,
-          Math.min(maxHp, current.max + maxDrain),
-        ));
-        updateUnconsumedHp(activeEntry, (hp) => createHpRange(
-          Math.min(maxHp, hp.min + minDrain),
-          Math.min(maxHp, hp.max + maxDrain),
-        ));
-        const minHeal = current.min > 0 ? Math.min(minDrain, maxHp - current.max) : 0;
-        const maxHeal = current.max > 0 ? Math.min(maxDrain, maxHp - current.min) : 0;
-        if (maxHeal > 0) stepHealing.push({
-          pokemonId: activeEntry.id, source: action.move.name, amount: { min: minHeal, max: maxHeal },
-        });
+        hpById.set(
+          activeEntry.id,
+          createHpRange(
+            current.min > 0 ? Math.min(maxHp, current.min + minDrain) : 0,
+            Math.min(maxHp, current.max + maxDrain),
+          ),
+        );
+        updateUnconsumedHp(activeEntry, (hp) =>
+          createHpRange(
+            Math.min(maxHp, hp.min + minDrain),
+            Math.min(maxHp, hp.max + maxDrain),
+          ),
+        );
+        const minHeal =
+          current.min > 0 ? Math.min(minDrain, maxHp - current.max) : 0;
+        const maxHeal =
+          current.max > 0 ? Math.min(maxDrain, maxHp - current.min) : 0;
+        if (maxHeal > 0)
+          stepHealing.push({
+            pokemonId: activeEntry.id,
+            source: action.move.name,
+            amount: { min: minHeal, max: maxHeal },
+          });
       }
     }
-    if (action.move.name === 'Leech Seed' && !targetCombatant.types.includes('Grass')) {
-      const sideKey = targetActor === 'attacker' ? 'attackerSide' : 'defenderSide';
+    if (
+      action.move.name === 'Leech Seed' &&
+      !targetCombatant.types.includes('Grass')
+    ) {
+      const sideKey =
+        targetActor === 'attacker' ? 'attackerSide' : 'defenderSide';
       if (!currentField[sideKey].isProtected && nextTargetHp.max > 0) {
-        currentField = { ...currentField, [sideKey]: { ...currentField[sideKey], isSeeded: true } };
+        currentField = {
+          ...currentField,
+          [sideKey]: { ...currentField[sideKey], isSeeded: true },
+        };
       }
     }
     cumulativeDamage = isAttackerAction
@@ -895,7 +1247,9 @@ export function buildBattlePlanResults({
       : cumulativeDamage;
 
     // Item reactions to this hit, in the order the game resolves them.
-    const hitBerry = canEat(targetEntry) ? getHitBerry(heldItem(targetEntry), targetCombatant.ability) : undefined;
+    const hitBerry = canEat(targetEntry)
+      ? getHitBerry(heldItem(targetEntry), targetCombatant.ability)
+      : undefined;
     const survivesMaybe = nextTargetHp.max > 0 && damage.max > 0;
     const hitTriggers =
       hitBerry !== undefined &&
@@ -910,38 +1264,74 @@ export function buildBattlePlanResults({
       const { effect } = hitBerry;
       if (effect.kind === 'boost') {
         if (certain) boostStat(targetEntry, effect.stat, effect.stages);
-        stepEvents.push(`${targetEntry.label}: ${berryName} ${certain ? 'raised' : 'may raise'} ${effect.stat.toUpperCase()} ${signed(effect.stages)}`);
+        stepEvents.push(
+          `${targetEntry.label}: ${berryName} ${certain ? 'raised' : 'may raise'} ${effect.stat.toUpperCase()} ${signed(effect.stages)}`,
+        );
       } else if (effect.kind === 'heal') {
         const amount = Math.floor(details.defenderMaxHp / effect.divisor);
         const current = getHp(targetEntry);
-        const minHeal = certain ? Math.min(amount, details.defenderMaxHp - current.max) : 0;
-        const maxHeal = Math.min(amount, details.defenderMaxHp - Math.max(1, current.min));
+        const minHeal = certain
+          ? Math.min(amount, details.defenderMaxHp - current.max)
+          : 0;
+        const maxHeal = Math.min(
+          amount,
+          details.defenderMaxHp - Math.max(1, current.min),
+        );
         hpById.set(
           targetEntry.id,
           createHpRange(
-            Math.min(details.defenderMaxHp, current.min + (certain ? amount : 0)),
+            Math.min(
+              details.defenderMaxHp,
+              current.min + (certain ? amount : 0),
+            ),
             Math.min(details.defenderMaxHp, current.max + amount),
           ),
         );
-        stepEvents.push(`${targetEntry.label}: ${berryName} restored ${amount} HP`);
+        stepEvents.push(
+          `${targetEntry.label}: ${berryName} restored ${amount} HP`,
+        );
         if (maxHeal > 0) {
-          stepHealing.push({ pokemonId: targetEntry.id, source: targetItem, amount: { min: minHeal, max: maxHeal } });
+          stepHealing.push({
+            pokemonId: targetEntry.id,
+            source: targetItem,
+            amount: { min: minHeal, max: maxHeal },
+          });
         }
       } else if (!actingCombatant.ability?.includes('Magic Guard')) {
-        const amount = Math.max(1, Math.floor(details.attackerMaxHp / effect.divisor));
-        const current = actingHp.max === 0
-          ? createHpRange(details.attackerMaxHp, details.attackerMaxHp)
-          : actingHp;
-        hpById.set(activeEntry.id, createHpRange(current.min - amount, certain ? current.max - amount : current.max));
-        updateUnconsumedHp(activeEntry, (hp) => createHpRange(hp.min - amount, certain ? hp.max - amount : hp.max));
-        stepEvents.push(`${activeEntry.label}: lost ${amount} HP to ${berryName}`);
+        const amount = Math.max(
+          1,
+          Math.floor(details.attackerMaxHp / effect.divisor),
+        );
+        const current =
+          actingHp.max === 0
+            ? createHpRange(details.attackerMaxHp, details.attackerMaxHp)
+            : actingHp;
+        hpById.set(
+          activeEntry.id,
+          createHpRange(
+            current.min - amount,
+            certain ? current.max - amount : current.max,
+          ),
+        );
+        updateUnconsumedHp(activeEntry, (hp) =>
+          createHpRange(hp.min - amount, certain ? hp.max - amount : hp.max),
+        );
+        stepEvents.push(
+          `${activeEntry.label}: lost ${amount} HP to ${berryName}`,
+        );
       }
       applyCheekPouch(targetEntry, certain);
     }
 
-    if (action.move.name === 'Natural Gift' && activeItem && isBerry(activeItem)) {
+    if (
+      action.move.name === 'Natural Gift' &&
+      activeItem &&
+      isBerry(activeItem)
+    ) {
       markConsumed(activeEntry, true, null);
-      stepEvents.push(`${activeEntry.label}: Natural Gift consumed ${activeItem}`);
+      stepEvents.push(
+        `${activeEntry.label}: Natural Gift consumed ${activeItem}`,
+      );
     } else if (action.move.name === 'Fling' && activeItem) {
       markConsumed(activeEntry, true, null);
       stepEvents.push(`${activeEntry.label}: Fling consumed ${activeItem}`);
@@ -952,10 +1342,15 @@ export function buildBattlePlanResults({
         markConsumed(activeEntry, true, activeEntry, true);
         applyEatenBerry(berry, activeEntry, effectCertain);
         if (effectCertain) boostStat(activeEntry, 'def', 2);
-        stepEvents.push(`${activeEntry.label}: Defense ${effectCertain ? 'rose' : 'may rise'} +2`);
+        stepEvents.push(
+          `${activeEntry.label}: Defense ${effectCertain ? 'rose' : 'may rise'} +2`,
+        );
       }
     } else if (action.move.name === 'Teatime') {
-      for (const entry of [getActiveEntry('attacker'), getActiveEntry('defender')]) {
+      for (const entry of [
+        getActiveEntry('attacker'),
+        getActiveEntry('defender'),
+      ]) {
         if (!entry) continue;
         const berry = heldItem(entry);
         if (!berry || !isBerry(berry) || !canEat(entry)) continue;
@@ -963,12 +1358,17 @@ export function buildBattlePlanResults({
         markConsumed(entry, true);
         applyEatenBerry(berry, entry, effectCertain);
       }
-    } else if (action.move.name === 'Bug Bite' || action.move.name === 'Pluck') {
+    } else if (
+      action.move.name === 'Bug Bite' ||
+      action.move.name === 'Pluck'
+    ) {
       const berry = heldItem(targetEntry);
       if (berry && isBerry(berry) && canEat(activeEntry) && damage.max > 0) {
         const eaterCertain = !maybeConsumedItems.has(targetEntry.id);
         markConsumed(targetEntry, true, activeEntry, eaterCertain);
-        stepEvents.push(`${targetEntry.label}: lost ${berry} to ${action.move.name}`);
+        stepEvents.push(
+          `${targetEntry.label}: lost ${berry} to ${action.move.name}`,
+        );
         applyEatenBerry(berry, activeEntry, eaterCertain);
       }
     } else if (action.move.name === 'Recycle') {
@@ -983,7 +1383,10 @@ export function buildBattlePlanResults({
     }
 
     eatHpBerry(targetEntry);
-    if (hitBerry?.effect.kind === 'recoil' || (details.drain && targetCombatant.ability === 'Liquid Ooze')) {
+    if (
+      hitBerry?.effect.kind === 'recoil' ||
+      (details.drain && targetCombatant.ability === 'Liquid Ooze')
+    ) {
       eatHpBerry(activeEntry);
     }
     if (isAttackerAction) {
@@ -1059,7 +1462,11 @@ export function buildBattlePlanResults({
           .filter((entry) => entry.combatant.item)
           .map((entry) => [
             entry.id,
-            consumedItems.has(entry.id) ? 'consumed' : maybeConsumedItems.has(entry.id) ? 'maybe-consumed' : 'held',
+            consumedItems.has(entry.id)
+              ? 'consumed'
+              : maybeConsumedItems.has(entry.id)
+                ? 'maybe-consumed'
+                : 'held',
           ]),
       ),
       unburdenActive: Object.fromEntries(
@@ -1067,7 +1474,9 @@ export function buildBattlePlanResults({
           .filter((entry) => entry.combatant.ability === 'Unburden')
           .map((entry) => [entry.id, unburdenActive.has(entry.id)]),
       ),
-      boosts: Object.fromEntries(Array.from(boostsById, ([id, value]) => [id, { ...value }])),
+      boosts: Object.fromEntries(
+        Array.from(boostsById, ([id, value]) => [id, { ...value }]),
+      ),
       maxHp: {
         attacker: maxHpById.get(activeIds.attacker) ?? 0,
         defender: maxHpById.get(activeIds.defender) ?? 0,

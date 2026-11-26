@@ -192,6 +192,7 @@ function computeBattleCalcDetails({
   field,
   move,
   coreResult,
+  skipIntimidate,
 }: {
   generation: BattleGeneration;
   attacker: BattleCombatant;
@@ -199,6 +200,7 @@ function computeBattleCalcDetails({
   field: BattleField;
   move: BattleCalcMoveInput | BattleMove;
   coreResult: CoreResult;
+  skipIntimidate?: boolean;
 }): BattleCalcDetails {
   const rolls = getDamageRolls(coreResult.damage);
   const maxHp = coreResult.defender.maxHP();
@@ -233,10 +235,17 @@ function computeBattleCalcDetails({
 
   let isCritOhko = false;
   try {
-    const critResult = runBattleCalc(generation, attacker, defender, field, {
-      ...move,
-      isCrit: true,
-    } as BattleCalcMoveInput);
+    const critResult = runBattleCalc(
+      generation,
+      attacker,
+      defender,
+      field,
+      {
+        ...move,
+        isCrit: true,
+      } as BattleCalcMoveInput,
+      skipIntimidate,
+    );
     isCritOhko = critResult.range()[0] >= curHp;
   } catch {
     isCritOhko = false;
@@ -331,6 +340,7 @@ function runBattleCalc(
   defender: BattleCombatant,
   field: BattleField,
   move: BattleCalcMoveInput | BattleMove,
+  skipIntimidate?: boolean,
 ): CoreResult {
   return calculateBattleRuntime({
     generation,
@@ -338,6 +348,7 @@ function runBattleCalc(
     defender,
     move: createRuntimeMove(generation, move),
     field,
+    skipIntimidate,
   });
 }
 
@@ -365,12 +376,14 @@ export function buildBattleCalcBreakdowns({
   defender,
   field,
   moves,
+  skipIntimidate,
 }: {
   generation: BattleGeneration;
   attacker: BattleCombatant;
   defender: BattleCombatant;
   field: BattleField;
   moves: readonly BattleCalcMoveInput[];
+  skipIntimidate?: boolean;
 }): BattleCalcBreakdown[] {
   return moves.reduce<BattleCalcBreakdown[]>((breakdowns, move, slotIndex) => {
     if (!move.name.trim()) {
@@ -384,6 +397,7 @@ export function buildBattleCalcBreakdowns({
         defender,
         field,
         move,
+        skipIntimidate,
       );
 
       breakdowns.push(
@@ -398,6 +412,7 @@ export function buildBattleCalcBreakdowns({
             field,
             move,
             coreResult,
+            skipIntimidate,
           }),
           undefined,
         ),

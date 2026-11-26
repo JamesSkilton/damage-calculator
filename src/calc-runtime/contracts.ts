@@ -11,4 +11,5 @@ export interface CalcRuntimeInput {
   defender: BattleCombatant;
   move: BattleMove;
   field: BattleField;
+  skipIntimidate?: boolean;
 }
