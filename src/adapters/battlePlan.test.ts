@@ -9,6 +9,139 @@ import { createTeamDraft } from '../components/combatant/shared/combatantDraft';
 import { calculateBattleSpeed } from 'calc-runtime';
 
 describe('battle plan adapter', () => {
+  it.each(['attacker', 'defender'] as const)(
+    'tracks initial Intimidate once when the %s has it',
+    (source) => {
+      const team = createTeamDraft(9);
+      const target = source === 'attacker' ? 'defender' : 'attacker';
+      const attacker = {
+        ...team.attacker,
+        ability: source === 'attacker' ? 'Intimidate' : 'Static',
+      };
+      const defender = {
+        ...team.defender,
+        ability: source === 'defender' ? 'Intimidate' : 'Overgrow',
+      };
+      const move = {
+        name: 'Tackle',
+        isCrit: false,
+        hits: 1,
+        isStellarFirstUse: false,
+        timesUsed: 1,
+      };
+      const field = createBattleFieldDraft(9);
+      const [first, second, corrected, afterCorrection] =
+        buildBattlePlanResults({
+          generation: 9,
+          attacker,
+          defender,
+          field,
+          actions: [
+            { id: 'first', actor: target, type: 'move', move },
+            { id: 'second', actor: target, type: 'move', move },
+            { id: 'correct', actor: target, type: 'state', boosts: { atk: 0 } },
+            { id: 'after-correction', actor: target, type: 'move', move },
+          ],
+        });
+      expect(first.boosts[`initial-${target}`].atk).toBe(-1);
+      expect(second.boosts[`initial-${target}`].atk).toBe(-1);
+      expect(second.damage).toEqual(first.damage);
+      expect(corrected.boosts[`initial-${target}`].atk).toBe(0);
+      expect(afterCorrection.damage.max).toBeGreaterThan(first.damage.max);
+      const [expected] = buildBattleCalcBreakdowns({
+        generation: 9,
+        attacker: target === 'attacker' ? attacker : defender,
+        defender: target === 'attacker' ? defender : attacker,
+        field,
+        moves: [move],
+      });
+      expect(first.damage).toEqual({
+        min: expected.result!.range.min,
+        max: expected.result!.range.max,
+      });
+    },
+  );
+
+  it('applies Intimidate on each switch-in, not when its opponent switches in', () => {
+    const team = createTeamDraft(9);
+    const field = createBattleFieldDraft(9);
+    const defender = { ...team.defender, ability: 'Overgrow' };
+    const attacker = { ...team.attacker, ability: 'Static' };
+    const int = { ...attacker, ability: 'Intimidate' };
+    const move = {
+      name: 'Tackle',
+      isCrit: false,
+      hits: 1,
+      isStellarFirstUse: false,
+      timesUsed: 1,
+    };
+    const [first, switchIn, hit, switchOut, again, targetSwitch, targetHit] =
+      buildBattlePlanResults({
+        generation: 9,
+        attacker,
+        defender,
+        field,
+        attackerRoster: [
+          {
+            id: 'a',
+            label: 'a',
+            source: 'current',
+            combatant: attacker,
+            moves: [],
+          },
+          { id: 'i', label: 'i', source: 'current', combatant: int, moves: [] },
+        ],
+        defenderRoster: [
+          {
+            id: 'd',
+            label: 'd',
+            source: 'current',
+            combatant: defender,
+            moves: [],
+          },
+          {
+            id: 'd2',
+            label: 'd2',
+            source: 'current',
+            combatant: defender,
+            moves: [],
+          },
+        ],
+        actions: [
+          { id: 'first', actor: 'defender', type: 'move', move },
+          { id: 'in', actor: 'attacker', type: 'switch', targetPokemonId: 'i' },
+          { id: 'hit', actor: 'defender', type: 'move', move },
+          {
+            id: 'out',
+            actor: 'attacker',
+            type: 'switch',
+            targetPokemonId: 'a',
+          },
+          {
+            id: 'again',
+            actor: 'attacker',
+            type: 'switch',
+            targetPokemonId: 'i',
+          },
+          {
+            id: 'target-switch',
+            actor: 'defender',
+            type: 'switch',
+            targetPokemonId: 'd2',
+          },
+          { id: 'target-hit', actor: 'defender', type: 'move', move },
+        ],
+      });
+    expect(first.boosts.d.atk).toBe(0);
+    expect(switchIn.boosts.d.atk).toBe(-1);
+    expect(hit.damage.max).toBeLessThan(first.damage.max);
+    expect(switchOut.boosts.d.atk).toBe(-1);
+    expect(again.boosts.d.atk).toBe(-2);
+    expect(targetSwitch.boosts.d2.atk).toBe(0);
+    expect(targetHit.boosts.d2.atk).toBe(0);
+    expect(targetHit.damage).toEqual(first.damage);
+  });
+
   it('sets Sticky Web on the opposing side and applies it on each switch-in', () => {
     const team = createTeamDraft(9);
     const field = createBattleFieldDraft(9);
@@ -216,46 +349,120 @@ describe('battle plan adapter', () => {
   });
 
   it.each([
-    ['Mega Drain', 1, 2],
-    ['Draining Kiss', 3, 4],
-  ])('heals the user of %s from actual damage', (name, numerator, denominator) => {
+    ['Clear Body', undefined, 0, 0],
+    ['Overgrow', 'Clear Amulet', 0, 0],
+    ['Contrary', undefined, 1, 0],
+    ['Simple', undefined, -2, 0],
+    ['Competitive', undefined, -1, 2],
+  ])('tracks Intimidate interactions with %s', (ability, item, atk, spa) => {
     const team = createTeamDraft(9);
     const [result] = buildBattlePlanResults({
       generation: 9,
-      attacker: { ...team.attacker, currentHp: 50, item: undefined },
-      defender: { ...team.defender, currentHp: 3 },
+      attacker: { ...team.attacker, ability: 'Intimidate' },
+      defender: { ...team.defender, ability, item },
       field: createBattleFieldDraft(9),
-      actions: [{ id: 'drain', actor: 'attacker', type: 'move', move: {
-        name, isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1,
-      } }],
+      actions: [{ id: 'state', actor: 'attacker', type: 'state' }],
     });
-    const heal = Math.round(3 * numerator / denominator);
-    expect(result.attackerHp).toEqual({ min: 50 + heal, max: 50 + heal });
-    expect(result.healing).toContainEqual({
-      pokemonId: 'initial-attacker', source: name, amount: { min: heal, max: heal },
-    });
+    expect(result.boosts['initial-defender']).toMatchObject({ atk, spa });
   });
+
+  it.each([
+    [7, -1],
+    [8, 0],
+  ] as const)(
+    'respects generation %i Intimidate immunity',
+    (generation, atk) => {
+      const team = createTeamDraft(generation);
+      const [result] = buildBattlePlanResults({
+        generation,
+        attacker: { ...team.attacker, ability: 'Intimidate' },
+        defender: { ...team.defender, ability: 'Inner Focus' },
+        field: createBattleFieldDraft(generation),
+        actions: [{ id: 'state', actor: 'attacker', type: 'state' }],
+      });
+      expect(result.boosts['initial-defender'].atk).toBe(atk);
+    },
+  );
+
+  it.each([
+    ['Mega Drain', 1, 2],
+    ['Draining Kiss', 3, 4],
+  ])(
+    'heals the user of %s from actual damage',
+    (name, numerator, denominator) => {
+      const team = createTeamDraft(9);
+      const [result] = buildBattlePlanResults({
+        generation: 9,
+        attacker: { ...team.attacker, currentHp: 50, item: undefined },
+        defender: { ...team.defender, currentHp: 3 },
+        field: createBattleFieldDraft(9),
+        actions: [
+          {
+            id: 'drain',
+            actor: 'attacker',
+            type: 'move',
+            move: {
+              name,
+              isCrit: false,
+              hits: 1,
+              isStellarFirstUse: false,
+              timesUsed: 1,
+            },
+          },
+        ],
+      });
+      const heal = Math.round((3 * numerator) / denominator);
+      expect(result.attackerHp).toEqual({ min: 50 + heal, max: 50 + heal });
+      expect(result.healing).toContainEqual({
+        pokemonId: 'initial-attacker',
+        source: name,
+        amount: { min: heal, max: heal },
+      });
+    },
+  );
 
   it('handles Big Root, immunity, and Liquid Ooze for drain moves', () => {
     const team = createTeamDraft(9);
-    const move = { name: 'Mega Drain', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const move = {
+      name: 'Mega Drain',
+      isCrit: false,
+      hits: 1,
+      isStellarFirstUse: false,
+      timesUsed: 1,
+    };
     const input = {
       generation: 9 as const,
       attacker: { ...team.attacker, currentHp: 50, item: 'Big Root' },
       defender: { ...team.defender, currentHp: 3, ability: 'Liquid Ooze' },
       field: createBattleFieldDraft(9),
-      actions: [{ id: 'drain', actor: 'attacker' as const, type: 'move' as const, move }],
+      actions: [
+        {
+          id: 'drain',
+          actor: 'attacker' as const,
+          type: 'move' as const,
+          move,
+        },
+      ],
     };
     const [ooze] = buildBattlePlanResults(input);
     expect(ooze.attackerHp).toEqual({ min: 48, max: 48 });
     expect(ooze.healing).toEqual([]);
     const [immune] = buildBattlePlanResults({
-      ...input, defender: { ...input.defender, species: 'Bouffalant', ability: 'Sap Sipper' },
+      ...input,
+      defender: {
+        ...input.defender,
+        species: 'Bouffalant',
+        ability: 'Sap Sipper',
+      },
     });
     expect(immune.attackerHp).toEqual({ min: 50, max: 50 });
     expect(immune.healing).toEqual([]);
     const [protectedResult] = buildBattlePlanResults({
-      ...input, field: { ...input.field, defenderSide: { ...input.field.defenderSide, isProtected: true } },
+      ...input,
+      field: {
+        ...input.field,
+        defenderSide: { ...input.field.defenderSide, isProtected: true },
+      },
     });
     expect(protectedResult.attackerHp).toEqual({ min: 50, max: 50 });
     expect(protectedResult.healing).toEqual([]);
@@ -263,44 +470,93 @@ describe('battle plan adapter', () => {
 
   it('propagates drain damage rolls for the defending side and caps healing at full HP', () => {
     const team = createTeamDraft(9);
-    const move = { name: 'Draining Kiss', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const move = {
+      name: 'Draining Kiss',
+      isCrit: false,
+      hits: 1,
+      isStellarFirstUse: false,
+      timesUsed: 1,
+    };
     const base = {
       generation: 9 as const,
       attacker: { ...team.attacker, currentHp: 100 },
       defender: { ...team.defender, currentHp: 50, item: undefined },
       field: createBattleFieldDraft(9),
-      actions: [{ id: 'drain', actor: 'defender' as const, type: 'move' as const, move }],
+      actions: [
+        {
+          id: 'drain',
+          actor: 'defender' as const,
+          type: 'move' as const,
+          move,
+        },
+      ],
     };
     const [result] = buildBattlePlanResults(base);
     expect(result.defenderHp).toEqual({
-      min: 50 + Math.round(result.damage.min * 3 / 4),
-      max: 50 + Math.round(result.damage.max * 3 / 4),
+      min: 50 + Math.round((result.damage.min * 3) / 4),
+      max: 50 + Math.round((result.damage.max * 3) / 4),
     });
     const [capped] = buildBattlePlanResults({
-      ...base, defender: { ...base.defender, currentHp: result.maxHp.defender - 1 },
+      ...base,
+      defender: { ...base.defender, currentHp: result.maxHp.defender - 1 },
     });
-    expect(capped.defenderHp).toEqual({ min: result.maxHp.defender, max: result.maxHp.defender });
+    expect(capped.defenderHp).toEqual({
+      min: result.maxHp.defender,
+      max: result.maxHp.defender,
+    });
     expect(capped.healing).toContainEqual({
-      pokemonId: 'initial-defender', source: 'Draining Kiss', amount: { min: 1, max: 1 },
+      pokemonId: 'initial-defender',
+      source: 'Draining Kiss',
+      amount: { min: 1, max: 1 },
     });
   });
 
   it('heals separately for each Parental Bond hit', () => {
     const team = createTeamDraft(9);
-    const attacker = { ...team.attacker, currentHp: 50, ability: 'Parental Bond', item: undefined };
+    const attacker = {
+      ...team.attacker,
+      currentHp: 50,
+      ability: 'Parental Bond',
+      item: undefined,
+    };
     const defender = { ...team.defender, currentHp: 200 };
     const field = createBattleFieldDraft(9);
-    const move = { name: 'Mega Drain', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
-    const [calc] = buildBattleCalcBreakdowns({ generation: 9, attacker, defender, field, moves: [move] });
+    const move = {
+      name: 'Mega Drain',
+      isCrit: false,
+      hits: 1,
+      isStellarFirstUse: false,
+      timesUsed: 1,
+    };
+    const [calc] = buildBattleCalcBreakdowns({
+      generation: 9,
+      attacker,
+      defender,
+      field,
+      moves: [move],
+    });
     const hits = calc.details!.drainHitDamage!;
     expect(hits).toHaveLength(2);
     const [result] = buildBattlePlanResults({
-      generation: 9, attacker, defender, field,
+      generation: 9,
+      attacker,
+      defender,
+      field,
       actions: [{ id: 'drain', actor: 'attacker', type: 'move', move }],
     });
     expect(result.attackerHp).toEqual({
-      min: 50 + hits.reduce((sum, hit) => sum + Math.max(1, Math.round(hit.min / 2)), 0),
-      max: 50 + hits.reduce((sum, hit) => sum + Math.max(1, Math.round(hit.max / 2)), 0),
+      min:
+        50 +
+        hits.reduce(
+          (sum, hit) => sum + Math.max(1, Math.round(hit.min / 2)),
+          0,
+        ),
+      max:
+        50 +
+        hits.reduce(
+          (sum, hit) => sum + Math.max(1, Math.round(hit.max / 2)),
+          0,
+        ),
     });
   });
 
@@ -310,16 +566,30 @@ describe('battle plan adapter', () => {
     const defender = { ...team.attacker, currentHp: 200, item: undefined };
     const field = createBattleFieldDraft(9);
     const [hit, end] = buildBattlePlanResults({
-      generation: 9, attacker, defender,
-      field: { ...field, defenderSide: { ...field.defenderSide, isSeeded: true } },
+      generation: 9,
+      attacker,
+      defender,
+      field: {
+        ...field,
+        defenderSide: { ...field.defenderSide, isSeeded: true },
+      },
       actions: [
-        { id: 'hit', actor: 'attacker', type: 'move', move: {
-          name: 'Mega Drain', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1,
-        } },
+        {
+          id: 'hit',
+          actor: 'attacker',
+          type: 'move',
+          move: {
+            name: 'Mega Drain',
+            isCrit: false,
+            hits: 1,
+            isStellarFirstUse: false,
+            timesUsed: 1,
+          },
+        },
         { id: 'end', actor: 'attacker', type: 'end-turn' },
       ],
     });
-    const root = (amount: number) => Math.floor(amount * 5324 / 4096);
+    const root = (amount: number) => Math.floor((amount * 5324) / 4096);
     expect(hit.attackerHp).toEqual({
       min: 50 + root(Math.round(hit.damage.min / 2)),
       max: 50 + root(Math.round(hit.damage.max / 2)),
@@ -333,23 +603,54 @@ describe('battle plan adapter', () => {
 
   it('applies Leech Seed to the target, transfers HP each turn, and clears it on switching', () => {
     const team = createTeamDraft(9);
-    const defender = { ...team.attacker, name: 'Target', currentHp: 100, item: undefined };
+    const defender = {
+      ...team.attacker,
+      name: 'Target',
+      currentHp: 100,
+      item: undefined,
+    };
     const replacement = { ...defender, name: 'Replacement' };
     const [seed, end, switched, endAfterSwitch] = buildBattlePlanResults({
       generation: 9,
       attacker: { ...team.defender, currentHp: 50, item: undefined },
       defender,
       defenderRoster: [
-        { id: 'target', label: 'Target', source: 'current', combatant: defender, moves: [] },
-        { id: 'replacement', label: 'Replacement', source: 'party', combatant: replacement, moves: [] },
+        {
+          id: 'target',
+          label: 'Target',
+          source: 'current',
+          combatant: defender,
+          moves: [],
+        },
+        {
+          id: 'replacement',
+          label: 'Replacement',
+          source: 'party',
+          combatant: replacement,
+          moves: [],
+        },
       ],
       field: createBattleFieldDraft(9),
       actions: [
-        { id: 'seed', actor: 'attacker', type: 'move', move: {
-          name: 'Leech Seed', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1,
-        } },
+        {
+          id: 'seed',
+          actor: 'attacker',
+          type: 'move',
+          move: {
+            name: 'Leech Seed',
+            isCrit: false,
+            hits: 1,
+            isStellarFirstUse: false,
+            timesUsed: 1,
+          },
+        },
         { id: 'end', actor: 'attacker', type: 'end-turn' },
-        { id: 'switch', actor: 'defender', type: 'switch', targetPokemonId: 'replacement' },
+        {
+          id: 'switch',
+          actor: 'defender',
+          type: 'switch',
+          targetPokemonId: 'replacement',
+        },
         { id: 'end2', actor: 'attacker', type: 'end-turn' },
       ],
     });
@@ -358,7 +659,9 @@ describe('battle plan adapter', () => {
     expect(end.defenderHp).toEqual({ min: 100 - amount, max: 100 - amount });
     expect(end.attackerHp).toEqual({ min: 50 + amount, max: 50 + amount });
     expect(end.healing).toContainEqual({
-      pokemonId: 'initial-attacker', source: 'Leech Seed', amount: { min: amount, max: amount },
+      pokemonId: 'initial-attacker',
+      source: 'Leech Seed',
+      amount: { min: amount, max: amount },
     });
     expect(switched.field.defenderSide.isSeeded).toBe(false);
     expect(endAfterSwitch.healing).toEqual([]);
@@ -368,10 +671,24 @@ describe('battle plan adapter', () => {
     const team = createTeamDraft(9);
     const field = createBattleFieldDraft(9);
     const [seed] = buildBattlePlanResults({
-      generation: 9, attacker: team.attacker, defender: team.defender, field,
-      actions: [{ id: 'seed', actor: 'attacker', type: 'move', move: {
-        name: 'Leech Seed', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1,
-      } }],
+      generation: 9,
+      attacker: team.attacker,
+      defender: team.defender,
+      field,
+      actions: [
+        {
+          id: 'seed',
+          actor: 'attacker',
+          type: 'move',
+          move: {
+            name: 'Leech Seed',
+            isCrit: false,
+            hits: 1,
+            isStellarFirstUse: false,
+            timesUsed: 1,
+          },
+        },
+      ],
     });
 
     expect(seed.field.defenderSide.isSeeded).toBe(false);
@@ -379,7 +696,10 @@ describe('battle plan adapter', () => {
       generation: 9,
       attacker: { ...team.attacker, currentHp: 50, item: 'Big Root' },
       defender: { ...team.defender, currentHp: 1, ability: 'Liquid Ooze' },
-      field: { ...field, defenderSide: { ...field.defenderSide, isSeeded: true } },
+      field: {
+        ...field,
+        defenderSide: { ...field.defenderSide, isSeeded: true },
+      },
       actions: [{ id: 'end', actor: 'attacker', type: 'end-turn' }],
     });
     expect(end.attackerHp).toEqual({ min: 49, max: 49 });
@@ -387,14 +707,20 @@ describe('battle plan adapter', () => {
     expect(end.healing).toEqual([]);
   });
 
-  it.each([[1, 16], [2, 8]] as const)('uses generation %i Leech Seed damage', (generation, divisor) => {
+  it.each([
+    [1, 16],
+    [2, 8],
+  ] as const)('uses generation %i Leech Seed damage', (generation, divisor) => {
     const team = createTeamDraft(generation);
     const field = createBattleFieldDraft(generation);
     const [end] = buildBattlePlanResults({
       generation,
       attacker: { ...team.attacker, currentHp: 50, item: undefined },
       defender: { ...team.defender, currentHp: 100, item: undefined },
-      field: { ...field, defenderSide: { ...field.defenderSide, isSeeded: true } },
+      field: {
+        ...field,
+        defenderSide: { ...field.defenderSide, isSeeded: true },
+      },
       actions: [{ id: 'end', actor: 'attacker', type: 'end-turn' }],
     });
     const amount = Math.floor(end.maxHp.defender / divisor);
@@ -564,7 +890,9 @@ describe('battle plan adapter', () => {
     expect(results[1].cumulativeDamage.min).toBe(
       results[0].damage.min + results[1].damage.min,
     );
-    expect(results[1].defenderHp.max).toBeLessThanOrEqual(results[0].defenderHp.max);
+    expect(results[1].defenderHp.max).toBeLessThanOrEqual(
+      results[0].defenderHp.max,
+    );
   });
 
   it('returns a local error for an unknown move without stopping later rows', () => {
@@ -596,9 +924,18 @@ describe('battle plan adapter', () => {
 
   it('switches rosters with zero damage and retains each Pokemon HP', () => {
     const team = createTeamDraft(9);
-    const attacker = { ...team.attacker, currentHp: 100, moves: ['Thunderbolt'] };
+    const attacker = {
+      ...team.attacker,
+      currentHp: 100,
+      moves: ['Thunderbolt'],
+    };
     const defender = { ...team.defender, currentHp: 100, moves: ['Tackle'] };
-    const alternateDefender = { ...defender, name: 'Alternate', species: 'Charizard', currentHp: 0 };
+    const alternateDefender = {
+      ...defender,
+      name: 'Alternate',
+      species: 'Charizard',
+      currentHp: 0,
+    };
     const move = {
       name: 'Thunderbolt',
       isCrit: false,
@@ -611,18 +948,48 @@ describe('battle plan adapter', () => {
       attacker,
       defender,
       field: createBattleFieldDraft(9),
-      attackerRoster: [{ id: 'a', label: 'Attacker', source: 'party', combatant: attacker, moves: [] }],
+      attackerRoster: [
+        {
+          id: 'a',
+          label: 'Attacker',
+          source: 'party',
+          combatant: attacker,
+          moves: [],
+        },
+      ],
       defenderRoster: [
-        { id: 'd', label: 'Defender', source: 'trainer', combatant: defender, moves: [] },
-        { id: 'alt', label: 'Alternate', source: 'trainer', combatant: alternateDefender, moves: [] },
+        {
+          id: 'd',
+          label: 'Defender',
+          source: 'trainer',
+          combatant: defender,
+          moves: [],
+        },
+        {
+          id: 'alt',
+          label: 'Alternate',
+          source: 'trainer',
+          combatant: alternateDefender,
+          moves: [],
+        },
       ],
       attackerRosterId: 'a',
       defenderRosterId: 'd',
       actions: [
         { id: 'hit-one', actor: 'attacker', type: 'move', move },
-        { id: 'switch-out', actor: 'defender', type: 'switch', targetPokemonId: 'alt' },
+        {
+          id: 'switch-out',
+          actor: 'defender',
+          type: 'switch',
+          targetPokemonId: 'alt',
+        },
         { id: 'hit-two', actor: 'attacker', type: 'move', move },
-        { id: 'switch-back', actor: 'defender', type: 'switch', targetPokemonId: 'd' },
+        {
+          id: 'switch-back',
+          actor: 'defender',
+          type: 'switch',
+          targetPokemonId: 'd',
+        },
       ],
     });
 
@@ -633,32 +1000,68 @@ describe('battle plan adapter', () => {
       min: results[1].maxHp.defender,
       max: results[1].maxHp.defender,
     });
-    expect(results[2].cumulativeDamage.max).toBeGreaterThan(results[0].cumulativeDamage.max);
+    expect(results[2].cumulativeDamage.max).toBeGreaterThan(
+      results[0].cumulativeDamage.max,
+    );
     expect(results[3].activePokemonId).toBe('d');
     expect(results[3].targetHp).toEqual(results[0].defenderHp);
   });
 
   it('skips residual damage on the end marker of a forced post-KO switch', () => {
     const team = createTeamDraft(9);
-    const attacker = { ...team.attacker, currentHp: 100, moves: ['Thunderbolt'] };
+    const attacker = {
+      ...team.attacker,
+      currentHp: 100,
+      moves: ['Thunderbolt'],
+    };
     const defender = { ...team.defender, currentHp: 100, moves: ['Tackle'] };
-    const alternate = { ...defender, name: 'Alternate', species: 'Charizard', currentHp: 0 };
+    const alternate = {
+      ...defender,
+      name: 'Alternate',
+      species: 'Charizard',
+      currentHp: 0,
+    };
     const field = { ...createBattleFieldDraft(9), weather: 'Sand' as const };
     const results = buildBattlePlanResults({
       generation: 9,
       attacker,
       defender,
       field,
-      attackerRoster: [{ id: 'a', label: 'Attacker', source: 'party', combatant: attacker, moves: [] }],
+      attackerRoster: [
+        {
+          id: 'a',
+          label: 'Attacker',
+          source: 'party',
+          combatant: attacker,
+          moves: [],
+        },
+      ],
       defenderRoster: [
-        { id: 'd', label: 'Defender', source: 'trainer', combatant: defender, moves: [] },
-        { id: 'alt', label: 'Alternate', source: 'trainer', combatant: alternate, moves: [] },
+        {
+          id: 'd',
+          label: 'Defender',
+          source: 'trainer',
+          combatant: defender,
+          moves: [],
+        },
+        {
+          id: 'alt',
+          label: 'Alternate',
+          source: 'trainer',
+          combatant: alternate,
+          moves: [],
+        },
       ],
       attackerRosterId: 'a',
       defenderRosterId: 'd',
       actions: [
         { id: 'faint', actor: 'defender', type: 'state', hp: 0 },
-        { id: 'switch', actor: 'defender', type: 'switch', targetPokemonId: 'alt' },
+        {
+          id: 'switch',
+          actor: 'defender',
+          type: 'switch',
+          targetPokemonId: 'alt',
+        },
         { id: 'end', actor: 'attacker', type: 'end-turn', replacement: true },
       ],
     });
@@ -670,9 +1073,19 @@ describe('battle plan adapter', () => {
 
   it('applies state steps: exact HP, status and weather feed later calculations', () => {
     const team = createTeamDraft(9);
-    const attacker = { ...team.attacker, currentHp: 100, moves: ['Thunderbolt'] };
+    const attacker = {
+      ...team.attacker,
+      currentHp: 100,
+      moves: ['Thunderbolt'],
+    };
     const defender = { ...team.defender, currentHp: 100, moves: ['Tackle'] };
-    const move = { name: 'Thunderbolt', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const move = {
+      name: 'Thunderbolt',
+      isCrit: false,
+      hits: 1,
+      isStellarFirstUse: false,
+      timesUsed: 1,
+    };
     const results = buildBattlePlanResults({
       generation: 9,
       attacker,
@@ -680,7 +1093,14 @@ describe('battle plan adapter', () => {
       field: createBattleFieldDraft(9),
       actions: [
         { id: 'hit', actor: 'attacker', type: 'move', move },
-        { id: 'confirm', actor: 'defender', type: 'state', hp: 40, status: 'brn', weather: 'Rain' },
+        {
+          id: 'confirm',
+          actor: 'defender',
+          type: 'state',
+          hp: 40,
+          status: 'brn',
+          weather: 'Rain',
+        },
         { id: 'hit-again', actor: 'attacker', type: 'move', move },
       ],
     });
@@ -694,11 +1114,29 @@ describe('battle plan adapter', () => {
 
   it('applies stat stages from state steps to later calculations', () => {
     const team = createTeamDraft(9);
-    const attacker = { ...team.attacker, currentHp: 100, moves: ['Thunderbolt'] };
+    const attacker = {
+      ...team.attacker,
+      currentHp: 100,
+      moves: ['Thunderbolt'],
+    };
     const defender = { ...team.defender, currentHp: 100, moves: ['Tackle'] };
-    const move = { name: 'Tackle', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
-    const base = { generation: 9 as const, attacker, defender, field: createBattleFieldDraft(9) };
-    const plain = buildBattlePlanResults({ ...base, actions: [{ id: 'hit', actor: 'defender', type: 'move', move }] });
+    const move = {
+      name: 'Tackle',
+      isCrit: false,
+      hits: 1,
+      isStellarFirstUse: false,
+      timesUsed: 1,
+    };
+    const base = {
+      generation: 9 as const,
+      attacker,
+      defender,
+      field: createBattleFieldDraft(9),
+    };
+    const plain = buildBattlePlanResults({
+      ...base,
+      actions: [{ id: 'hit', actor: 'defender', type: 'move', move }],
+    });
     const boosted = buildBattlePlanResults({
       ...base,
       actions: [
@@ -713,15 +1151,33 @@ describe('battle plan adapter', () => {
 
   it('treats a skipped move as no action: zero damage and HP unchanged', () => {
     const team = createTeamDraft(9);
-    const attacker = { ...team.attacker, currentHp: 0, status: 'slp' as const, moves: ['Thunderbolt'] };
+    const attacker = {
+      ...team.attacker,
+      currentHp: 0,
+      status: 'slp' as const,
+      moves: ['Thunderbolt'],
+    };
     const defender = { ...team.defender, currentHp: 0, moves: ['Tackle'] };
-    const move = { name: 'Thunderbolt', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const move = {
+      name: 'Thunderbolt',
+      isCrit: false,
+      hits: 1,
+      isStellarFirstUse: false,
+      timesUsed: 1,
+    };
     const [result] = buildBattlePlanResults({
       generation: 9,
       attacker,
       defender,
       field: createBattleFieldDraft(9),
-      actions: [{ id: 'asleep', actor: 'attacker', type: 'move', move: { ...move, skipped: true } }],
+      actions: [
+        {
+          id: 'asleep',
+          actor: 'attacker',
+          type: 'move',
+          move: { ...move, skipped: true },
+        },
+      ],
     });
 
     expect(result.damage).toEqual({ min: 0, max: 0 });
@@ -735,7 +1191,11 @@ describe('battle plan adapter', () => {
   it('prevents a knocked-out Pokémon from dealing damage later in the turn', () => {
     const team = createTeamDraft(9);
     const move = (name: string) => ({
-      name, isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1,
+      name,
+      isCrit: false,
+      hits: 1,
+      isStellarFirstUse: false,
+      timesUsed: 1,
     });
     const results = buildBattlePlanResults({
       generation: 9,
@@ -744,7 +1204,12 @@ describe('battle plan adapter', () => {
       field: createBattleFieldDraft(9),
       actions: [
         { id: 'ohko', actor: 'attacker', type: 'move', move: move('Tackle') },
-        { id: 'fainted-move', actor: 'defender', type: 'move', move: move('Tackle') },
+        {
+          id: 'fainted-move',
+          actor: 'defender',
+          type: 'move',
+          move: move('Tackle'),
+        },
       ],
     });
 
@@ -868,16 +1333,31 @@ describe('battle plan adapter', () => {
     });
 
     expect(
-    results[2].action.type === 'move' && results[2].action.move.skipped,
+      results[2].action.type === 'move' && results[2].action.move.skipped,
     ).not.toBe(true);
     expect(results[2].damage.max).toBeGreaterThan(0);
   });
 
   it('applies status from moves like Thunder Wave and carries it into later steps', () => {
     const team = createTeamDraft(9);
-    const attacker = { ...team.attacker, currentHp: 100, moves: ['Thunder Wave'] };
-    const defender = { ...team.defender, types: ['Normal'] as const, currentHp: 100, moves: ['Tackle'] };
-    const wave = { name: 'Thunder Wave', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const attacker = {
+      ...team.attacker,
+      currentHp: 100,
+      moves: ['Thunder Wave'],
+    };
+    const defender = {
+      ...team.defender,
+      types: ['Normal'] as const,
+      currentHp: 100,
+      moves: ['Tackle'],
+    };
+    const wave = {
+      name: 'Thunder Wave',
+      isCrit: false,
+      hits: 1,
+      isStellarFirstUse: false,
+      timesUsed: 1,
+    };
     const results = buildBattlePlanResults({
       generation: 9,
       attacker,
@@ -896,8 +1376,18 @@ describe('battle plan adapter', () => {
 
   it('applies end-of-turn burn and escalating toxic damage', () => {
     const team = createTeamDraft(9);
-    const attacker = { ...team.attacker, currentHp: 160, status: 'brn' as const, ability: 'Static' };
-    const defender = { ...team.defender, currentHp: 160, status: 'tox' as const, ability: 'Static' };
+    const attacker = {
+      ...team.attacker,
+      currentHp: 160,
+      status: 'brn' as const,
+      ability: 'Static',
+    };
+    const defender = {
+      ...team.defender,
+      currentHp: 160,
+      status: 'tox' as const,
+      ability: 'Static',
+    };
     const results = buildBattlePlanResults({
       generation: 9,
       attacker,
@@ -912,18 +1402,31 @@ describe('battle plan adapter', () => {
     const [first, second] = results.map((r) => r.residual!);
     expect(first.attacker.damage).toBeGreaterThan(0);
     expect(first.attacker.sources).toEqual(['burn']);
-    expect(second.defender.damage).toBe(Math.floor((second.defender.maxHp * 2) / 16));
+    expect(second.defender.damage).toBe(
+      Math.floor((second.defender.maxHp * 2) / 16),
+    );
     expect(results[1].defenderHp.max).toBeLessThan(results[0].defenderHp.max);
   });
 
   it('applies item, ability and terrain residuals', () => {
     const team = createTeamDraft(9);
-    const base = { ...team.attacker, currentHp: 100, ability: 'Static', status: undefined };
+    const base = {
+      ...team.attacker,
+      currentHp: 100,
+      ability: 'Static',
+      status: undefined,
+    };
     const field = { ...createBattleFieldDraft(9), terrain: 'Grassy' as const };
     const results = buildBattlePlanResults({
       generation: 9,
       attacker: { ...base, item: 'Leftovers' },
-      defender: { ...team.defender, currentHp: 100, ability: 'Static', item: 'Flame Orb', status: undefined },
+      defender: {
+        ...team.defender,
+        currentHp: 100,
+        ability: 'Static',
+        item: 'Flame Orb',
+        status: undefined,
+      },
       field,
       actions: [
         { id: 'e1', actor: 'attacker', type: 'end-turn' },
@@ -931,17 +1434,39 @@ describe('battle plan adapter', () => {
       ],
     });
 
-    expect(results[0].residual!.attacker.sources).toEqual(expect.arrayContaining(['Leftovers']));
-    expect(results[0].residual!.defender.sources).toContain('Flame Orb (burns)');
+    expect(results[0].residual!.attacker.sources).toEqual(
+      expect.arrayContaining(['Leftovers']),
+    );
+    expect(results[0].residual!.defender.sources).toContain(
+      'Flame Orb (burns)',
+    );
     expect(results[0].statuses['initial-defender']).toBe('brn');
     expect(results[1].residual!.defender.sources).toContain('burn');
   });
 
   it('consumes a resist berry on the first super effective hit only', () => {
     const team = createTeamDraft(9);
-    const attacker = { ...team.attacker, currentHp: 100, moves: ['Thunderbolt'] };
-    const defender = { ...team.defender, species: 'Squirtle', name: 'Squirtle', types: ['Water'] as const, item: 'Wacan Berry', currentHp: 0, moves: ['Tackle'] };
-    const move = { name: 'Thunderbolt', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const attacker = {
+      ...team.attacker,
+      currentHp: 100,
+      moves: ['Thunderbolt'],
+    };
+    const defender = {
+      ...team.defender,
+      species: 'Squirtle',
+      name: 'Squirtle',
+      types: ['Water'] as const,
+      item: 'Wacan Berry',
+      currentHp: 0,
+      moves: ['Tackle'],
+    };
+    const move = {
+      name: 'Thunderbolt',
+      isCrit: false,
+      hits: 1,
+      isStellarFirstUse: false,
+      timesUsed: 1,
+    };
     const withBerry = buildBattlePlanResults({
       generation: 9,
       attacker,
@@ -954,15 +1479,30 @@ describe('battle plan adapter', () => {
     });
 
     expect(withBerry[0].items['initial-defender']).toBe('consumed');
-    expect(withBerry[0].itemEvents.join(' ')).toContain('Wacan Berry weakened the hit');
-    expect(withBerry[1].damage.max).toBeGreaterThan(withBerry[0].damage.max * 1.8);
+    expect(withBerry[0].itemEvents.join(' ')).toContain(
+      'Wacan Berry weakened the hit',
+    );
+    expect(withBerry[1].damage.max).toBeGreaterThan(
+      withBerry[0].damage.max * 1.8,
+    );
   });
 
   it('fails Belch until the user has eaten a Berry', () => {
     const team = createTeamDraft(9);
     const attacker = { ...team.attacker, currentHp: 0, moves: ['Tackle'] };
-    const defender = { ...team.defender, currentHp: 0, item: 'Leftovers', moves: ['Belch'] };
-    const belch = { name: 'Belch', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const defender = {
+      ...team.defender,
+      currentHp: 0,
+      item: 'Leftovers',
+      moves: ['Belch'],
+    };
+    const belch = {
+      name: 'Belch',
+      isCrit: false,
+      hits: 1,
+      isStellarFirstUse: false,
+      timesUsed: 1,
+    };
     const field = createBattleFieldDraft(9);
     const unavailable = buildBattlePlanResults({
       generation: 9,
@@ -981,14 +1521,22 @@ describe('battle plan adapter', () => {
           id: 'hit',
           actor: 'attacker',
           type: 'move',
-          move: { name: 'Tackle', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 },
+          move: {
+            name: 'Tackle',
+            isCrit: false,
+            hits: 1,
+            isStellarFirstUse: false,
+            timesUsed: 1,
+          },
         },
         { id: 'belch', actor: 'defender', type: 'move', move: belch },
       ],
     });
 
     expect(unavailable.damage).toEqual({ min: 0, max: 0 });
-    expect(unavailable.itemEvents.join(' ')).toContain('Belch failed because no Berry has been eaten');
+    expect(unavailable.itemEvents.join(' ')).toContain(
+      'Belch failed because no Berry has been eaten',
+    );
     expect(afterBerry[0].items['initial-defender']).toBe('consumed');
     expect(afterBerry[0].eatenBerries['initial-defender']).toBe('yes');
     expect(afterBerry[1].damage.max).toBeGreaterThan(0);
@@ -997,8 +1545,19 @@ describe('battle plan adapter', () => {
   it('includes a failed Belch when a Berry was only possibly eaten', () => {
     const team = createTeamDraft(9);
     const attacker = { ...team.attacker, currentHp: 0, moves: ['Tackle'] };
-    const defender = { ...team.defender, currentHp: 0, item: 'Sitrus Berry', moves: ['Belch'] };
-    const tackle = { name: 'Tackle', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const defender = {
+      ...team.defender,
+      currentHp: 0,
+      item: 'Sitrus Berry',
+      moves: ['Belch'],
+    };
+    const tackle = {
+      name: 'Tackle',
+      isCrit: false,
+      hits: 1,
+      isStellarFirstUse: false,
+      timesUsed: 1,
+    };
     const belch = { ...tackle, name: 'Belch' };
     const field = createBattleFieldDraft(9);
     const probe = buildBattlePlanResults({
@@ -1029,9 +1588,20 @@ describe('battle plan adapter', () => {
 
   it('consumes a Berry used by Natural Gift without counting it as eaten', () => {
     const team = createTeamDraft(9);
-    const attacker = { ...team.attacker, currentHp: 0, item: 'Oran Berry', moves: ['Natural Gift', 'Belch'] };
+    const attacker = {
+      ...team.attacker,
+      currentHp: 0,
+      item: 'Oran Berry',
+      moves: ['Natural Gift', 'Belch'],
+    };
     const defender = { ...team.defender, currentHp: 0, moves: ['Tackle'] };
-    const gift = { name: 'Natural Gift', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const gift = {
+      name: 'Natural Gift',
+      isCrit: false,
+      hits: 1,
+      isStellarFirstUse: false,
+      timesUsed: 1,
+    };
     const belch = { ...gift, name: 'Belch' };
     const results = buildBattlePlanResults({
       generation: 9,
@@ -1052,9 +1622,20 @@ describe('battle plan adapter', () => {
 
   it('consumes a Fling item and lets Recycle restore it for a later move', () => {
     const team = createTeamDraft(9);
-    const attacker = { ...team.attacker, currentHp: 0, item: 'Sitrus Berry', moves: ['Fling', 'Recycle'] };
+    const attacker = {
+      ...team.attacker,
+      currentHp: 0,
+      item: 'Sitrus Berry',
+      moves: ['Fling', 'Recycle'],
+    };
     const defender = { ...team.defender, currentHp: 0, moves: ['Tackle'] };
-    const fling = { name: 'Fling', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const fling = {
+      name: 'Fling',
+      isCrit: false,
+      hits: 1,
+      isStellarFirstUse: false,
+      timesUsed: 1,
+    };
     const belch = { ...fling, name: 'Belch' };
     const recycle = { ...fling, name: 'Recycle' };
     const results = buildBattlePlanResults({
@@ -1079,9 +1660,20 @@ describe('battle plan adapter', () => {
 
   it('eats the user Berry with Stuff Cheeks and raises Defense', () => {
     const team = createTeamDraft(9);
-    const attacker = { ...team.attacker, currentHp: 0, item: 'Kee Berry', moves: ['Stuff Cheeks', 'Belch'] };
+    const attacker = {
+      ...team.attacker,
+      currentHp: 0,
+      item: 'Kee Berry',
+      moves: ['Stuff Cheeks', 'Belch'],
+    };
     const defender = { ...team.defender, currentHp: 0, moves: ['Tackle'] };
-    const cheeks = { name: 'Stuff Cheeks', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const cheeks = {
+      name: 'Stuff Cheeks',
+      isCrit: false,
+      hits: 1,
+      isStellarFirstUse: false,
+      timesUsed: 1,
+    };
     const belch = { ...cheeks, name: 'Belch' };
     const results = buildBattlePlanResults({
       generation: 9,
@@ -1101,9 +1693,25 @@ describe('battle plan adapter', () => {
 
   it('makes Teatime consume berries held by both active Pokemon', () => {
     const team = createTeamDraft(9);
-    const attacker = { ...team.attacker, currentHp: 0, item: 'Oran Berry', moves: ['Teatime'] };
-    const defender = { ...team.defender, currentHp: 0, item: 'Sitrus Berry', moves: ['Belch'] };
-    const teatime = { name: 'Teatime', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const attacker = {
+      ...team.attacker,
+      currentHp: 0,
+      item: 'Oran Berry',
+      moves: ['Teatime'],
+    };
+    const defender = {
+      ...team.defender,
+      currentHp: 0,
+      item: 'Sitrus Berry',
+      moves: ['Belch'],
+    };
+    const teatime = {
+      name: 'Teatime',
+      isCrit: false,
+      hits: 1,
+      isStellarFirstUse: false,
+      timesUsed: 1,
+    };
     const belch = { ...teatime, name: 'Belch' };
     const results = buildBattlePlanResults({
       generation: 9,
@@ -1121,38 +1729,74 @@ describe('battle plan adapter', () => {
     expect(results[1].damage.max).toBeGreaterThan(0);
   });
 
-  it.each(['Bug Bite', 'Pluck'])('%s eats the target Berry and applies its effect to the user', (name) => {
-    const team = createTeamDraft(9);
-    const attacker = { ...team.attacker, currentHp: 0, moves: [name, 'Belch'] };
-    const defender = { ...team.defender, currentHp: 0, item: 'Salac Berry', moves: ['Tackle'] };
-    const bite = { name, isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
-    const belch = { ...bite, name: 'Belch' };
-    const results = buildBattlePlanResults({
-      generation: 9,
-      attacker,
-      defender,
-      field: createBattleFieldDraft(9),
-      actions: [
-        { id: 'bite', actor: 'attacker', type: 'move', move: bite },
-        { id: 'belch', actor: 'attacker', type: 'move', move: belch },
-      ],
-    });
+  it.each(['Bug Bite', 'Pluck'])(
+    '%s eats the target Berry and applies its effect to the user',
+    (name) => {
+      const team = createTeamDraft(9);
+      const attacker = {
+        ...team.attacker,
+        currentHp: 0,
+        moves: [name, 'Belch'],
+      };
+      const defender = {
+        ...team.defender,
+        currentHp: 0,
+        item: 'Salac Berry',
+        moves: ['Tackle'],
+      };
+      const bite = {
+        name,
+        isCrit: false,
+        hits: 1,
+        isStellarFirstUse: false,
+        timesUsed: 1,
+      };
+      const belch = { ...bite, name: 'Belch' };
+      const results = buildBattlePlanResults({
+        generation: 9,
+        attacker,
+        defender,
+        field: createBattleFieldDraft(9),
+        actions: [
+          { id: 'bite', actor: 'attacker', type: 'move', move: bite },
+          { id: 'belch', actor: 'attacker', type: 'move', move: belch },
+        ],
+      });
 
-    expect(results[0].items['initial-defender']).toBe('consumed');
-    expect(results[0].boosts['initial-attacker'].spe).toBe(1);
-    expect(results[1].damage.max).toBeGreaterThan(0);
-  });
+      expect(results[0].items['initial-defender']).toBe('consumed');
+      expect(results[0].boosts['initial-attacker'].spe).toBe(1);
+      expect(results[1].damage.max).toBeGreaterThan(0);
+    },
+  );
 
   it('raises Defense when a Kee Berry holder survives a physical hit', () => {
     const team = createTeamDraft(9);
     const attacker = { ...team.attacker, currentHp: 100, moves: ['Tackle'] };
-    const defender = { ...team.defender, item: 'Kee Berry', currentHp: 0, moves: ['Tackle'] };
+    const defender = {
+      ...team.defender,
+      item: 'Kee Berry',
+      currentHp: 0,
+      moves: ['Tackle'],
+    };
     const [result] = buildBattlePlanResults({
       generation: 9,
       attacker,
       defender,
       field: createBattleFieldDraft(9),
-      actions: [{ id: 'hit', actor: 'attacker', type: 'move', move: { name: 'Tackle', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 } }],
+      actions: [
+        {
+          id: 'hit',
+          actor: 'attacker',
+          type: 'move',
+          move: {
+            name: 'Tackle',
+            isCrit: false,
+            hits: 1,
+            isStellarFirstUse: false,
+            timesUsed: 1,
+          },
+        },
+      ],
     });
 
     expect(result.items['initial-defender']).toBe('consumed');
@@ -1162,27 +1806,64 @@ describe('battle plan adapter', () => {
   it('makes the attacker lose HP to a Jaboca Berry on a physical hit', () => {
     const team = createTeamDraft(9);
     const attacker = { ...team.attacker, currentHp: 0, moves: ['Tackle'] };
-    const defender = { ...team.defender, item: 'Jaboca Berry', currentHp: 0, moves: ['Tackle'] };
+    const defender = {
+      ...team.defender,
+      item: 'Jaboca Berry',
+      currentHp: 0,
+      moves: ['Tackle'],
+    };
     const [result] = buildBattlePlanResults({
       generation: 9,
       attacker,
       defender,
       field: createBattleFieldDraft(9),
-      actions: [{ id: 'hit', actor: 'attacker', type: 'move', move: { name: 'Tackle', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 } }],
+      actions: [
+        {
+          id: 'hit',
+          actor: 'attacker',
+          type: 'move',
+          move: {
+            name: 'Tackle',
+            isCrit: false,
+            hits: 1,
+            isStellarFirstUse: false,
+            timesUsed: 1,
+          },
+        },
+      ],
     });
 
     expect(result.maxHp.attacker).toBeGreaterThan(0);
-    expect(result.attackerHp.max).toBe(result.maxHp.attacker - Math.floor(result.maxHp.attacker / 8));
+    expect(result.attackerHp.max).toBe(
+      result.maxHp.attacker - Math.floor(result.maxHp.attacker / 8),
+    );
     expect(result.items['initial-defender']).toBe('consumed');
   });
 
   it('eats a Sitrus Berry right after the hit that crosses half HP', () => {
     const team = createTeamDraft(9);
     const attacker = { ...team.attacker, currentHp: 0, moves: ['Thunderbolt'] };
-    const defender = { ...team.defender, types: ['Normal'] as const, currentHp: 0, moves: ['Tackle'] };
+    const defender = {
+      ...team.defender,
+      types: ['Normal'] as const,
+      currentHp: 0,
+      moves: ['Tackle'],
+    };
     const field = createBattleFieldDraft(9);
-    const move = { name: 'Thunderbolt', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
-    const plain = buildBattlePlanResults({ generation: 9, attacker, defender, field, actions: [{ id: 'hit', actor: 'attacker', type: 'move', move }] })[0];
+    const move = {
+      name: 'Thunderbolt',
+      isCrit: false,
+      hits: 1,
+      isStellarFirstUse: false,
+      timesUsed: 1,
+    };
+    const plain = buildBattlePlanResults({
+      generation: 9,
+      attacker,
+      defender,
+      field,
+      actions: [{ id: 'hit', actor: 'attacker', type: 'move', move }],
+    })[0];
     // Hit once for a bit over half of max HP via a state correction, then check the berry fires on the next hit.
     const maxHp = plain.maxHp.defender;
     const results = buildBattlePlanResults({
@@ -1192,7 +1873,12 @@ describe('battle plan adapter', () => {
       field,
       actions: [
         { id: 'prime', actor: 'attacker', type: 'move', move },
-        { id: 'set', actor: 'defender', type: 'state', hp: Math.floor(maxHp / 2) + 1 },
+        {
+          id: 'set',
+          actor: 'defender',
+          type: 'state',
+          hp: Math.floor(maxHp / 2) + 1,
+        },
         { id: 'hit', actor: 'attacker', type: 'move', move },
       ],
     });
@@ -1206,7 +1892,13 @@ describe('battle plan adapter', () => {
     const team = createTeamDraft(9);
     const attacker = { ...team.attacker, currentHp: 100 };
     const defender = { ...team.defender, currentHp: 100, item: 'Oran Berry' };
-    const move = { name: 'Tackle', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const move = {
+      name: 'Tackle',
+      isCrit: false,
+      hits: 1,
+      isStellarFirstUse: false,
+      timesUsed: 1,
+    };
     const results = buildBattlePlanResults({
       generation: 9,
       attacker,
@@ -1234,7 +1926,13 @@ describe('battle plan adapter', () => {
     const team = createTeamDraft(9);
     const attacker = { ...team.attacker, currentHp: 100 };
     const defender = { ...team.defender, currentHp: 100, item: 'Berry Juice' };
-    const move = { name: 'Tackle', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const move = {
+      name: 'Tackle',
+      isCrit: false,
+      hits: 1,
+      isStellarFirstUse: false,
+      timesUsed: 1,
+    };
     const results = buildBattlePlanResults({
       generation: 9,
       attacker,
@@ -1264,8 +1962,19 @@ describe('battle plan adapter', () => {
     const team = createTeamDraft(9);
     const attacker = { ...team.attacker, currentHp: 0 };
     const defender = { ...team.defender, currentHp: 0, item: 'Berry Juice' };
-    const move = { name: 'Thunderbolt', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
-    const base = { generation: 9 as const, attacker, defender, field: createBattleFieldDraft(9) };
+    const move = {
+      name: 'Thunderbolt',
+      isCrit: false,
+      hits: 1,
+      isStellarFirstUse: false,
+      timesUsed: 1,
+    };
+    const base = {
+      generation: 9 as const,
+      attacker,
+      defender,
+      field: createBattleFieldDraft(9),
+    };
     const [probe] = buildBattlePlanResults({
       ...base,
       actions: [{ id: 'probe', actor: 'attacker', type: 'move', move }],
@@ -1273,7 +1982,12 @@ describe('battle plan adapter', () => {
     const results = buildBattlePlanResults({
       ...base,
       actions: [
-        { id: 'set-hp', actor: 'defender', type: 'state', hp: Math.floor(probe.maxHp.defender / 2) + probe.damage.max },
+        {
+          id: 'set-hp',
+          actor: 'defender',
+          type: 'state',
+          hp: Math.floor(probe.maxHp.defender / 2) + probe.damage.max,
+        },
         { id: 'first-hit', actor: 'attacker', type: 'move', move },
         { id: 'second-hit', actor: 'attacker', type: 'move', move },
         { id: 'end', actor: 'attacker', type: 'end-turn' },
@@ -1281,7 +1995,9 @@ describe('battle plan adapter', () => {
     });
 
     expect(results[1].items['initial-defender']).toBe('maybe-consumed');
-    expect(results[2].healing).toContainEqual(expect.objectContaining({ source: 'Berry Juice' }));
+    expect(results[2].healing).toContainEqual(
+      expect.objectContaining({ source: 'Berry Juice' }),
+    );
     expect(results[3].healing).toEqual([]);
     expect(results[3].itemEvents).toEqual([]);
   });
@@ -1290,8 +2006,19 @@ describe('battle plan adapter', () => {
     const team = createTeamDraft(9);
     const attacker = { ...team.attacker, currentHp: 0 };
     const defender = { ...team.defender, currentHp: 0, item: 'Berry Juice' };
-    const move = { name: 'Tackle', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
-    const base = { generation: 9 as const, attacker, defender, field: createBattleFieldDraft(9) };
+    const move = {
+      name: 'Tackle',
+      isCrit: false,
+      hits: 1,
+      isStellarFirstUse: false,
+      timesUsed: 1,
+    };
+    const base = {
+      generation: 9 as const,
+      attacker,
+      defender,
+      field: createBattleFieldDraft(9),
+    };
     const [probe] = buildBattlePlanResults({
       ...base,
       actions: [{ id: 'probe', actor: 'attacker', type: 'move', move }],
@@ -1299,7 +2026,12 @@ describe('battle plan adapter', () => {
     const results = buildBattlePlanResults({
       ...base,
       actions: [
-        { id: 'set-hp', actor: 'defender', type: 'state', hp: probe.damage.max },
+        {
+          id: 'set-hp',
+          actor: 'defender',
+          type: 'state',
+          hp: probe.damage.max,
+        },
         { id: 'hit', actor: 'attacker', type: 'move', move },
         { id: 'end', actor: 'attacker', type: 'end-turn' },
       ],
@@ -1307,45 +2039,77 @@ describe('battle plan adapter', () => {
 
     expect(results[1].defenderHp.min).toBe(0);
     expect(results[1].items['initial-defender']).toBe('maybe-consumed');
-    expect(results[1].healing).toContainEqual(expect.objectContaining({ source: 'Berry Juice' }));
+    expect(results[1].healing).toContainEqual(
+      expect.objectContaining({ source: 'Berry Juice' }),
+    );
     expect(results[2].healing).toEqual([]);
     expect(results[2].itemEvents).toEqual([]);
   });
 
   it('does not apply berry-specific effects to Berry Juice', () => {
     const team = createTeamDraft(9);
-    const move = { name: 'Tackle', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const move = {
+      name: 'Tackle',
+      isCrit: false,
+      hits: 1,
+      isStellarFirstUse: false,
+      timesUsed: 1,
+    };
     for (const ability of ['Ripen', 'Cheek Pouch']) {
       const [result] = buildBattlePlanResults({
         generation: 9,
         attacker: { ...team.attacker, currentHp: 100, ability: 'Unnerve' },
-        defender: { ...team.defender, currentHp: 100, item: 'Berry Juice', ability },
+        defender: {
+          ...team.defender,
+          currentHp: 100,
+          item: 'Berry Juice',
+          ability,
+        },
         field: createBattleFieldDraft(9),
         actions: [{ id: 'hit', actor: 'attacker', type: 'move', move }],
       });
       expect(result.items['initial-defender']).toBe('consumed');
-      expect(result.healing).toEqual([{
-        pokemonId: 'initial-defender',
-        source: 'Berry Juice',
-        amount: { min: 20, max: 20 },
-      }]);
+      expect(result.healing).toEqual([
+        {
+          pokemonId: 'initial-defender',
+          source: 'Berry Juice',
+          amount: { min: 20, max: 20 },
+        },
+      ]);
       expect(result.eatenBerries['initial-defender']).toBeUndefined();
     }
   });
 
-  it.each(['Klutz', 'Magic Room'])('does not consume Berry Juice under %s', (blocker) => {
-    const team = createTeamDraft(9);
-    const move = { name: 'Tackle', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
-    const [result] = buildBattlePlanResults({
-      generation: 9,
-      attacker: { ...team.attacker, currentHp: 100 },
-      defender: { ...team.defender, currentHp: 100, item: 'Berry Juice', ability: blocker === 'Klutz' ? blocker : undefined },
-      field: { ...createBattleFieldDraft(9), isMagicRoom: blocker === 'Magic Room' },
-      actions: [{ id: 'hit', actor: 'attacker', type: 'move', move }],
-    });
-    expect(result.items['initial-defender']).toBe('held');
-    expect(result.healing).toEqual([]);
-  });
+  it.each(['Klutz', 'Magic Room'])(
+    'does not consume Berry Juice under %s',
+    (blocker) => {
+      const team = createTeamDraft(9);
+      const move = {
+        name: 'Tackle',
+        isCrit: false,
+        hits: 1,
+        isStellarFirstUse: false,
+        timesUsed: 1,
+      };
+      const [result] = buildBattlePlanResults({
+        generation: 9,
+        attacker: { ...team.attacker, currentHp: 100 },
+        defender: {
+          ...team.defender,
+          currentHp: 100,
+          item: 'Berry Juice',
+          ability: blocker === 'Klutz' ? blocker : undefined,
+        },
+        field: {
+          ...createBattleFieldDraft(9),
+          isMagicRoom: blocker === 'Magic Room',
+        },
+        actions: [{ id: 'hit', actor: 'attacker', type: 'move', move }],
+      });
+      expect(result.items['initial-defender']).toBe('held');
+      expect(result.healing).toEqual([]);
+    },
+  );
 
   it('records capped end-of-turn recovery', () => {
     const team = createTeamDraft(9);
@@ -1379,12 +2143,20 @@ describe('battle plan adapter', () => {
       attacker: team.attacker,
       defender: { ...team.defender, currentHp: 1, item: 'Oran Berry' },
       field: createBattleFieldDraft(9),
-      actions: [{
-        id: 'hit',
-        actor: 'attacker',
-        type: 'move',
-        move: { name: 'Tackle', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 },
-      }],
+      actions: [
+        {
+          id: 'hit',
+          actor: 'attacker',
+          type: 'move',
+          move: {
+            name: 'Tackle',
+            isCrit: false,
+            hits: 1,
+            isStellarFirstUse: false,
+            timesUsed: 1,
+          },
+        },
+      ],
     });
 
     expect(result.isKo).toBe(true);
@@ -1393,14 +2165,37 @@ describe('battle plan adapter', () => {
 
   it('cures a status as soon as a move inflicts it', () => {
     const team = createTeamDraft(9);
-    const attacker = { ...team.attacker, currentHp: 100, moves: ['Thunder Wave'] };
-    const defender = { ...team.defender, types: ['Normal'] as const, item: 'Cheri Berry', currentHp: 100, moves: ['Tackle'] };
+    const attacker = {
+      ...team.attacker,
+      currentHp: 100,
+      moves: ['Thunder Wave'],
+    };
+    const defender = {
+      ...team.defender,
+      types: ['Normal'] as const,
+      item: 'Cheri Berry',
+      currentHp: 100,
+      moves: ['Tackle'],
+    };
     const [result] = buildBattlePlanResults({
       generation: 9,
       attacker,
       defender,
       field: createBattleFieldDraft(9),
-      actions: [{ id: 'wave', actor: 'attacker', type: 'move', move: { name: 'Thunder Wave', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 } }],
+      actions: [
+        {
+          id: 'wave',
+          actor: 'attacker',
+          type: 'move',
+          move: {
+            name: 'Thunder Wave',
+            isCrit: false,
+            hits: 1,
+            isStellarFirstUse: false,
+            timesUsed: 1,
+          },
+        },
+      ],
     });
 
     expect(result.statuses['initial-defender']).toBeUndefined();
@@ -1409,14 +2204,37 @@ describe('battle plan adapter', () => {
 
   it('does not eat berries next to an Unnerve opponent', () => {
     const team = createTeamDraft(9);
-    const attacker = { ...team.attacker, ability: 'Unnerve', currentHp: 0, moves: ['Tackle'] };
-    const defender = { ...team.defender, item: 'Kee Berry', currentHp: 0, moves: ['Tackle'] };
+    const attacker = {
+      ...team.attacker,
+      ability: 'Unnerve',
+      currentHp: 0,
+      moves: ['Tackle'],
+    };
+    const defender = {
+      ...team.defender,
+      item: 'Kee Berry',
+      currentHp: 0,
+      moves: ['Tackle'],
+    };
     const [result] = buildBattlePlanResults({
       generation: 9,
       attacker,
       defender,
       field: createBattleFieldDraft(9),
-      actions: [{ id: 'hit', actor: 'attacker', type: 'move', move: { name: 'Tackle', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 } }],
+      actions: [
+        {
+          id: 'hit',
+          actor: 'attacker',
+          type: 'move',
+          move: {
+            name: 'Tackle',
+            isCrit: false,
+            hits: 1,
+            isStellarFirstUse: false,
+            timesUsed: 1,
+          },
+        },
+      ],
     });
 
     expect(result.items['initial-defender']).toBe('held');
@@ -1425,15 +2243,39 @@ describe('battle plan adapter', () => {
   it('heals with Cheek Pouch after a healing berry, without exceeding max HP', () => {
     const team = createTeamDraft(9);
     const attacker = { ...team.attacker, currentHp: 100, moves: ['Tackle'] };
-    const defender = { ...team.defender, ability: 'Cheek Pouch', item: 'Sitrus Berry', currentHp: 0 };
-    const move = { name: 'Tackle', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
-    const base = { generation: 9 as const, attacker, defender, field: createBattleFieldDraft(9) };
-    const [probe] = buildBattlePlanResults({ ...base, actions: [{ id: 'probe', actor: 'attacker', type: 'move', move }] });
+    const defender = {
+      ...team.defender,
+      ability: 'Cheek Pouch',
+      item: 'Sitrus Berry',
+      currentHp: 0,
+    };
+    const move = {
+      name: 'Tackle',
+      isCrit: false,
+      hits: 1,
+      isStellarFirstUse: false,
+      timesUsed: 1,
+    };
+    const base = {
+      generation: 9 as const,
+      attacker,
+      defender,
+      field: createBattleFieldDraft(9),
+    };
+    const [probe] = buildBattlePlanResults({
+      ...base,
+      actions: [{ id: 'probe', actor: 'attacker', type: 'move', move }],
+    });
     const results = buildBattlePlanResults({
       ...base,
       actions: [
         { id: 'probe', actor: 'attacker', type: 'move', move },
-        { id: 'set', actor: 'defender', type: 'state', hp: Math.floor(probe.maxHp.defender / 2) },
+        {
+          id: 'set',
+          actor: 'defender',
+          type: 'state',
+          hp: Math.floor(probe.maxHp.defender / 2),
+        },
         { id: 'hit', actor: 'attacker', type: 'move', move },
       ],
     });
@@ -1454,11 +2296,25 @@ describe('battle plan adapter', () => {
     const base = {
       generation: 9 as const,
       attacker: { ...team.attacker, currentHp: 100 },
-      defender: { ...team.defender, ability: 'Cheek Pouch', item: 'Sitrus Berry', currentHp: 0 },
+      defender: {
+        ...team.defender,
+        ability: 'Cheek Pouch',
+        item: 'Sitrus Berry',
+        currentHp: 0,
+      },
       field: createBattleFieldDraft(9),
     };
-    const move = { name: 'Tackle', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
-    const [probe] = buildBattlePlanResults({ ...base, actions: [{ id: 'hit', actor: 'attacker', type: 'move', move }] });
+    const move = {
+      name: 'Tackle',
+      isCrit: false,
+      hits: 1,
+      isStellarFirstUse: false,
+      timesUsed: 1,
+    };
+    const [probe] = buildBattlePlanResults({
+      ...base,
+      actions: [{ id: 'hit', actor: 'attacker', type: 'move', move }],
+    });
     const maxHp = probe.maxHp.defender;
     const threshold = Math.floor(maxHp / 2);
     const initialHp = threshold + probe.damage.max - 1;
@@ -1476,26 +2332,50 @@ describe('battle plan adapter', () => {
     });
     expect(result.defenderHp).toEqual({
       min: Math.min(threshold + 1, Math.min(maxHp, threshold - 1 + heal)),
-      max: Math.max(initialHp - result.damage.min, Math.min(maxHp, threshold + heal)),
+      max: Math.max(
+        initialHp - result.damage.min,
+        Math.min(maxHp, threshold + heal),
+      ),
     });
-    expect(result.itemEvents.join(' ')).toContain('Cheek Pouch possibly restored');
+    expect(result.itemEvents.join(' ')).toContain(
+      'Cheek Pouch possibly restored',
+    );
   });
 
   it('heals from Cheek Pouch when a status or hit berry is eaten, but not when blocked', () => {
     const team = createTeamDraft(9);
-    const defender = { ...team.defender, ability: 'Cheek Pouch', item: 'Cheri Berry', currentHp: 30, types: ['Normal'] as const };
-    const move = { name: 'Thunder Wave', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const defender = {
+      ...team.defender,
+      ability: 'Cheek Pouch',
+      item: 'Cheri Berry',
+      currentHp: 30,
+      types: ['Normal'] as const,
+    };
+    const move = {
+      name: 'Thunder Wave',
+      isCrit: false,
+      hits: 1,
+      isStellarFirstUse: false,
+      timesUsed: 1,
+    };
     const base = {
       generation: 9 as const,
       attacker: { ...team.attacker, currentHp: 100, ability: 'Static' },
       defender,
       field: createBattleFieldDraft(9),
-      actions: [{ id: 'wave', actor: 'attacker' as const, type: 'move' as const, move }],
+      actions: [
+        { id: 'wave', actor: 'attacker' as const, type: 'move' as const, move },
+      ],
     };
     const [cured] = buildBattlePlanResults(base);
-    expect(cured.defenderHp.max).toBe(Math.min(cured.maxHp.defender, 30 + Math.floor(cured.maxHp.defender / 3)));
+    expect(cured.defenderHp.max).toBe(
+      Math.min(cured.maxHp.defender, 30 + Math.floor(cured.maxHp.defender / 3)),
+    );
     expect(cured.statuses['initial-defender']).toBeUndefined();
-    const [blocked] = buildBattlePlanResults({ ...base, attacker: { ...base.attacker, ability: 'Unnerve' } });
+    const [blocked] = buildBattlePlanResults({
+      ...base,
+      attacker: { ...base.attacker, ability: 'Unnerve' },
+    });
     expect(blocked.items['initial-defender']).toBe('held');
     expect(blocked.defenderHp.max).toBe(30);
     const [hit] = buildBattlePlanResults({
@@ -1504,26 +2384,69 @@ describe('battle plan adapter', () => {
       actions: [{ ...base.actions[0], move: { ...move, name: 'Tackle' } }],
     });
     expect(hit.items['initial-defender']).toBe('consumed');
-    expect(hit.defenderHp.max).toBe(Math.min(hit.maxHp.defender, 100 - hit.damage.min + Math.floor(hit.maxHp.defender / 3)));
+    expect(hit.defenderHp.max).toBe(
+      Math.min(
+        hit.maxHp.defender,
+        100 - hit.damage.min + Math.floor(hit.maxHp.defender / 3),
+      ),
+    );
   });
 
   it('applies Cheek Pouch before damage when a resist berry is eaten', () => {
     const team = createTeamDraft(9);
-    const attacker = { ...team.attacker, currentHp: 100, moves: ['Thunderbolt'] };
-    const defender = { ...team.defender, species: 'Squirtle', name: 'Squirtle', types: ['Water'] as const, ability: 'Cheek Pouch', item: 'Wacan Berry', currentHp: 60 };
-    const move = { name: 'Thunderbolt', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
-    const base = { generation: 9 as const, attacker, defender, field: createBattleFieldDraft(9) };
-    const [survives] = buildBattlePlanResults({ ...base, actions: [{ id: 'hit', actor: 'attacker', type: 'move', move }] });
+    const attacker = {
+      ...team.attacker,
+      currentHp: 100,
+      moves: ['Thunderbolt'],
+    };
+    const defender = {
+      ...team.defender,
+      species: 'Squirtle',
+      name: 'Squirtle',
+      types: ['Water'] as const,
+      ability: 'Cheek Pouch',
+      item: 'Wacan Berry',
+      currentHp: 60,
+    };
+    const move = {
+      name: 'Thunderbolt',
+      isCrit: false,
+      hits: 1,
+      isStellarFirstUse: false,
+      timesUsed: 1,
+    };
+    const base = {
+      generation: 9 as const,
+      attacker,
+      defender,
+      field: createBattleFieldDraft(9),
+    };
+    const [survives] = buildBattlePlanResults({
+      ...base,
+      actions: [{ id: 'hit', actor: 'attacker', type: 'move', move }],
+    });
     expect(survives.items['initial-defender']).toBe('consumed');
-    expect(survives.defenderHp.max).toBe(Math.max(0, Math.min(
-      survives.maxHp.defender, 60 + Math.floor(survives.maxHp.defender / 3),
-    ) - survives.damage.min));
+    expect(survives.defenderHp.max).toBe(
+      Math.max(
+        0,
+        Math.min(
+          survives.maxHp.defender,
+          60 + Math.floor(survives.maxHp.defender / 3),
+        ) - survives.damage.min,
+      ),
+    );
     expect(survives.itemEvents.join(' ')).toContain('Cheek Pouch restored');
   });
 
   it('applies Cheek Pouch to a status berry before end-of-turn damage', () => {
     const team = createTeamDraft(9);
-    const defender = { ...team.defender, ability: 'Cheek Pouch', item: 'Pecha Berry', status: 'psn' as const, currentHp: 30 };
+    const defender = {
+      ...team.defender,
+      ability: 'Cheek Pouch',
+      item: 'Pecha Berry',
+      status: 'psn' as const,
+      currentHp: 30,
+    };
     const [result] = buildBattlePlanResults({
       generation: 9,
       attacker: { ...team.attacker, currentHp: 100 },
@@ -1532,16 +2455,39 @@ describe('battle plan adapter', () => {
       actions: [{ id: 'end', actor: 'attacker', type: 'end-turn' }],
     });
     expect(result.statuses['initial-defender']).toBeUndefined();
-    expect(result.defenderHp.max).toBe(Math.min(result.maxHp.defender, 30 + Math.floor(result.maxHp.defender / 3)));
+    expect(result.defenderHp.max).toBe(
+      Math.min(
+        result.maxHp.defender,
+        30 + Math.floor(result.maxHp.defender / 3),
+      ),
+    );
     expect(result.itemEvents.join(' ')).toContain('Cheek Pouch restored');
   });
 
   it('activates Unburden after eating a berry for later damage and clears it on switching', () => {
     const team = createTeamDraft(9);
     const attacker = { ...team.attacker, currentHp: 0, moves: ['Tackle'] };
-    const defender = { ...team.defender, ability: 'Unburden', abilityOn: false, item: 'Kee Berry', currentHp: 0, moves: ['Gyro Ball'] };
-    const other = { ...defender, ability: 'Static', item: undefined, name: 'Other' };
-    const tackle = { name: 'Tackle', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const defender = {
+      ...team.defender,
+      ability: 'Unburden',
+      abilityOn: false,
+      item: 'Kee Berry',
+      currentHp: 0,
+      moves: ['Gyro Ball'],
+    };
+    const other = {
+      ...defender,
+      ability: 'Static',
+      item: undefined,
+      name: 'Other',
+    };
+    const tackle = {
+      name: 'Tackle',
+      isCrit: false,
+      hits: 1,
+      isStellarFirstUse: false,
+      timesUsed: 1,
+    };
     const gyro = { ...tackle, name: 'Gyro Ball' };
     const results = buildBattlePlanResults({
       generation: 9,
@@ -1549,13 +2495,30 @@ describe('battle plan adapter', () => {
       defender,
       field: createBattleFieldDraft(9),
       defenderRoster: [
-        { id: 'd', label: 'Defender', source: 'trainer', combatant: defender, moves: [] },
-        { id: 'other', label: 'Other', source: 'trainer', combatant: other, moves: [] },
+        {
+          id: 'd',
+          label: 'Defender',
+          source: 'trainer',
+          combatant: defender,
+          moves: [],
+        },
+        {
+          id: 'other',
+          label: 'Other',
+          source: 'trainer',
+          combatant: other,
+          moves: [],
+        },
       ],
       actions: [
         { id: 'hit', actor: 'attacker', type: 'move', move: tackle },
         { id: 'gyro-boosted', actor: 'defender', type: 'move', move: gyro },
-        { id: 'out', actor: 'defender', type: 'switch', targetPokemonId: 'other' },
+        {
+          id: 'out',
+          actor: 'defender',
+          type: 'switch',
+          targetPokemonId: 'other',
+        },
         { id: 'back', actor: 'defender', type: 'switch', targetPokemonId: 'd' },
         { id: 'gyro-normal', actor: 'defender', type: 'move', move: gyro },
       ],
@@ -1569,15 +2532,30 @@ describe('battle plan adapter', () => {
 
   it('does not activate Unburden when a berry is blocked or only possibly eaten', () => {
     const team = createTeamDraft(9);
-    const defender = { ...team.defender, ability: 'Unburden', abilityOn: false, item: 'Kee Berry', currentHp: 0 };
-    const move = { name: 'Tackle', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const defender = {
+      ...team.defender,
+      ability: 'Unburden',
+      abilityOn: false,
+      item: 'Kee Berry',
+      currentHp: 0,
+    };
+    const move = {
+      name: 'Tackle',
+      isCrit: false,
+      hits: 1,
+      isStellarFirstUse: false,
+      timesUsed: 1,
+    };
     const base = {
       generation: 9 as const,
       attacker: { ...team.attacker, currentHp: 100, ability: 'Static' },
       defender,
       field: createBattleFieldDraft(9),
     };
-    const [probe] = buildBattlePlanResults({ ...base, actions: [{ id: 'hit', actor: 'attacker', type: 'move', move }] });
+    const [probe] = buildBattlePlanResults({
+      ...base,
+      actions: [{ id: 'hit', actor: 'attacker', type: 'move', move }],
+    });
     const possible = buildBattlePlanResults({
       ...base,
       actions: [
@@ -1602,7 +2580,14 @@ describe('battle plan adapter', () => {
       attacker: team.attacker,
       defender: team.defender,
       field: createBattleFieldDraft(9),
-      actions: [{ id: 'invalid-switch', actor: 'attacker', type: 'switch', targetPokemonId: 'missing' }],
+      actions: [
+        {
+          id: 'invalid-switch',
+          actor: 'attacker',
+          type: 'switch',
+          targetPokemonId: 'missing',
+        },
+      ],
     });
 
     expect(results[0].error).toContain('Unknown switch target');

@@ -1,14 +1,14 @@
-import type {BattleCombatant, BattleField, BattleMove} from 'domain/index';
-import {calculate as calculateCore} from './core/calc';
-import {Generations} from './core/data';
-import {Field as CoreField} from './core/field';
-import {Move as CoreMove} from './core/move';
-import {Pokemon as CorePokemon} from './core/pokemon';
-import type {Result as CoreResult} from './core/result';
-import {toID} from './core/util';
-import {getFinalSpeed, isGrounded} from './core/mechanics/util';
-import type {CalcRuntimeInput} from './contracts';
-import {CalcRuntimeError} from './errors';
+import type { BattleCombatant, BattleField, BattleMove } from 'domain/index';
+import { calculate as calculateCore } from './core/calc';
+import { Generations } from './core/data';
+import { Field as CoreField } from './core/field';
+import { Move as CoreMove } from './core/move';
+import { Pokemon as CorePokemon } from './core/pokemon';
+import type { Result as CoreResult } from './core/result';
+import { toID } from './core/util';
+import { getFinalSpeed, isGrounded } from './core/mechanics/util';
+import type { CalcRuntimeInput } from './contracts';
+import { CalcRuntimeError } from './errors';
 import type * as CoreData from './core/data/interface';
 
 function getGeneration(generation: BattleCombatant['generation']) {
@@ -51,7 +51,9 @@ function createPokemon(
     teraType: pokemon.isTerastallized === false ? undefined : pokemon.teratype,
     toxicCounter: pokemon.toxicCounter,
     moves: pokemon.moves as CoreData.MoveName[],
-    overrides: pokemon.baseStats ? { baseStats: { ...pokemon.baseStats } } : undefined,
+    overrides: pokemon.baseStats
+      ? { baseStats: { ...pokemon.baseStats } }
+      : undefined,
   });
 }
 
@@ -104,6 +106,7 @@ export function calculateBattleRuntime({
   defender: defenderInput,
   move: moveInput,
   field: fieldInput,
+  skipIntimidate,
 }: CalcRuntimeInput): CoreResult {
   const generation = getGeneration(generationNumber);
   const attacker = createPokemon(generation, attackerInput);
@@ -111,7 +114,14 @@ export function calculateBattleRuntime({
   const move = createMove(generation, attackerInput, moveInput);
   const field = createField(fieldInput);
 
-  return calculateCore(generation, attacker, defender, move, field);
+  return calculateCore(
+    generation,
+    attacker,
+    defender,
+    move,
+    field,
+    skipIntimidate,
+  );
 }
 
 /** Final in-battle speed for one combatant, including boosts, items, abilities, status and tailwind. */
@@ -185,7 +195,8 @@ export function calculateEndOfTurnResidual({
   const sources: string[] = [];
   const parts: EndOfTurnResidual['parts'] = [];
   let damage = 0;
-  const fraction = (divisor: number, times = 1) => Math.max(1, Math.floor((maxHp * times) / divisor));
+  const fraction = (divisor: number, times = 1) =>
+    Math.max(1, Math.floor((maxHp * times) / divisor));
   const hurt = (amount: number, source: string) => {
     damage += amount;
     sources.push(source);
@@ -203,26 +214,38 @@ export function calculateEndOfTurnResidual({
   const weather = field.weather;
   const isSun = weather === 'Sun' || weather === 'Harsh Sunshine';
   const isRain = weather === 'Rain' || weather === 'Heavy Rain';
-  const sandImmune = pokemon.hasType('Rock', 'Ground', 'Steel') ||
+  const sandImmune =
+    pokemon.hasType('Rock', 'Ground', 'Steel') ||
     pokemon.hasAbility('Sand Veil', 'Sand Rush', 'Sand Force');
-  const weatherProof = pokemon.hasAbility('Overcoat') || item === 'Safety Goggles';
+  const weatherProof =
+    pokemon.hasAbility('Overcoat') || item === 'Safety Goggles';
 
   if (!magicGuard && !weatherProof) {
     if (weather === 'Sand' && !sandImmune) hurt(fraction(16), 'sandstorm');
-    if (weather === 'Hail' && !pokemon.hasType('Ice') &&
-        !pokemon.hasAbility('Snow Cloak', 'Ice Body', 'Slush Rush')) {
+    if (
+      weather === 'Hail' &&
+      !pokemon.hasType('Ice') &&
+      !pokemon.hasAbility('Snow Cloak', 'Ice Body', 'Slush Rush')
+    ) {
       hurt(fraction(16), 'hail');
     }
   }
-  if (isRain && pokemon.hasAbility('Rain Dish')) heal(fraction(16), 'Rain Dish');
+  if (isRain && pokemon.hasAbility('Rain Dish'))
+    heal(fraction(16), 'Rain Dish');
   if (isRain && pokemon.hasAbility('Dry Skin')) heal(fraction(8), 'Dry Skin');
-  if ((weather === 'Hail' || weather === 'Snow') && pokemon.hasAbility('Ice Body')) {
+  if (
+    (weather === 'Hail' || weather === 'Snow') &&
+    pokemon.hasAbility('Ice Body')
+  ) {
     heal(fraction(16), 'Ice Body');
   }
-  if (!magicGuard && isSun && pokemon.hasAbility('Dry Skin')) hurt(fraction(8), 'Dry Skin');
-  if (!magicGuard && isSun && pokemon.hasAbility('Solar Power')) hurt(fraction(8), 'Solar Power');
+  if (!magicGuard && isSun && pokemon.hasAbility('Dry Skin'))
+    hurt(fraction(8), 'Dry Skin');
+  if (!magicGuard && isSun && pokemon.hasAbility('Solar Power'))
+    hurt(fraction(8), 'Solar Power');
 
-  if (field.terrain === 'Grassy' && isGrounded(pokemon, field)) heal(fraction(16), 'Grassy Terrain');
+  if (field.terrain === 'Grassy' && isGrounded(pokemon, field))
+    heal(fraction(16), 'Grassy Terrain');
 
   if (item === 'Leftovers') heal(fraction(16), 'Leftovers');
   if (item === 'Black Sludge') {
@@ -234,7 +257,15 @@ export function calculateEndOfTurnResidual({
     case 'brn':
       if (!magicGuard) {
         const divisor = generationNumber <= 6 ? 8 : 16;
-        hurt(Math.max(1, Math.floor(fraction(divisor) / (pokemon.hasAbility('Heatproof') ? 2 : 1))), 'burn');
+        hurt(
+          Math.max(
+            1,
+            Math.floor(
+              fraction(divisor) / (pokemon.hasAbility('Heatproof') ? 2 : 1),
+            ),
+          ),
+          'burn',
+        );
       }
       break;
     case 'psn':
@@ -243,7 +274,8 @@ export function calculateEndOfTurnResidual({
       break;
     case 'tox':
       if (pokemon.hasAbility('Poison Heal')) heal(fraction(8), 'Poison Heal');
-      else if (!magicGuard) hurt(fraction(16, Math.min(15, toxicCounter + 1)), 'toxic');
+      else if (!magicGuard)
+        hurt(fraction(16, Math.min(15, toxicCounter + 1)), 'toxic');
       break;
     default:
       break;
@@ -253,15 +285,34 @@ export function calculateEndOfTurnResidual({
 
   let inflictedStatus: EndOfTurnResidual['inflictedStatus'];
   if (!combatant.status) {
-    if (item === 'Flame Orb' && !pokemon.hasType('Fire') &&
-        !pokemon.hasAbility('Water Veil', 'Water Bubble', 'Comatose', 'Purifying Salt')) {
+    if (
+      item === 'Flame Orb' &&
+      !pokemon.hasType('Fire') &&
+      !pokemon.hasAbility(
+        'Water Veil',
+        'Water Bubble',
+        'Comatose',
+        'Purifying Salt',
+      )
+    ) {
       inflictedStatus = 'brn';
-    } else if (item === 'Toxic Orb' && !pokemon.hasType('Poison', 'Steel') &&
-        !pokemon.hasAbility('Immunity', 'Pastel Veil', 'Comatose', 'Purifying Salt')) {
+    } else if (
+      item === 'Toxic Orb' &&
+      !pokemon.hasType('Poison', 'Steel') &&
+      !pokemon.hasAbility(
+        'Immunity',
+        'Pastel Veil',
+        'Comatose',
+        'Purifying Salt',
+      )
+    ) {
       inflictedStatus = 'tox';
     }
-    if (inflictedStatus) sources.push(item === 'Flame Orb' ? 'Flame Orb (burns)' : 'Toxic Orb (poisons)');
+    if (inflictedStatus)
+      sources.push(
+        item === 'Flame Orb' ? 'Flame Orb (burns)' : 'Toxic Orb (poisons)',
+      );
   }
 
-  return {maxHp, damage, sources, parts, inflictedStatus};
+  return { maxHp, damage, sources, parts, inflictedStatus };
 }
