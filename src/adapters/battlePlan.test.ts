@@ -6,6 +6,7 @@ import {
 import { buildBattleCalcBreakdowns } from './battleCalc';
 import { createBattleFieldDraft } from '../components/combatant/shared/battleFieldDraft';
 import { createTeamDraft } from '../components/combatant/shared/combatantDraft';
+import { calculateBattleSpeed } from 'calc-runtime';
 
 describe('battle plan adapter', () => {
   it.each(['attacker', 'defender'] as const)(
@@ -139,6 +140,212 @@ describe('battle plan adapter', () => {
     expect(targetSwitch.boosts.d2.atk).toBe(0);
     expect(targetHit.boosts.d2.atk).toBe(0);
     expect(targetHit.damage).toEqual(first.damage);
+  });
+
+  it('sets Sticky Web on the opposing side and applies it on each switch-in', () => {
+    const team = createTeamDraft(9);
+    const field = createBattleFieldDraft(9);
+    const replacement = { ...team.defender, name: 'Replacement', item: undefined };
+    const [web, switched, returned, switchedAgain] = buildBattlePlanResults({
+      generation: 9,
+      ...team,
+      field,
+      defenderRoster: [
+        { id: 'initial', label: 'Initial', source: 'current', combatant: team.defender, moves: [] },
+        { id: 'replacement', label: 'Replacement', source: 'party', combatant: replacement, moves: [] },
+      ],
+      actions: [
+        { id: 'web', actor: 'attacker', type: 'move', move: {
+          name: 'Sticky Web', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1,
+        } },
+        { id: 'switch', actor: 'defender', type: 'switch', targetPokemonId: 'replacement' },
+        { id: 'return', actor: 'defender', type: 'switch', targetPokemonId: 'initial' },
+        { id: 'again', actor: 'defender', type: 'switch', targetPokemonId: 'replacement' },
+      ],
+    });
+    expect(web.field.defenderSide.isStickyWeb).toBe(true);
+    expect(web.boosts.initial.spe).toBe(0);
+    expect(switched.boosts.replacement.spe).toBe(-1);
+    expect(returned.boosts.initial.spe).toBe(-1);
+    expect(switchedAgain.boosts.replacement.spe).toBe(-1);
+    const speed = (boosts: typeof replacement.boosts) => calculateBattleSpeed({
+      generation: 9, combatant: { ...replacement, boosts }, field, side: 'defender',
+    });
+    expect(speed(switched.boosts.replacement)).toBeLessThan(speed(replacement.boosts));
+    expect(switched.itemEvents).toContain('Replacement: Sticky Web changed Speed -1');
+  });
+
+  it.each([
+    ['Flying', 'Pidgeot', 'Keen Eye', undefined, false, 0],
+    ['Levitate', 'Gengar', 'Levitate', undefined, false, 0],
+    ['Air Balloon', 'Bulbasaur', 'Overgrow', 'Air Balloon', false, 0],
+    ['Gravity', 'Pidgeot', 'Keen Eye', undefined, true, -1],
+    ['Iron Ball', 'Pidgeot', 'Keen Eye', 'Iron Ball', false, -1],
+    ['Heavy-Duty Boots', 'Bulbasaur', 'Overgrow', 'Heavy-Duty Boots', false, 0],
+    ['Clear Body', 'Bulbasaur', 'Clear Body', undefined, false, 0],
+    ['Contrary', 'Bulbasaur', 'Contrary', undefined, false, 1],
+    ['Simple', 'Bulbasaur', 'Simple', undefined, false, -2],
+  ])('handles Sticky Web with %s', (_label, species, ability, item, gravity, stage) => {
+    const team = createTeamDraft(9);
+    const field = createBattleFieldDraft(9);
+    const replacement = { ...team.defender, species, ability, item };
+    const [result] = buildBattlePlanResults({
+      generation: 9,
+      ...team,
+      field: { ...field, isGravity: gravity, defenderSide: { ...field.defenderSide, isStickyWeb: true } },
+      defenderRoster: [
+        { id: 'initial', label: 'Initial', source: 'current', combatant: team.defender, moves: [] },
+        { id: 'replacement', label: 'Replacement', source: 'party', combatant: replacement, moves: [] },
+      ],
+      actions: [{ id: 'switch', actor: 'defender', type: 'switch', targetPokemonId: 'replacement' }],
+    });
+    expect(result.boosts.replacement.spe).toBe(stage);
+  });
+
+  it('does not set Sticky Web when its move is skipped and reflects it with Magic Bounce', () => {
+    const team = createTeamDraft(9);
+    const field = createBattleFieldDraft(9);
+    const move = { name: 'Sticky Web', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1 };
+    const [skipped] = buildBattlePlanResults({
+      generation: 9, ...team, field,
+      actions: [{ id: 'web', actor: 'attacker', type: 'move', move: { ...move, skipped: true } }],
+    });
+    expect(skipped.field.defenderSide.isStickyWeb).toBe(false);
+    const [bounced] = buildBattlePlanResults({
+      generation: 9, ...team, defender: { ...team.defender, ability: 'Magic Bounce' }, field,
+      actions: [{ id: 'web', actor: 'attacker', type: 'move', move }],
+    });
+    expect(bounced.field.attackerSide.isStickyWeb).toBe(true);
+    expect(bounced.field.defenderSide.isStickyWeb).toBe(false);
+  });
+
+  it('consumes White Herb after Sticky Web lowers Speed', () => {
+    const team = createTeamDraft(9);
+    const field = createBattleFieldDraft(9);
+    const replacement = { ...team.defender, ability: 'Unburden', item: 'White Herb' };
+    const [result] = buildBattlePlanResults({
+      generation: 9, ...team,
+      field: { ...field, defenderSide: { ...field.defenderSide, isStickyWeb: true } },
+      defenderRoster: [
+        { id: 'initial', label: 'Initial', source: 'current', combatant: team.defender, moves: [] },
+        { id: 'replacement', label: 'Replacement', source: 'party', combatant: replacement, moves: [] },
+      ],
+      actions: [{ id: 'switch', actor: 'defender', type: 'switch', targetPokemonId: 'replacement' }],
+    });
+    expect(result.boosts.replacement.spe).toBe(0);
+    expect(result.items.replacement).toBe('consumed');
+    expect(result.unburdenActive.replacement).toBe(true);
+  });
+
+  it.each([
+    [4, 'Wrap', undefined, 16, 2, 5],
+    [5, 'Fire Spin', 'Binding Band', 8, 4, 5],
+    [9, 'Fire Spin', undefined, 8, 4, 5],
+    [9, 'Fire Spin', 'Binding Band', 6, 4, 5],
+    [9, 'Fire Spin', 'Grip Claw', 8, 7, 7],
+  ] as const)(
+    'tracks %s trapping damage and duration for %s with %s',
+    (generation, name, item, divisor, guaranteedTurns, maximumTurns) => {
+      const team = createTeamDraft(generation);
+      const results = buildBattlePlanResults({
+        generation,
+        attacker: { ...team.attacker, level: 1, item },
+        defender: { ...team.defender, item: undefined },
+        field: createBattleFieldDraft(generation),
+        actions: [
+          { id: 'trap', actor: 'attacker', type: 'move', move: {
+            name, isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1,
+          } },
+          ...Array.from({ length: maximumTurns + 1 }, (_, index) => ({
+            id: `end-${index}`, actor: 'attacker' as const, type: 'end-turn' as const,
+          })),
+        ],
+      });
+      const amount = Math.max(1, Math.floor(results[0].maxHp.defender / divisor));
+      expect(results[0].damage.min).toBeGreaterThan(0);
+      for (let turn = 1; turn <= maximumTurns; turn++) {
+        const previous = results[turn - 1].defenderHp;
+        const end = results[turn];
+        const certain = turn <= guaranteedTurns;
+        expect(end.defenderHp).toEqual({
+          min: previous.min - amount,
+          max: previous.max - (certain ? amount : 0),
+        });
+        expect(end.residual?.defender.parts).toContainEqual({
+          source: certain ? name : `${name} (possibly)`, amount,
+        });
+      }
+      expect(results[maximumTurns + 1].defenderHp).toEqual(results[maximumTurns].defenderHp);
+      expect(results[maximumTurns + 1].residual?.defender.parts).toEqual([]);
+    },
+  );
+
+  it('does not apply trapping damage on an immune hit, a protected hit, or to Magic Guard', () => {
+    const team = createTeamDraft(9);
+    const field = createBattleFieldDraft(9);
+    const base = {
+      generation: 9 as const,
+      attacker: { ...team.attacker, item: undefined },
+      defender: { ...team.defender, item: undefined },
+      field,
+      actions: [
+        { id: 'trap', actor: 'attacker' as const, type: 'move' as const, move: {
+          name: 'Fire Spin', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1,
+        } },
+        { id: 'end', actor: 'attacker' as const, type: 'end-turn' as const },
+      ],
+    };
+    for (const input of [
+      { ...base, defender: { ...base.defender, ability: 'Flash Fire' } },
+      { ...base, field: { ...field, defenderSide: { ...field.defenderSide, isProtected: true } } },
+      { ...base, defender: { ...base.defender, ability: 'Magic Guard' } },
+    ]) {
+      const [hit, end] = buildBattlePlanResults(input);
+      expect(end.defenderHp).toEqual(hit.defenderHp);
+      expect(end.residual?.defender.parts).toEqual([]);
+    }
+  });
+
+  it('applies trapping damage to the attacking side when the defender uses a trapping move', () => {
+    const team = createTeamDraft(9);
+    const [hit, end] = buildBattlePlanResults({
+      generation: 9,
+      attacker: { ...team.attacker, item: undefined },
+      defender: { ...team.defender, level: 1, item: undefined },
+      field: createBattleFieldDraft(9),
+      actions: [
+        { id: 'trap', actor: 'defender', type: 'move', move: {
+          name: 'Wrap', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1,
+        } },
+        { id: 'end', actor: 'attacker', type: 'end-turn' },
+      ],
+    });
+    const amount = Math.floor(end.maxHp.attacker / 8);
+    expect(end.attackerHp).toEqual({ min: hit.attackerHp.min - amount, max: hit.attackerHp.max - amount });
+    expect(end.residual?.attacker.parts).toContainEqual({ source: 'Wrap', amount });
+  });
+
+  it.each(['attacker', 'defender'] as const)('ends trapping when the %s switches', (side) => {
+    const team = createTeamDraft(9);
+    const attacker = { ...team.attacker, level: 1, item: undefined };
+    const defender = { ...team.defender, item: undefined };
+    const replacement = { ...(side === 'attacker' ? attacker : defender), name: 'Replacement' };
+    const roster = [
+      { id: side, label: side, source: 'current' as const, combatant: side === 'attacker' ? attacker : defender, moves: [] },
+      { id: 'replacement', label: 'Replacement', source: 'party' as const, combatant: replacement, moves: [] },
+    ];
+    const results = buildBattlePlanResults({
+      generation: 9, attacker, defender, field: createBattleFieldDraft(9),
+      ...(side === 'attacker' ? { attackerRoster: roster } : { defenderRoster: roster }),
+      actions: [
+        { id: 'trap', actor: 'attacker', type: 'move', move: {
+          name: 'Fire Spin', isCrit: false, hits: 1, isStellarFirstUse: false, timesUsed: 1,
+        } },
+        { id: 'switch', actor: side, type: 'switch', targetPokemonId: 'replacement' },
+        { id: 'end', actor: 'attacker', type: 'end-turn' },
+      ],
+    });
+    expect(results[2].residual?.defender.parts).toEqual([]);
   });
 
   it.each([

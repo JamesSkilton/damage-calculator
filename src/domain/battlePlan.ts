@@ -58,7 +58,7 @@ export interface BattlePlanStateAction {
   boosts?: BattleStatBoosts;
 }
 
-/** Applies end-of-turn status and weather damage to both active Pokémon. */
+/** Applies end-of-turn residual effects to both active Pokémon. */
 export interface BattlePlanEndTurnAction {
   id: string;
   actor: BattlePlanActor;

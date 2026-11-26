@@ -9,10 +9,7 @@ import type {
   BattlePlanRosterEntry,
 } from 'domain/battlePlan';
 import type { BattleStatBoosts, BattleStatusName } from 'domain/shared';
-import {
-  calculateEndOfTurnResidual,
-  type EndOfTurnResidual,
-} from 'calc-runtime';
+import { calculateEndOfTurnResidual, isBattleGrounded, type EndOfTurnResidual } from 'calc-runtime';
 import { buildBattleCalcBreakdowns } from './battleCalc';
 import { getInflictedStatus, inflictsConfusion } from './moveStatus';
 import {
@@ -26,6 +23,11 @@ import { getBerryResistType, getFlingPower } from 'calc-runtime/core/items';
 import { Generations } from 'calc-runtime/core/data';
 import { toID } from 'calc-runtime/core/util';
 import { intimidateBoosts } from 'calc-runtime/core/mechanics/intimidate';
+
+const partialTrappingMoves = new Set([
+  'Bind', 'Clamp', 'Fire Spin', 'Infestation', 'Magma Storm', 'Sand Tomb',
+  'Snap Trap', 'Thunder Cage', 'Whirlpool', 'Wrap',
+]);
 
 export function replaceActivePokemonInPlanSegment(
   actions: readonly BattlePlanAction[],
@@ -142,6 +144,18 @@ export function buildBattlePlanResults({
     { alive?: BattlePlanHpRange; fainted: boolean }
   >();
   const flinchedIds = new Set<string>();
+  const traps = new Map<string, {
+    sourceId: string;
+    move: string;
+    minTurns: number;
+    maxTurns: number;
+  }>();
+  const clearTrapsOnSwitch = (id: string) => {
+    traps.delete(id);
+    for (const [targetId, trap] of traps) {
+      if (trap.sourceId === id) traps.delete(targetId);
+    }
+  };
   const eatenBerries = new Set<string>();
   const maybeEatenBerries = new Set<string>();
   const recyclableItems = new Map<string, string>();
@@ -710,6 +724,33 @@ export function buildBattlePlanResults({
           parts: [],
         };
         if (hp.max > 0) {
+          const trap = traps.get(entry.id);
+          if (trap) {
+            const source = getActiveEntry(side === 'attacker' ? 'defender' : 'attacker');
+            if (!source || source.id !== trap.sourceId || getHp(source).max === 0) {
+              traps.delete(entry.id);
+            } else {
+              if (getHp(source).min === 0) trap.minTurns = 0;
+              if (entry.combatant.ability !== 'Magic Guard') {
+                const bindingBand = heldItem(source) === 'Binding Band' &&
+                  source.combatant.ability !== 'Klutz' && !currentField.isMagicRoom;
+                const divisor = generation > 5 ? (bindingBand ? 6 : 8) : (bindingBand ? 8 : 16);
+                const amount = Math.max(1, Math.floor(maxHpById.get(entry.id)! / divisor));
+                const certain = trap.minTurns > 0;
+                hpById.set(entry.id, createHpRange(hp.min - amount, hp.max - (certain ? amount : 0)));
+                updateUnconsumedHp(entry, (heldHp) =>
+                  createHpRange(heldHp.min - amount, heldHp.max - (certain ? amount : 0)));
+                (seedParts[side] ??= []).push({
+                  source: certain ? trap.move : `${trap.move} (possibly)`,
+                  amount,
+                });
+                hp = getHp(entry);
+              }
+              trap.minTurns--;
+              trap.maxTurns--;
+              if (trap.maxTurns <= 0) traps.delete(entry.id);
+            }
+          }
           const counter = toxicCounterById.get(entry.id) ?? 0;
           let curedBy: string | undefined;
           const currentStatus = statusById.get(entry.id);
@@ -938,6 +979,7 @@ export function buildBattlePlanResults({
         }
       }
       flinchedIds.delete(activeEntry.id);
+      clearTrapsOnSwitch(activeEntry.id);
       hpById.set(activeEntry.id, getHp(activeEntry));
       toxicCounterById.set(activeEntry.id, 0);
       boostsById.set(activeEntry.id, { ...activeEntry.combatant.boosts });
@@ -950,6 +992,40 @@ export function buildBattlePlanResults({
       activeIds[actor] = nextEntry.id;
       if (nextEntry.id !== activeEntry.id)
         applyIntimidate(nextEntry, targetEntry);
+      const incoming = liveCombatant(nextEntry, getHp(nextEntry));
+      const itemActive = !currentField.isMagicRoom && incoming.ability !== 'Klutz';
+      if (
+        generation >= 6 &&
+        nextEntry.id !== activeEntry.id &&
+        currentField[sideKey].isStickyWeb &&
+        !(generation >= 8 && itemActive && incoming.item === 'Heavy-Duty Boots') &&
+        isBattleGrounded({ generation, combatant: incoming, field: currentField })
+      ) {
+        const ability = incoming.ability;
+        const blocked = ['Clear Body', 'White Smoke', 'Full Metal Body'].includes(ability ?? '') ||
+          (ability === 'Flower Veil' && incoming.types.includes('Grass')) ||
+          (generation >= 9 && itemActive && incoming.item === 'Clear Amulet');
+        if (!blocked || ability === 'Contrary') {
+          const stages = ability === 'Contrary' ? 1 : ability === 'Simple' ? -2 : -1;
+          const previous = getBoosts(nextEntry).spe ?? 0;
+          boostStat(nextEntry, 'spe', stages);
+          const change = (getBoosts(nextEntry).spe ?? 0) - previous;
+          if (change !== 0) {
+            stepEvents.push(`${nextEntry.label}: Sticky Web changed Speed ${signed(change)}`);
+            if (change < 0 && ability === 'Defiant') boostStat(nextEntry, 'atk', 2);
+            if (change < 0 && ability === 'Competitive') boostStat(nextEntry, 'spa', 2);
+            if (change < 0 && itemActive && incoming.item === 'White Herb') {
+              const restored = { ...getBoosts(nextEntry) };
+              for (const stat of Object.keys(restored) as (keyof BattleStatBoosts)[]) {
+                if ((restored[stat] ?? 0) < 0) restored[stat] = 0;
+              }
+              boostsById.set(nextEntry.id, restored);
+              markConsumed(nextEntry, true);
+              stepEvents.push(`${nextEntry.label}: White Herb restored lowered stats`);
+            }
+          }
+        }
+      }
       attackerHp = getHp(getActiveEntry('attacker')!);
       defenderHp = getHp(getActiveEntry('defender')!);
       const switchedHp = getHp(nextEntry);
@@ -1151,6 +1227,22 @@ export function buildBattlePlanResults({
       createHpRange(hp.min - damage.max, hp.max - damage.min),
     );
     if (
+      generation !== 1 && partialTrappingMoves.has(action.move.name) &&
+      !action.move.useZ && !action.move.useMax && damage.max > 0 &&
+      nextTargetHp.max > 0 && !traps.has(targetEntry.id)
+    ) {
+      const gripClaw = heldItem(activeEntry) === 'Grip Claw' &&
+        actingCombatant.ability !== 'Klutz' && !currentField.isMagicRoom;
+      const minTurns = gripClaw ? (generation >= 5 ? 7 : 5) : (generation >= 5 ? 4 : 2);
+      const maxTurns = gripClaw ? minTurns : 5;
+      traps.set(targetEntry.id, {
+        sourceId: activeEntry.id,
+        move: action.move.name,
+        minTurns: damage.min > 0 ? minTurns : 0,
+        maxTurns,
+      });
+    }
+    if (
       action.move.name === 'Fake Out' &&
       generation >= 3 &&
       damage.max > 0 &&
@@ -1238,6 +1330,13 @@ export function buildBattlePlanResults({
           [sideKey]: { ...currentField[sideKey], isSeeded: true },
         };
       }
+    }
+    if (action.move.name === 'Sticky Web' && generation >= 6) {
+      const bounced = targetCombatant.ability === 'Magic Bounce' &&
+        !['Mold Breaker', 'Teravolt', 'Turboblaze'].includes(actingCombatant.ability ?? '');
+      const affectedActor = bounced ? actor : targetActor;
+      const sideKey = affectedActor === 'attacker' ? 'attackerSide' : 'defenderSide';
+      currentField = { ...currentField, [sideKey]: { ...currentField[sideKey], isStickyWeb: true } };
     }
     cumulativeDamage = isAttackerAction
       ? createHpRange(
@@ -1444,6 +1543,9 @@ export function buildBattlePlanResults({
     stepEvents = [];
     stepHealing = [];
     if (action.type === 'move' && action.pokemonId) {
+      if (activeIds[action.actor] !== action.pokemonId) {
+        clearTrapsOnSwitch(activeIds[action.actor]);
+      }
       activeIds[action.actor] = action.pokemonId;
     }
     const step = resolve(action);
